@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.*
@@ -17,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.serkka.tracker.ui.theme.DarkBackground
+import com.serkka.tracker.ui.theme.OrangePrimary
+import com.serkka.tracker.ui.theme.PersonalBestGold
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,10 +29,13 @@ import java.util.*
 fun WorkoutScreen(viewModel: WorkoutViewModel) {
     val workouts by viewModel.allWorkouts.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
-    val currentSong by MediaNotificationListener.currentSong.collectAsState()
+    val currentSong by MediaRepository.getInstance().currentSong.collectAsState()
 
-    // Group workouts by date
-    val groupedWorkouts = workouts.groupBy { it.date }
+    // Group workouts by date (formatted for header)
+    val dateFormatter = remember { SimpleDateFormat("d.M.yy", Locale.getDefault()) }
+    val groupedWorkouts = workouts.groupBy { 
+        dateFormatter.format(Date(it.date))
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -41,7 +48,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                 // Music Widget on the Left
                 if (currentSong.title != null) {
                     Surface(
-                        color = Color(0xFF1C1E1E),
+                        color = DarkBackground,
                         shape = MaterialTheme.shapes.large,
                         tonalElevation = 4.dp,
                         modifier = Modifier
@@ -53,12 +60,17 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                             modifier = Modifier.padding(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = if (currentSong.isPlaying) Color(0xFFEE6517) else Color.Gray,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            IconButton(
+                                onClick = { MediaRepository.getInstance().togglePlayPause() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (currentSong.isPlaying) "Pause" else "Play",
+                                    tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier
@@ -81,7 +93,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                                 )
                             }
                             IconButton(
-                                onClick = { MediaNotificationListener.nextTrack() },
+                                onClick = { MediaRepository.getInstance().nextTrack() },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
@@ -100,7 +112,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                 // Plus Button on the Right
                 FloatingActionButton(
                     onClick = { showDialog = true },
-                    containerColor = Color(0xFFEE6517),
+                    containerColor = OrangePrimary,
                     contentColor = Color.Black
                 ) {
                     Text(
@@ -120,14 +132,13 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                 stickyHeader {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color(0x001C1E1E)
+                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
                     ) {
                         Text(
                             text = date,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier
                                 .padding(vertical = 8.dp)
-                                .background(Color(0x001C1E1E))
                                 .padding(8.dp)
                                 .fillMaxWidth()
                         )
@@ -146,8 +157,8 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
         if (showDialog) {
             AddWorkoutDialog(
                 onDismiss = { showDialog = false },
-                onAdd = { exercise, sets, reps, weight, date, isPB ->
-                    viewModel.addWorkout(exercise, sets, reps, weight, date, isPB)
+                onAdd = { exercise, sets, reps, weight, dateMillis, isPB ->
+                    viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB)
                     showDialog = false
                 }
             )
@@ -157,7 +168,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
 
 @Composable
 fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
-    val backgroundColor = if (workout.isPersonalBest) Color.Yellow else Color(0xFFEE6517)
+    val backgroundColor = if (workout.isPersonalBest) PersonalBestGold else OrangePrimary
     
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -226,7 +237,7 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, String, Boolean) -> Unit) {
+fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, Long, Boolean) -> Unit) {
     var exercise by remember { mutableStateOf("") }
     var sets by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
@@ -238,9 +249,9 @@ fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, Str
     )
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val dateText = remember(datePickerState.selectedDateMillis) {
-        val millis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
-        SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(millis))
+    val dateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+    val dateText = remember(dateMillis) {
+        SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(dateMillis))
     }
 
     if (showDatePicker) {
@@ -326,7 +337,7 @@ fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, Str
                         sets.toIntOrNull() ?: 0,
                         reps.toIntOrNull() ?: 0,
                         weight.toFloatOrNull() ?: 0f,
-                        dateText,
+                        dateMillis,
                         isPersonalBest
                     )
                 }

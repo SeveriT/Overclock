@@ -12,9 +12,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Initialize the Database and DAO
+        // 1. Initialize the Database, DAO and Repository
         val database = WorkoutDatabase.getDatabase(applicationContext)
         val dao = database.workoutDao()
+        val repository = WorkoutRepository(dao)
 
         setContent {
             GymTrackerTheme {
@@ -22,7 +23,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel: WorkoutViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                            return WorkoutViewModel(dao) as T
+                            return WorkoutViewModel(repository) as T
                         }
                     }
                 )
