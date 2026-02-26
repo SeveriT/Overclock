@@ -10,6 +10,10 @@ activityCompose = "1.9.3"
 composeBom = "2024.11.00"
 ksp = "2.0.21-1.0.28"
 room = "2.6.1"
+play_services_auth = "21.2.0"
+google_api_client = "2.6.0"
+google_api_services_drive = "v3-rev20240521-2.0.0"
+work_runtime_ktx = "2.9.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -31,6 +35,10 @@ androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compo
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "play_services_auth" }
+google-api-client-android = { group = "com.google.api-client", name = "google-api-client-android", version.ref = "google_api_client" }
+google-api-services-drive = { group = "com.google.apis", name = "google-api-services-drive", version.ref = "google_api_services_drive" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work_runtime_ktx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

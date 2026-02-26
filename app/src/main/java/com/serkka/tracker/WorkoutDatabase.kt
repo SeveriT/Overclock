@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Workout::class], version = 2, exportSchema = false) // Bumped version to 2
+@Database(entities = [Workout::class], version = 2, exportSchema = false)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 
@@ -16,10 +16,14 @@ abstract class WorkoutDatabase : RoomDatabase() {
         fun getDatabase(context: Context): WorkoutDatabase {
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(context, WorkoutDatabase::class.java, "workout_db")
-                    .fallbackToDestructiveMigration() // Added destructive migration to handle schema changes
+                    .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it }
             }
+        }
+
+        fun resetInstance() {
+            Instance = null
         }
     }
 }
