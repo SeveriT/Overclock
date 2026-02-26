@@ -1,11 +1,16 @@
 package com.serkka.tracker
 
+import android.app.Activity
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
@@ -16,152 +21,215 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.gson.GsonFactory
+import com.google.api.services.drive.Drive
+import com.google.api.services.drive.DriveScopes
 import com.serkka.tracker.ui.theme.DarkBackground
 import com.serkka.tracker.ui.theme.OrangePrimary
 import com.serkka.tracker.ui.theme.PersonalBestGold
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(viewModel: WorkoutViewModel) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val backupManager = remember { BackupManager(context) }
+    
     val workouts by viewModel.allWorkouts.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
     val currentSong by MediaRepository.getInstance().currentSong.collectAsState()
 
-    // Group workouts by date (formatted for header)
-    val dateFormatter = remember { SimpleDateFormat("d.M.yy", Locale.getDefault()) }
-    val groupedWorkouts = workouts.groupBy { 
-        dateFormatter.format(Date(it.date))
+    // Google Sign-In Setup
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestScopes(Scope(DriveScopes.DRIVE_FILE))
+            .build()
+    }
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                task.getResult(ApiException::class.java)
+                Toast.makeText(context, "Google Drive linked!", Toast.LENGTH_SHORT).show()
+            } catch (e: ApiException) {
+                Log.e("WorkoutScreen", "Sign-in failed: ${e.statusCode}", e)
+                Toast.makeText(context, "Sign-in failed: ${e.statusCode}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
+    // Manual Drive Backup Trigger
+    val performDriveBackup: () -> Unit = {
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        if (account == null) {
+            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+        } else {
+            Toast.makeText(context, "Uploading to Drive...", Toast.LENGTH_SHORT).show()
+            coroutineScope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val credential = GoogleAccountCredential.usingOAuth2(
+                            context, Collections.singleton(DriveScopes.DRIVE_FILE)
+                        ).apply { selectedAccount = account.account }
+
+                        val driveService = Drive.Builder(
+                            NetHttpTransport(), GsonFactory.getDefaultInstance(), credential
+                        ).setApplicationName("Tracker").build()
+
+                        val driveHelper = GoogleDriveHelper(driveService)
+                        
+                        // Checkpoint DB
+                        val db = WorkoutDatabase.getDatabase(context)
+                        db.query(androidx.sqlite.db.SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)")).use { cursor ->
+                            cursor.moveToFirst()
+                        }
+
+                        val dbFile = context.getDatabasePath("workout_db")
+                        val fileId = driveHelper.uploadFile(dbFile, "application/x-sqlite3", "workout_backup_auto.db")
+                        
+                        withContext(Dispatchers.Main) {
+                            if (fileId != null) {
+                                Toast.makeText(context, "Drive backup successful!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Drive upload failed", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("WorkoutScreen", "Manual backup failed", e)
+                    coroutineScope.launch(Dispatchers.Main) {
+                        Toast.makeText(context, "Backup error: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
+
+    // Launcher for Saving the Local Backup
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        uri?.let { 
+            coroutineScope.launch {
+                if (backupManager.backupDatabase(it)) {
+                    Toast.makeText(context, "Local backup successful", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Launcher for Restoring the Backup
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            coroutineScope.launch {
+                if (backupManager.restoreDatabase(uris)) {
+                    Toast.makeText(context, "Restore successful! Restarting...", Toast.LENGTH_LONG).show()
+                    val packageManager = context.packageManager
+                    val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                    context.startActivity(android.content.Intent.makeRestartActivityTask(intent?.component))
+                    Runtime.getRuntime().exit(0)
+                }
+            }
+        }
+    }
+
+    val groupedWorkouts = workouts.groupBy { SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(it.date)) }
+
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Tracker") },
+                actions = {
+                    IconButton(onClick = performDriveBackup) {
+                        Icon(Icons.Default.CloudUpload, "Drive Backup", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    TextButton(onClick = { backupLauncher.launch("workout_backup.db") }) {
+                        Text("Backup", color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    TextButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) {
+                        Text("Restore", color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Music Widget on the Left
                 if (currentSong.title != null) {
                     Surface(
                         color = DarkBackground,
                         shape = MaterialTheme.shapes.large,
                         tonalElevation = 4.dp,
-                        modifier = Modifier
-                            .height(56.dp)
-                            .widthIn(max = 240.dp)
+                        modifier = Modifier.height(56.dp).widthIn(max = 240.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            IconButton(
-                                onClick = { MediaRepository.getInstance().togglePlayPause() },
-                                modifier = Modifier.size(32.dp)
-                            ) {
+                            IconButton(onClick = { MediaRepository.getInstance().togglePlayPause() }) {
                                 Icon(
                                     imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (currentSong.isPlaying) "Pause" else "Play",
-                                    tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray,
-                                    modifier = Modifier.size(24.dp)
+                                    contentDescription = "Play/Pause",
+                                    tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray
                                 )
                             }
-                            Column(
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                            ) {
-                                Text(
-                                    text = currentSong.title ?: "Unknown",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = currentSong.artist ?: "Unknown Artist",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(currentSong.title ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White)
+                                Text(currentSong.artist ?: "", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                             }
-                            IconButton(
-                                onClick = { MediaRepository.getInstance().nextTrack() },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SkipNext,
-                                    contentDescription = "Next Track",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            IconButton(onClick = { MediaRepository.getInstance().nextTrack() }) {
+                                Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White)
                             }
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.weight(1f))
-
-                // Plus Button on the Right
-                FloatingActionButton(
-                    onClick = { showDialog = true },
-                    containerColor = OrangePrimary,
-                    contentColor = Color.Black
-                ) {
-                    Text(
-                        text = "+",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                FloatingActionButton(onClick = { showDialog = true }, containerColor = DarkBackground, contentColor = OrangePrimary) {
+                    Text("+", style = MaterialTheme.typography.headlineMedium)
                 }
             }
         },
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
-        LazyColumn(
-            contentPadding = padding,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)
-        ) {
+        LazyColumn(contentPadding = padding, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             groupedWorkouts.forEach { (date, workoutsInDay) ->
                 stickyHeader {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
-                    ) {
-                        Text(
-                            text = date,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier
-                                .padding(vertical = 8.dp)
-                                .padding(8.dp)
-                                .fillMaxWidth()
-                        )
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)) {
+                        Text(date, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(8.dp))
                     }
                 }
-
-                items(workoutsInDay) { workout ->
-                    WorkoutCard(
-                        workout = workout,
-                        onDelete = { viewModel.deleteWorkout(workout) }
-                    )
-                }
+                items(workoutsInDay) { workout -> WorkoutCard(workout = workout, onDelete = { viewModel.deleteWorkout(workout) }) }
             }
         }
-
         if (showDialog) {
-            AddWorkoutDialog(
-                onDismiss = { showDialog = false },
-                onAdd = { exercise, sets, reps, weight, dateMillis, isPB ->
-                    viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB)
-                    showDialog = false
-                }
-            )
+            AddWorkoutDialog(onDismiss = { showDialog = false }, onAdd = { exercise, sets, reps, weight, dateMillis, isPB ->
+                viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB)
+                showDialog = false
+            })
         }
     }
 }
@@ -169,66 +237,23 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
 @Composable
 fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
     val backgroundColor = if (workout.isPersonalBest) PersonalBestGold else OrangePrimary
-    
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = backgroundColor)) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = workout.exerciseName,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.Black,
-                    modifier = Modifier.padding(end = 120.dp)
-                )
-                
-                val details = remember(workout) {
-                    buildString {
-                        if (workout.sets > 0) append("${workout.sets} sets")
-                        if (workout.reps > 0) {
-                            if (isNotEmpty()) append(" x ")
-                            append("${workout.reps} reps")
-                        }
-                        if (workout.weight > 0) {
-                            if (isNotEmpty()) append(" @ ")
-                            val weightText = if (workout.weight % 1 == 0f) {
-                                workout.weight.toInt().toString()
-                            } else {
-                                workout.weight.toString()
-                            }
-                            append("${weightText}kg")
-                        }
-                    }
+                Text(workout.exerciseName, style = MaterialTheme.typography.titleLarge, color = Color.Black)
+                val details = buildString {
+                    if (workout.sets > 0) append("${workout.sets} sets ")
+                    if (workout.reps > 0) append("x ${workout.reps} reps ")
+                    if (workout.weight > 0) append("@ ${workout.weight}kg")
                 }
-
-                if (details.isNotEmpty()) {
-                    Text(
-                        text = details,
-                        color = Color.Black
-                    )
-                }
+                Text(details, color = Color.Black)
             }
-
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.align(Alignment.TopEnd).padding(end = 2.dp)) {
                 if (workout.isPersonalBest) {
-                    Text(
-                        text = "PERSONAL BEST!",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Black
-                    )
+                    Text("PB!", style = MaterialTheme.typography.labelSmall, color = Color.Black, modifier = Modifier.padding(top = 12.dp))
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Workout",
-                        tint = Color.Black
-                    )
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Black)
                 }
             }
         }
@@ -242,32 +267,12 @@ fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, Lon
     var sets by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
-    var isPersonalBest by remember { mutableStateOf(false) }
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
+    var isPB by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val dateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
-    val dateText = remember(dateMillis) {
-        SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(dateMillis))
-    }
-
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
+        DatePickerDialog(onDismissRequest = { showDatePicker = false }, confirmButton = { TextButton(onClick = { showDatePicker = false }) { Text("OK") } }) {
             DatePicker(state = datePickerState)
         }
     }
@@ -277,74 +282,30 @@ fun AddWorkoutDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, Float, Lon
         title = { Text("Add Workout") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = exercise,
-                    onValueChange = { exercise = it },
-                    label = { Text("Exercise") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = exercise, onValueChange = { exercise = it }, label = { Text("Exercise") })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = sets,
-                        onValueChange = { sets = it },
-                        label = { Text("Sets") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = reps,
-                        onValueChange = { reps = it },
-                        label = { Text("Reps") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    OutlinedTextField(value = sets, onValueChange = { sets = it }, label = { Text("Sets") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = reps, onValueChange = { reps = it }, label = { Text("Reps") }, modifier = Modifier.weight(1f))
                 }
+                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight (kg)") })
                 OutlinedTextField(
-                    value = weight,
-                    onValueChange = { weight = it },
-                    label = { Text("Weight (kg)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = { },
+                    value = SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    trailingIcon = { IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, null) } }
                 )
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Checkbox(
-                        checked = isPersonalBest,
-                        onCheckedChange = { isPersonalBest = it }
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isPB, onCheckedChange = { isPB = it })
                     Text("Personal Best")
                 }
             }
         },
         confirmButton = {
-            Button(
-                enabled = exercise.isNotBlank(),
-                onClick = {
-                    onAdd(
-                        exercise,
-                        sets.toIntOrNull() ?: 0,
-                        reps.toIntOrNull() ?: 0,
-                        weight.toFloatOrNull() ?: 0f,
-                        dateMillis,
-                        isPersonalBest
-                    )
-                }
-            ) { Text("Save") }
+            Button(onClick = { 
+                onAdd(exercise, sets.toIntOrNull() ?: 0, reps.toIntOrNull() ?: 0, weight.toFloatOrNull() ?: 0f, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), isPB)
+            }) { Text("Save") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
