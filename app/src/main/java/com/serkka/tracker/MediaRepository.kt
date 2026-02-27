@@ -8,6 +8,7 @@ class MediaRepository private constructor() {
     val currentSong = _currentSong.asStateFlow()
 
     private var nextTrackAction: (() -> Unit)? = null
+    private var previousTrackAction: (() -> Unit)? = null
     private var togglePlayPauseAction: (() -> Unit)? = null
 
     fun updateSong(info: SongInfo) {
@@ -22,8 +23,16 @@ class MediaRepository private constructor() {
         togglePlayPauseAction = action
     }
 
+    fun setPreviousTrackAction(action: () -> Unit) {
+        previousTrackAction = action
+    }
+
     fun nextTrack() {
         nextTrackAction?.invoke()
+    }
+
+    fun previousTrack() {
+        previousTrackAction?.invoke()
     }
 
     fun togglePlayPause() {

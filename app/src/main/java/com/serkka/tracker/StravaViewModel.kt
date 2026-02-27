@@ -51,20 +51,63 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
             .create(StravaApi::class.java)
     }
 
-    init {
-        // Auto-fetch if token exists
-        if (_savedToken.value.isNotBlank()) {
-            fetchActivities(_savedToken.value)
+    // Manual fetch only, or triggered by UI
+    fun checkAndFetchActivities() {
+        val accessToken = prefs.getString("access_token", "") ?: ""
+        val refreshToken = prefs.getString("refresh_token", "") ?: ""
+        val expiresAt = prefs.getLong("expires_at", 0)
+
+        if (accessToken.isNotBlank()) {
+            val now = System.currentTimeMillis() / 1000
+            if (now < expiresAt - 600) { // If token is valid for at least 10 more minutes
+                fetchActivitiesWithToken(accessToken)
+            } else if (refreshToken.isNotBlank()) {
+                refreshStravaToken(refreshToken)
+            } else {
+                // If no refresh token but we have an access token, just try it (might be old manual entry)
+                fetchActivitiesWithToken(accessToken)
+            }
         }
     }
 
-    fun fetchActivities(accessToken: String) {
-        val trimmedToken = accessToken.trim()
-        if (trimmedToken.isBlank()) {
-            _error.value = "Token cannot be empty"
-            return
+    private fun refreshStravaToken(refreshToken: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = stravaApi.refreshToken(
+                    clientId = "206279",
+                    clientSecret = "d7cade3d4543368f9b0185416964f3f9fad4f1ca",
+                    refreshToken = refreshToken
+                )
+                
+                saveTokenResponse(response)
+                fetchActivitiesWithToken(response.access_token)
+            } catch (e: Exception) {
+                Log.e("StravaViewModel", "Token refresh failed", e)
+                _error.value = "Session expired. Please log in again."
+                logout()
+            } finally {
+                _isLoading.value = false
+            }
         }
+    }
 
+    private fun saveTokenResponse(response: TokenResponse) {
+        prefs.edit().apply {
+            putString("access_token", response.access_token)
+            putString("refresh_token", response.refresh_token)
+            putLong("expires_at", response.expires_at)
+            apply()
+        }
+        _savedToken.value = response.access_token
+    }
+
+    fun fetchActivities(accessToken: String) {
+        fetchActivitiesWithToken(accessToken)
+    }
+
+    private fun fetchActivitiesWithToken(accessToken: String) {
+        val trimmedToken = accessToken.trim()
         val authHeader = if (trimmedToken.startsWith("Bearer ", ignoreCase = true)) {
             trimmedToken
         } else {
@@ -75,30 +118,53 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
             _isLoading.value = true
             _error.value = null
             try {
-                // Fetch more activities to calculate long streaks
                 val response = stravaApi.getActivities(authHeader, perPage = 200)
                 _activities.value = response
                 
-                // Save token on success
-                prefs.edit().putString("access_token", trimmedToken).apply()
-                _savedToken.value = trimmedToken
+                // If this was a manual entry, we might not have a refresh token, 
+                // but we still save the access token for this session.
+                if (prefs.getString("access_token", "") != trimmedToken) {
+                    prefs.edit().putString("access_token", trimmedToken).apply()
+                    _savedToken.value = trimmedToken
+                }
 
                 if (response.isEmpty()) {
-                    _error.value = "No activities found. Ensure you have activities synced to Strava."
+                    _error.value = "No activities found."
                 }
             } catch (e: HttpException) {
-                val errorBody = e.response()?.errorBody()?.string() ?: ""
-                Log.e("StravaViewModel", "HTTP Error ${e.code()}: $errorBody")
-                
-                _error.value = when {
-                    errorBody.contains("activity:read_permission") -> 
-                        "Permission Error: Your token is missing the 'activity:read' scope."
-                    e.code() == 401 -> "Unauthorized: Token is invalid or expired."
-                    e.code() == 403 -> "Forbidden: Check your API limits or scopes."
-                    else -> "Strava Error (${e.code()})"
+                if (e.code() == 401) {
+                    val refreshToken = prefs.getString("refresh_token", "") ?: ""
+                    if (refreshToken.isNotBlank()) {
+                        refreshStravaToken(refreshToken)
+                    } else {
+                        _error.value = "Session expired. Please log in again."
+                    }
+                } else {
+                    _error.value = "Strava Error (${e.code()})"
                 }
             } catch (e: Exception) {
-                _error.value = "Network Error: Check your connection."
+                _error.value = "Network Error"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun exchangeCodeForToken(code: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = stravaApi.exchangeToken(
+                    clientId = "206279",
+                    clientSecret = "d7cade3d4543368f9b0185416964f3f9fad4f1ca",
+                    code = code
+                )
+                
+                saveTokenResponse(response)
+                fetchActivitiesWithToken(response.access_token)
+            } catch (e: Exception) {
+                Log.e("StravaViewModel", "Code exchange failed", e)
+                _error.value = "Code exchange failed."
             } finally {
                 _isLoading.value = false
             }
@@ -106,7 +172,7 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun logout() {
-        prefs.edit().remove("access_token").apply()
+        prefs.edit().clear().apply()
         _savedToken.value = ""
         _activities.value = emptyList()
     }
@@ -150,9 +216,6 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
         return currentStreak
     }
 
-    /**
-     * Returns the total number of activities done during the current consecutive weekly streak.
-     */
     fun getTotalStreakActivities(): Int {
         val allActivities = _activities.value
         if (allActivities.isEmpty()) return 0

@@ -9,6 +9,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -186,7 +188,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
                 NavigationDrawerItem(
-                    label = { Text("Workouts") },
+                    label = { Text("Workouts", modifier = Modifier.padding(start = 8.dp)) },
                     icon = { Icon(Icons.Default.List, null) },
                     selected = currentScreen == Screen.Workouts,
                     onClick = {
@@ -201,10 +203,10 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         selectedTextColor = OrangePrimary,
                         unselectedTextColor = Color.Gray
                     ),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 8.dp)
                 )
                 NavigationDrawerItem(
-                    label = { Text("Strava Calendar") },
+                    label = { Text("Strava Calendar", modifier = Modifier.padding(start = 8.dp)) },
                     icon = { Icon(Icons.Default.DateRange, null) },
                     selected = currentScreen == Screen.StravaCalendar,
                     onClick = {
@@ -219,7 +221,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         selectedTextColor = OrangePrimary,
                         unselectedTextColor = Color.Gray
                     ),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 8.dp)
                 )
             }
         }
@@ -247,42 +249,75 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                 )
             },
             floatingActionButton = {
-                if (currentScreen == Screen.Workouts) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (currentSong.title != null) {
-                            Surface(
-                                color = DarkBackground,
-                                shape = MaterialTheme.shapes.large,
-                                tonalElevation = 4.dp,
-                                modifier = Modifier.height(56.dp).widthIn(max = 240.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (currentScreen == Screen.Workouts) 28.dp else 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentSong.title != null) {
+                        Surface(
+                            color = DarkBackground,
+                            shape =  MaterialTheme.shapes.large,
+                            tonalElevation = 4.dp,
+                            modifier = Modifier
+                                .height(56.dp)
+                                .weight(1f) // Fill available space
+                                .padding(end = if (currentScreen == Screen.Workouts) 16.dp else 0.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 4.dp), // Reduced from 12.dp
+                                horizontalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                IconButton(onClick = { MediaRepository.getInstance().togglePlayPause() }) {
+                                    Icon(
+                                        imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = "Play/Pause",
+                                        tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) { // Added internal padding to keep text safe
+                                    Text(currentSong.title ?: "",
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = Color.White)
+
+                                    Text(currentSong.artist ?: "",
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Gray)
+                                }
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .combinedClickable(
+                                            onClick = { MediaRepository.getInstance().nextTrack() },
+                                            onLongClick = { MediaRepository.getInstance().previousTrack() }
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    IconButton(onClick = { MediaRepository.getInstance().togglePlayPause() }) {
-                                        Icon(
-                                            imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                            contentDescription = "Play/Pause",
-                                            tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray
-                                        )
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(currentSong.title ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White)
-                                        Text(currentSong.artist ?: "", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                                    }
-                                    IconButton(onClick = { MediaRepository.getInstance().nextTrack() }) {
-                                        Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = Color.White)
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.SkipNext,
+                                        contentDescription = "Next (Long press for Previous)",
+                                        tint = OrangePrimary
+                                    )
                                 }
                             }
                         }
+                    } else {
                         Spacer(modifier = Modifier.weight(1f))
-                        FloatingActionButton(onClick = { showDialog = true }, containerColor = DarkBackground, contentColor = OrangePrimary) {
+                    }
+                    
+                    if (currentScreen == Screen.Workouts) {
+                        FloatingActionButton(
+                            onClick = { showDialog = true },
+                            containerColor = DarkBackground,
+                            contentColor = OrangePrimary
+                        ) {
                             Text("+", style = MaterialTheme.typography.headlineMedium)
                         }
                     }
@@ -344,6 +379,10 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
     val activityData = remember(activities) { stravaViewModel.getActivityData() }
     val streak = remember(activities) { stravaViewModel.getWeeklyStreak() }
     val totalStreakActivities = remember(activities) { stravaViewModel.getTotalStreakActivities() }
+
+    LaunchedEffect(Unit) {
+        stravaViewModel.checkAndFetchActivities()
+    }
 
     LaunchedEffect(error) {
         error?.let {
@@ -590,9 +629,9 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
                                     )
                                     Text(
                                         text = streak.toString(), 
-                                        fontWeight = FontWeight.ExtraBold, 
+                                        fontWeight = FontWeight.Normal,
                                         color = Color.White, 
-                                        fontSize = 14.sp,
+                                        fontSize = 18.sp,
                                         modifier = Modifier.offset(y = 2.dp)
                                     )
                                 }
@@ -643,15 +682,6 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
                     if (workout.weight > 0) append("@ ${workout.weight}kg")
                 }
                 Text(details, color = Color.Black)
-            }
-            if (workout.isPersonalBest) {
-                Text(
-                    "PB!",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Black)

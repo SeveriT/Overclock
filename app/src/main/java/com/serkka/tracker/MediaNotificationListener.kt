@@ -35,6 +35,7 @@ class MediaNotificationListener : NotificationListenerService() {
         super.onCreate()
         mediaSessionManager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
         mediaRepository.setNextTrackAction { skipToNext() }
+        mediaRepository.setPreviousTrackAction { skipToPrevious() }
         mediaRepository.setTogglePlayPauseAction { togglePlayPause() }
     }
 
@@ -78,6 +79,10 @@ class MediaNotificationListener : NotificationListenerService() {
 
     private fun skipToNext() {
         activeController?.transportControls?.skipToNext()
+    }
+
+    private fun skipToPrevious() {
+        activeController?.transportControls?.skipToPrevious()
     }
 
     private fun togglePlayPause() {
