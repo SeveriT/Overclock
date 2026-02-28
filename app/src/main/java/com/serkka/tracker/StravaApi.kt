@@ -1,5 +1,6 @@
 package com.serkka.tracker
 
+import com.google.gson.annotations.SerializedName
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
@@ -16,6 +17,11 @@ interface StravaApi {
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null
     ): List<StravaActivity>
+
+    @GET("athlete")
+    suspend fun getAuthenticatedAthlete(
+        @Header("Authorization") token: String
+    ): StravaAthlete
 
     @FormUrlEncoded
     @POST("oauth/token")
@@ -40,5 +46,13 @@ data class TokenResponse(
     val access_token: String,
     val refresh_token: String,
     val expires_at: Long,
-    val expires_in: Long
+    val expires_in: Long,
+    val athlete: StravaAthlete?
+)
+
+data class StravaAthlete(
+    val id: Long,
+    @SerializedName("profile_medium") val profileMedium: String,
+    val firstname: String,
+    val lastname: String
 )

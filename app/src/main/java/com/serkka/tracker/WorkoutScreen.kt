@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -375,6 +376,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
     val error by stravaViewModel.error.collectAsState()
     val savedToken by stravaViewModel.savedToken.collectAsState()
     var token by remember(savedToken) { mutableStateOf(savedToken) }
+    val profilePicUrl by stravaViewModel.profilePicUrl.collectAsState()
     
     val activityData = remember(activities) { stravaViewModel.getActivityData() }
     val streak = remember(activities) { stravaViewModel.getWeeklyStreak() }
@@ -400,7 +402,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it; stravaViewModel.clearError() },
-                label = { Text("Enter Strava Access Token") },
+                label = { Text("Enter Auth Code (Permanent) or Token") },
                 modifier = Modifier.fillMaxWidth(),
                 isError = error != null
             )
@@ -412,13 +414,21 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            Button(
-                onClick = { stravaViewModel.fetchActivities(token) },
-                enabled = token.isNotBlank() && !isLoading,
-                modifier = Modifier.padding(top = 8.dp),
-                colors = ButtonDefaults.buttonColors(contentColor = Color.White)
-            ) {
-                Text("Fetch Activities")
+            Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { 
+                        if (token.length < 50) {
+                            stravaViewModel.exchangeCodeForToken(token) 
+                        } else {
+                            stravaViewModel.fetchActivities(token)
+                        }
+                    },
+                    enabled = token.isNotBlank() && !isLoading,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(contentColor = Color.White)
+                ) {
+                    Text("Connect")
+                }
             }
         } else {
             val currentMonth = YearMonth.now()
@@ -437,7 +447,18 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (profilePicUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = profilePicUrl,
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, Color.Gray, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     IconButton(onClick = { stravaViewModel.logout() }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = Color.Gray)
                     }
@@ -465,7 +486,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
             Spacer(modifier = Modifier.weight(1f))
             
             Button(
-                onClick = { stravaViewModel.fetchActivities(token) }, 
+                onClick = { stravaViewModel.checkAndFetchActivities() },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
