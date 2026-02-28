@@ -427,125 +427,135 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (activities.isEmpty() && !isLoading) {
-            Text("Link Strava to see your progress", style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = token,
-                onValueChange = { token = it; stravaViewModel.clearError() },
-                label = { Text("Enter Auth Code (Permanent) or Token") },
-                modifier = Modifier.fillMaxWidth(),
-                isError = error != null
-            )
-            if (error != null) {
-                Text(
-                    text = error ?: "Unknown error",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp)
+            item {
+                Text("Link Strava to see your progress", style = MaterialTheme.typography.bodyLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = token,
+                    onValueChange = { token = it; stravaViewModel.clearError() },
+                    label = { Text("Enter Auth Code (Permanent) or Token") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = error != null
                 )
-            }
-            Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { 
-                        if (token.length < 50) {
-                            stravaViewModel.exchangeCodeForToken(token) 
-                        } else {
-                            stravaViewModel.fetchActivities(token)
-                        }
-                    },
-                    enabled = token.isNotBlank() && !isLoading,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(contentColor = Color.White)
-                ) {
-                    Text("Connect")
+                if (error != null) {
+                    Text(
+                        text = error ?: "Unknown error",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                Row(modifier = Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { 
+                            if (token.length < 50) {
+                                stravaViewModel.exchangeCodeForToken(token) 
+                            } else {
+                                stravaViewModel.fetchActivities(token)
+                            }
+                        },
+                        enabled = token.isNotBlank() && !isLoading,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(contentColor = Color.White)
+                    ) {
+                        Text("Connect")
+                    }
                 }
             }
         } else {
-            val currentMonth = YearMonth.now()
-            val monthName = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
-            val year = currentMonth.year
-
-            // Header Section
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "$monthName $year",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { stravaViewModel.checkAndFetchActivities() }) {
-                        if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = OrangePrimary, strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Refresh, "Refresh", tint = Color.Gray)
+            item {
+                // Header Section
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { stravaViewModel.checkAndFetchActivities() }) {
+                            if (isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = OrangePrimary, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Refresh, "Refresh", tint = Color.Gray)
+                            }
+                        }
+                        if (profilePicUrl.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            AsyncImage(
+                                model = profilePicUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, Color.Gray, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        IconButton(onClick = { stravaViewModel.logout() }) {
+                            Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = Color.Gray)
                         }
                     }
-                    if (profilePicUrl.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        AsyncImage(
-                            model = profilePicUrl,
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, Color.Gray, CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Stats Section
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    Column {
+                        Text("Your Streak", color = Color.Gray, fontSize = 12.sp)
+                        Text("$streak Weeks", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
                     }
-                    IconButton(onClick = { stravaViewModel.logout() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = Color.Gray)
+                    Column {
+                        Text("Streak Activities", color = Color.Gray, fontSize = 12.sp)
+                        Text("$totalStreakActivities", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Stats Section
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                Column {
-                    Text("Your Streak", color = Color.Gray, fontSize = 12.sp)
-                    Text("$streak Weeks", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                }
-                Column {
-                    Text("Streak Activities", color = Color.Gray, fontSize = 12.sp)
-                    Text("$totalStreakActivities", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                }
+            val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
+            items(months) { month ->
+                StravaCalendar(month, activityData, streak)
+                Spacer(modifier = Modifier.height(32.dp))
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            StravaCalendar(activityData, streak)
             
-            Spacer(modifier = Modifier.weight(1f))
+            // Padding at the bottom to ensure the last month isn't obscured by FAB/Song bar
+            item {
+                Spacer(modifier = Modifier.height(80.dp))
+            }
         }
     }
 }
 
 @Composable
-fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
-    val currentMonth = YearMonth.now()
-    val daysInMonth = currentMonth.lengthOfMonth()
+fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, streak: Int) {
+    val daysInMonth = month.lengthOfMonth()
     
     // Monday = 0, Sunday = 6
-    val firstDayOfMonth = (currentMonth.atDay(1).dayOfWeek.value - 1)
+    val firstDayOfMonth = (month.atDay(1).dayOfWeek.value - 1)
     
-    val year = currentMonth.year
-    val monthValue = currentMonth.monthValue
+    val year = month.year
+    val monthValue = month.monthValue
     val today = LocalDate.now()
+    val isActualCurrentMonth = month == YearMonth.now()
 
     Column {
+        Text(
+            text = "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} $year",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
         // Day Headers
-        Row(modifier = Modifier.fillMaxWidth().padding(end = 48.dp)) { // Padding for streak column
+        Row(modifier = Modifier.fillMaxWidth().padding(end = 40.dp)) { // Reduced padding for streak column
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { day ->
                 Text(
                     text = day,
@@ -561,7 +571,7 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
 
         Box(modifier = Modifier.fillMaxWidth()) {
             // Calendar Grid
-            Column(modifier = Modifier.fillMaxWidth().padding(end = 48.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(end = 40.dp)) {
                 var currentDayIndex = 0
                 val totalSlots = firstDayOfMonth + daysInMonth
                 val rows = (totalSlots + 6) / 7
@@ -574,7 +584,7 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
                                 // Previous/Next month days
                                 Box(modifier = Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
                                     val dayNum = if (slotIndex < firstDayOfMonth) {
-                                        val prevMonth = currentMonth.minusMonths(1)
+                                        val prevMonth = month.minusMonths(1)
                                         prevMonth.lengthOfMonth() - (firstDayOfMonth - slotIndex - 1)
                                     } else {
                                         slotIndex - (firstDayOfMonth + daysInMonth) + 1
@@ -634,8 +644,7 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
                     .align(Alignment.TopEnd)
                     .width(36.dp)
                     .height((rows * 56).dp)
-                    .background(Color(0xFF2A1500), RoundedCornerShape(18.dp)) // Dark orange background
-                    .padding(vertical = 0.dp),
+                    .background(Color(0xFF2A1500), RoundedCornerShape(18.dp)), // Dark orange background
                 contentAlignment = Alignment.TopCenter
             ) {
                 Column(
@@ -645,13 +654,33 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
                 ) {
                     repeat(rows) { rowIndex ->
                         Box(
-                            modifier = Modifier.height(55.dp).width(36.dp),
+                            modifier = Modifier.height(56.dp).width(36.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (rowIndex < rows - 1) {
+                            val weekStartDay = if (rowIndex == 0) 1 else (rowIndex * 7 - firstDayOfMonth + 1)
+                            val weekEndDay = minOf(daysInMonth, (rowIndex + 1) * 7 - firstDayOfMonth)
+                            
+                            val isCurrentWeek = isActualCurrentMonth && today.dayOfMonth in weekStartDay..weekEndDay
+                            
+                            if (isCurrentWeek) {
+                                // Current week indicator: Lightning Bolt with Streak count on top
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bolt, 
+                                        contentDescription = null, 
+                                        tint = Color(0xFFE65100), 
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Text(
+                                        text = streak.toString(), 
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White, 
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.offset(y = 2.dp)
+                                    )
+                                }
+                            } else {
                                 // Check for activity in this week
-                                val weekStartDay = if (rowIndex == 0) 1 else (rowIndex * 7 - firstDayOfMonth + 1)
-                                val weekEndDay = minOf(daysInMonth, (rowIndex + 1) * 7 - firstDayOfMonth)
                                 var hasActivity = false
                                 for (d in weekStartDay..weekEndDay) {
                                     val dateStr = String.format("%04d-%02d-%02d", year, monthValue, d)
@@ -668,23 +697,6 @@ fun StravaCalendar(activityData: Map<String, List<String>>, streak: Int) {
                                     ) {
                                         Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
                                     }
-                                }
-                            } else {
-                                // Current week indicator: Lightning Bolt with Streak count on top
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bolt, 
-                                        contentDescription = null, 
-                                        tint = Color(0xFFE65100), 
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    Text(
-                                        text = streak.toString(), 
-                                        fontWeight = FontWeight.Normal,
-                                        color = Color.White, 
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.offset(y = 2.dp)
-                                    )
                                 }
                             }
                         }
