@@ -379,7 +379,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
 @Composable
 fun WorkoutListContent(workouts: List<Workout>, viewModel: WorkoutViewModel, onEdit: (Workout) -> Unit) {
     val groupedWorkouts = workouts.groupBy { 
-        SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(it.date)) 
+        SimpleDateFormat("d.M.yyyy", Locale.getDefault()).format(Date(it.date))
     }
     
     LazyColumn(
