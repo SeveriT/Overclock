@@ -32,6 +32,9 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
     private val _savedToken = MutableStateFlow(prefs.getString("access_token", "") ?: "")
     val savedToken: StateFlow<String> = _savedToken
 
+    private val _profilePicUrl = MutableStateFlow(prefs.getString("profile_pic", "") ?: "")
+    val profilePicUrl: StateFlow<String> = _profilePicUrl
+
     private val stravaApi: StravaApi by lazy {
         val logging = HttpLoggingInterceptor { message ->
             Log.d("StravaAPI", message)
@@ -61,11 +64,12 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
             val now = System.currentTimeMillis() / 1000
             if (now < expiresAt - 600) { // If token is valid for at least 10 more minutes
                 fetchActivitiesWithToken(accessToken)
+                fetchProfile(accessToken)
             } else if (refreshToken.isNotBlank()) {
                 refreshStravaToken(refreshToken)
             } else {
-                // If no refresh token but we have an access token, just try it (might be old manual entry)
                 fetchActivitiesWithToken(accessToken)
+                fetchProfile(accessToken)
             }
         }
     }
@@ -82,6 +86,7 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                 
                 saveTokenResponse(response)
                 fetchActivitiesWithToken(response.access_token)
+                fetchProfile(response.access_token)
             } catch (e: Exception) {
                 Log.e("StravaViewModel", "Token refresh failed", e)
                 _error.value = "Session expired. Please log in again."
@@ -97,13 +102,29 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
             putString("access_token", response.access_token)
             putString("refresh_token", response.refresh_token)
             putLong("expires_at", response.expires_at)
+            response.athlete?.profileMedium?.let { putString("profile_pic", it) }
             apply()
         }
         _savedToken.value = response.access_token
+        response.athlete?.profileMedium?.let { _profilePicUrl.value = it }
     }
 
     fun fetchActivities(accessToken: String) {
         fetchActivitiesWithToken(accessToken)
+        fetchProfile(accessToken)
+    }
+
+    private fun fetchProfile(accessToken: String) {
+        val authHeader = if (accessToken.startsWith("Bearer ", ignoreCase = true)) accessToken else "Bearer $accessToken"
+        viewModelScope.launch {
+            try {
+                val athlete = stravaApi.getAuthenticatedAthlete(authHeader)
+                prefs.edit().putString("profile_pic", athlete.profileMedium).apply()
+                _profilePicUrl.value = athlete.profileMedium
+            } catch (e: Exception) {
+                Log.e("StravaViewModel", "Failed to fetch profile", e)
+            }
+        }
     }
 
     private fun fetchActivitiesWithToken(accessToken: String) {
@@ -121,8 +142,6 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                 val response = stravaApi.getActivities(authHeader, perPage = 200)
                 _activities.value = response
                 
-                // If this was a manual entry, we might not have a refresh token, 
-                // but we still save the access token for this session.
                 if (prefs.getString("access_token", "") != trimmedToken) {
                     prefs.edit().putString("access_token", trimmedToken).apply()
                     _savedToken.value = trimmedToken
@@ -174,6 +193,7 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
     fun logout() {
         prefs.edit().clear().apply()
         _savedToken.value = ""
+        _profilePicUrl.value = ""
         _activities.value = emptyList()
     }
 
