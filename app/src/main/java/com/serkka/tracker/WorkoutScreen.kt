@@ -379,7 +379,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
 @Composable
 fun WorkoutListContent(workouts: List<Workout>, viewModel: WorkoutViewModel, onEdit: (Workout) -> Unit) {
     val groupedWorkouts = workouts.groupBy { 
-        SimpleDateFormat("d.M.yyyy", Locale.getDefault()).format(Date(it.date))
+        SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault()).format(Date(it.date))
     }
     
     LazyColumn(
@@ -470,12 +470,25 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
             }
         } else {
             item {
-                // Header Section
+                // Header Section with Stats
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Stats on the left
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text("Streak", color = Color.Gray, fontSize = 10.sp)
+                            Text("$streak Weeks" , fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                        }
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text("Total activities", color = Color.Gray, fontSize = 10.sp)
+                            Text("$totalStreakActivities", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                        }
+                    }
+
+                    // Actions on the right
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { stravaViewModel.checkAndFetchActivities() }) {
                             if (isLoading) {
@@ -485,7 +498,6 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                             }
                         }
                         if (profilePicUrl.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(8.dp))
                             AsyncImage(
                                 model = profilePicUrl,
                                 contentDescription = "Profile Picture",
@@ -494,7 +506,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                                     .clip(CircleShape)
                                     .border(1.dp, Color.Gray, CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                         }
                         IconButton(onClick = { stravaViewModel.logout() }) {
                             Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = Color.Gray)
@@ -502,21 +514,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Stats Section
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                    Column {
-                        Text("Your Streak", color = Color.Gray, fontSize = 12.sp)
-                        Text("$streak Weeks", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                    }
-                    Column {
-                        Text("Streak Activities", color = Color.Gray, fontSize = 12.sp)
-                        Text("$totalStreakActivities", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
@@ -671,13 +669,15 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, st
                                         tint = Color(0xFFE65100), 
                                         modifier = Modifier.size(36.dp)
                                     )
-                                    Text(
-                                        text = streak.toString(), 
+                                    /*
+                                     Text(
+                                        text = streak.toString(),
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White, 
+                                        color = Color.White,
                                         fontSize = 16.sp,
                                         modifier = Modifier.offset(y = 2.dp)
                                     )
+                                     */
                                 }
                             } else {
                                 // Check for activity in this week
@@ -833,7 +833,7 @@ fun WorkoutDialog(
                 )
 
                 OutlinedTextField(
-                    value = SimpleDateFormat("d.M.yy", Locale.getDefault()).format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    value = SimpleDateFormat("EEEE d.M.yy", Locale.getDefault()).format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
                     onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,
