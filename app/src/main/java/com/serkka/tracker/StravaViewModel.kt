@@ -172,6 +172,7 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
     fun exchangeCodeForToken(code: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
             try {
                 val response = stravaApi.exchangeToken(
                     clientId = "206279",
@@ -181,9 +182,10 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                 
                 saveTokenResponse(response)
                 fetchActivitiesWithToken(response.access_token)
+                fetchProfile(response.access_token)
             } catch (e: Exception) {
                 Log.e("StravaViewModel", "Code exchange failed", e)
-                _error.value = "Code exchange failed."
+                _error.value = "Code exchange failed: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

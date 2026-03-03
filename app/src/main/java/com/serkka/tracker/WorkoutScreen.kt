@@ -1,6 +1,8 @@
 package com.serkka.tracker
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -68,7 +71,11 @@ enum class Screen {
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutScreen(viewModel: WorkoutViewModel) {
+fun WorkoutScreen(
+    viewModel: WorkoutViewModel,
+    stravaViewModel: StravaViewModel = viewModel(),
+    themeViewModel: ThemeViewModel = viewModel()
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val backupManager = remember { BackupManager(context) }
@@ -80,8 +87,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
     var editingWorkout by remember { mutableStateOf<Workout?>(null) }
     val currentSong by MediaRepository.getInstance().currentSong.collectAsState()
 
-    // Strava ViewModel
-    val stravaViewModel: StravaViewModel = viewModel()
+    val primaryColor by themeViewModel.primaryColor.collectAsState()
 
     // Google Sign-In Setup
     val gso = remember {
@@ -200,11 +206,11 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         coroutineScope.launch { drawerState.close() }
                     },
                     colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = OrangePrimary.copy(alpha = 0.2f),
+                        selectedContainerColor = primaryColor.copy(alpha = 0.2f),
                         unselectedContainerColor = Color.Transparent,
-                        selectedIconColor = OrangePrimary,
+                        selectedIconColor = primaryColor,
                         unselectedIconColor = Color.Gray,
-                        selectedTextColor = OrangePrimary,
+                        selectedTextColor = primaryColor,
                         unselectedTextColor = Color.Gray
                     ),
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 8.dp)
@@ -218,15 +224,73 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         coroutineScope.launch { drawerState.close() }
                     },
                     colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = OrangePrimary.copy(alpha = 0.2f),
+                        selectedContainerColor = primaryColor.copy(alpha = 0.2f),
                         unselectedContainerColor = Color.Transparent,
-                        selectedIconColor = OrangePrimary,
+                        selectedIconColor = primaryColor,
                         unselectedIconColor = Color.Gray,
-                        selectedTextColor = OrangePrimary,
+                        selectedTextColor = primaryColor,
                         unselectedTextColor = Color.Gray
                     ),
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 8.dp)
                 )
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray.copy(alpha = 0.3f))
+                
+                Text(
+                    "Theme Color",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+                )
+                
+                val colors = listOf(
+                    Color(0xFFEE6517), // Original Orange
+                    Color(0xFFE91E63), // Pink
+                    Color(0xFF9C27B0), // Purple
+                    Color(0xFF2196F3), // Blue
+                    Color(0xFF00BCD4), // Cyan
+                    Color(0xFF4CAF50), // Green
+                    Color(0xFFFF5722), // Yellow
+                    Color(0xFF800CB0), // Amber
+                    Color(0xFFFAA4B5),
+                    Color(0xFFF8B77C),
+                    Color(0xFFFFF184),
+                    Color(0xFF70C1E1),
+                    Color(0xFF82BA88),
+                    Color(0xFF2E7383),
+                    Color(0xFFF2F0EC),
+                    Color(0xFF888484),
+                    Color(0xFFE1DBC9),
+                    Color(0xFFAAAAAA)
+                )
+                
+                // Displaying colors in a grid-like manner (6 per row)
+                val itemsPerRow = 6
+                val rows = colors.chunked(itemsPerRow)
+                
+                Column(modifier = Modifier.padding(horizontal = 28.dp)) {
+                    rows.forEach { rowColors ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowColors.forEach { color ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
+                                        .border(
+                                            width = if (primaryColor.toArgb() == color.toArgb()) 2.dp else 0.dp,
+                                            color = Color.White,
+                                            shape = CircleShape
+                                        )
+                                        .clickable { themeViewModel.updatePrimaryColor(color) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     ) {
@@ -278,7 +342,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                                     Icon(
                                         imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                         contentDescription = "Play/Pause",
-                                        tint = if (currentSong.isPlaying) OrangePrimary else Color.Gray
+                                        tint = if (currentSong.isPlaying) primaryColor else Color.Gray
                                     )
                                 }
                                 Column(modifier = Modifier
@@ -311,7 +375,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                                     Icon(
                                         imageVector = Icons.Default.SkipNext,
                                         contentDescription = "Next (Long press for Previous)",
-                                        tint = OrangePrimary
+                                        tint = primaryColor
                                     )
                                 }
                             }
@@ -324,7 +388,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         FloatingActionButton(
                             onClick = { showAddDialog = true },
                             containerColor = DarkBackground,
-                            contentColor = OrangePrimary,
+                            contentColor = primaryColor,
                             elevation = FloatingActionButtonDefaults.elevation(1.dp)
                         ) {
                             Text("+", style = MaterialTheme.typography.headlineMedium)
@@ -342,7 +406,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                         }
                     }
                     Screen.StravaCalendar -> {
-                        StravaCalendarPage(stravaViewModel)
+                        StravaCalendarPage(stravaViewModel, primaryColor)
                     }
                 }
             }
@@ -409,7 +473,7 @@ fun WorkoutListContent(workouts: List<Workout>, viewModel: WorkoutViewModel, onE
 }
 
 @Composable
-fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
+fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color) {
     val context = LocalContext.current
     val activities by stravaViewModel.activities.collectAsState()
     val isLoading by stravaViewModel.isLoading.collectAsState()
@@ -440,11 +504,35 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
         if (activities.isEmpty() && !isLoading) {
             item {
                 Text("Link Strava to see your progress", style = MaterialTheme.typography.bodyLarge)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        val authUri = Uri.parse("https://www.strava.com/oauth/mobile/authorize")
+                            .buildUpon()
+                            .appendQueryParameter("client_id", "206279")
+                            .appendQueryParameter("redirect_uri", "tracker-app://localhost")
+                            .appendQueryParameter("response_type", "code")
+                            .appendQueryParameter("approval_prompt", "force")
+                            .appendQueryParameter("scope", "activity:read_all,profile:read_all")
+                            .build()
+                        
+                        context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = Color.White)
+                ) {
+                    Text("Login with Strava")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Or enter token manually:", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 Spacer(modifier = Modifier.height(8.dp))
+                
                 OutlinedTextField(
                     value = token,
                     onValueChange = { token = it; stravaViewModel.clearError() },
-                    label = { Text("Enter Auth Code (Permanent) or Token") },
+                    label = { Text("Enter Auth Code or Token") },
                     modifier = Modifier.fillMaxWidth(),
                     isError = error != null
                 )
@@ -497,7 +585,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { stravaViewModel.checkAndFetchActivities() }) {
                             if (isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = OrangePrimary, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = primaryColor, strokeWidth = 2.dp)
                             } else {
                                 Icon(Icons.Default.Refresh, "Refresh", tint = Color.Gray)
                             }
@@ -524,7 +612,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
 
             val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
             items(months) { month ->
-                StravaCalendar(month, activityData, streak)
+                StravaCalendar(month, activityData, streak, primaryColor)
                 Spacer(modifier = Modifier.height(32.dp))
             }
             
@@ -537,7 +625,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel) {
 }
 
 @Composable
-fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, streak: Int) {
+fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, streak: Int, primaryColor: Color) {
     val daysInMonth = month.lengthOfMonth()
     
     // Monday = 0, Sunday = 6
@@ -646,8 +734,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, st
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .width(36.dp)
-                    .height((rows * 56).dp)
-                    .background(Color(0xFF2A1500), RoundedCornerShape(18.dp)), // Dark orange background
+                    .height((rows * 55).dp),
                 contentAlignment = Alignment.TopCenter
             ) {
                 Column(
@@ -666,23 +753,50 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, st
                             val isCurrentWeek = isActualCurrentMonth && today.dayOfMonth in weekStartDay..weekEndDay
                             
                             if (isCurrentWeek) {
-                                // Current week indicator: Lightning Bolt with Streak count on top
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bolt,
-                                        contentDescription = null, 
-                                        tint = Color(0xFFE65100), 
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    /*
-                                     Text(
-                                        text = streak.toString(),
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        modifier = Modifier.offset(y = 2.dp)
-                                    )
-                                     */
+                                // Only show bolt if there were activities in the PREVIOUS week
+                                val lastMonday = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+                                var hasActivityLastWeek = false
+                                for (i in 0 until 7) {
+                                    val d = lastMonday.plusDays(i.toLong())
+                                    val dateStr = String.format("%04d-%02d-%02d", d.year, d.monthValue, d.dayOfMonth)
+                                    if (activityData.containsKey(dateStr)) {
+                                        hasActivityLastWeek = true
+                                        break
+                                    }
+                                }
+                                
+                                if (hasActivityLastWeek) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(primaryColor.copy(alpha = 0.2f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bolt,
+                                            contentDescription = null, 
+                                            tint = primaryColor, 
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                } else {
+                                    // Fallback to regular activity check for the current week if no bolt
+                                    var hasActivityThisWeek = false
+                                    for (d in weekStartDay..weekEndDay) {
+                                        val dateStr = String.format("%04d-%02d-%02d", year, monthValue, d)
+                                        if (activityData.containsKey(dateStr)) {
+                                            hasActivityThisWeek = true
+                                            break
+                                        }
+                                    }
+                                    if (hasActivityThisWeek) {
+                                        Box(
+                                            modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
                                 }
                             } else {
                                 // Check for activity in this week
@@ -697,7 +811,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, st
 
                                 if (hasActivity) {
                                     Box(
-                                        modifier = Modifier.size(24.dp).background(Color(0xFFE65100), CircleShape),
+                                        modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp))
@@ -727,7 +841,7 @@ private fun getIconForActivity(type: String): ImageVector {
 
 @Composable
 fun WorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: () -> Unit) {
-    val backgroundColor = if (workout.isPersonalBest) PersonalBestGold else OrangePrimary
+    val backgroundColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.primary
     Card(
         modifier = Modifier
             .fillMaxWidth()
