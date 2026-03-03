@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -16,8 +17,8 @@ private val DarkColorScheme = darkColorScheme(
     secondary = PurpleGrey80,
     tertiary = Pink80,
     surfaceVariant = DarkBlueVariant,
-    background = DarkBackground, // Adds background color
-    surface = DarkBackground      // Adds surface color (for Scaffolds, etc.)
+    background = DarkBackground,
+    surface = DarkBackground
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -30,18 +31,19 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GymTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
+    primaryColor: Color = OrangePrimary, // Default color
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (darkTheme) dynamicDarkColorScheme(context).copy(primary = primaryColor) 
+            else dynamicLightColorScheme(context).copy(primary = primaryColor)
         }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> DarkColorScheme.copy(primary = primaryColor)
+        else -> LightColorScheme.copy(primary = primaryColor)
     }
 
     MaterialTheme(
