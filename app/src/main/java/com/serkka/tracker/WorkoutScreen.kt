@@ -87,7 +87,8 @@ fun WorkoutScreen(
     val bodyWeights by viewModel.allBodyWeights.collectAsState()
     
     val workoutHistory = remember(workouts) {
-        workouts.distinctBy { it.exerciseName }
+        workouts.sortedWith(compareByDescending<Workout> { it.date }.thenByDescending { it.id })
+            .distinctBy { it.exerciseName }
     }
 
     var showAddWorkoutDialog by remember { mutableStateOf(false) }
@@ -1304,7 +1305,7 @@ fun WorkoutDialog(
 
     val suggestions = remember(exercise, history) {
         if (exercise.isEmpty()) {
-            history.map { it.exerciseName }.distinct().take(10)
+            history.map { it.exerciseName }.distinct().take(8)
         } else {
             history.filter { it.exerciseName.contains(exercise, ignoreCase = true) }
                 .map { it.exerciseName }
@@ -1335,9 +1336,9 @@ fun WorkoutDialog(
                             AssistChip(
                                 onClick = {
                                     exercise = recent.exerciseName
-                                    if (sets.isEmpty() || sets == "0") sets = recent.sets.toString()
-                                    if (reps.isEmpty() || reps == "0") reps = recent.reps.toString()
-                                    if (weight.isEmpty() || weight == "0") weight = recent.weight.toString()
+                                    sets = recent.sets.toString()
+                                    reps = recent.reps.toString()
+                                    weight = recent.weight.toString()
                                     weightUnit = recent.weightUnit
                                 },
                                 label = { Text(recent.exerciseName) }
@@ -1374,9 +1375,9 @@ fun WorkoutDialog(
                                 onClick = {
                                     exercise = suggestion
                                     history.find { it.exerciseName == suggestion }?.let { recent ->
-                                        if (sets.isEmpty() || sets == "0") sets = recent.sets.toString()
-                                        if (reps.isEmpty() || reps == "0") reps = recent.reps.toString()
-                                        if (weight.isEmpty() || weight == "0") weight = recent.weight.toString()
+                                        sets = recent.sets.toString()
+                                        reps = recent.reps.toString()
+                                        weight = recent.weight.toString()
                                         weightUnit = recent.weightUnit
                                     }
                                     expanded = false
