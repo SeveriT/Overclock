@@ -1,7 +1,9 @@
 package com.serkka.tracker
 
+import android.R
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Paint
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -15,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -54,6 +58,7 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.serkka.tracker.ui.theme.DarkBackground
+import com.serkka.tracker.ui.theme.OrangePrimary
 import com.serkka.tracker.ui.theme.PersonalBestGold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -849,12 +854,12 @@ fun BodyWeightDialog(
         title = { Text(if (bodyWeight == null) "Add Weight" else "Edit Weight") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                NumericInput(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = { Text("Weight (kg)") },
+                    label = "Weight (kg)",
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    step = 0.1f
                 )
                 
                 OutlinedTextField(
@@ -1283,6 +1288,54 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit, onEdit: () -> Unit) {
     }
 }
 
+@Composable
+fun NumericInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    step: Float = 1f
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 1) },
+        modifier = modifier,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 14.sp),
+        leadingIcon = {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                IconButton(
+                    onClick = {
+                        val current = value.toFloatOrNull() ?: 0f
+                        if (current >= step) {
+                            onValueChange((current - step).let { if (it % 1 == 0f) it.toInt().toString() else it.toString() })
+                        }
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = "Remove", modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        },
+        trailingIcon = {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                IconButton(
+                    onClick = {
+                        val current = value.toFloatOrNull() ?: 0f
+                        onValueChange((current + step).let { if (it % 1 == 0f) it.toInt().toString() else it.toString() })
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutDialog(
@@ -1297,11 +1350,15 @@ fun WorkoutDialog(
     var sets by remember { mutableStateOf(workout?.sets?.toString() ?: "") }
     var reps by remember { mutableStateOf(workout?.reps?.toString() ?: "") }
     var weight by remember { mutableStateOf(workout?.weight?.toString() ?: "") }
-    var weightUnit by remember { mutableStateOf(workout?.weightUnit ?: "kg") }
+    val weightUnit = "kg"
     var notes by remember { mutableStateOf(workout?.notes ?: "") }
     var isPB by remember { mutableStateOf(workout?.isPersonalBest ?: false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = workout?.date ?: System.currentTimeMillis())
     var showDatePicker by remember { mutableStateOf(false) }
+
+    val lastPerformance = remember(exercise, history) {
+        history.find { it.exerciseName.equals(exercise, ignoreCase = true) }
+    }
 
     val suggestions = remember(exercise, history) {
         if (exercise.isEmpty()) {
@@ -1323,6 +1380,12 @@ fun WorkoutDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxSize().wrapContentSize(Alignment.BottomCenter)
+            .padding(24.dp)
+            .padding(bottom = 24.dp)
+            .fillMaxWidth(),
         title = { Text(if (workout == null) "Add Workout" else "Edit Workout") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1339,7 +1402,6 @@ fun WorkoutDialog(
                                     sets = recent.sets.toString()
                                     reps = recent.reps.toString()
                                     weight = recent.weight.toString()
-                                    weightUnit = recent.weightUnit
                                 },
                                 label = { Text(recent.exerciseName) }
                             )
@@ -1378,7 +1440,6 @@ fun WorkoutDialog(
                                         sets = recent.sets.toString()
                                         reps = recent.reps.toString()
                                         weight = recent.weight.toString()
-                                        weightUnit = recent.weightUnit
                                     }
                                     expanded = false
                                 },
@@ -1388,32 +1449,38 @@ fun WorkoutDialog(
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = sets, onValueChange = { sets = it }, label = { Text("Sets") }, modifier = Modifier.weight(1f))
-                    OutlinedTextField(value = reps, onValueChange = { reps = it }, label = { Text("Reps") }, modifier = Modifier.weight(1f))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = weight, 
-                        onValueChange = { weight = it }, 
-                        label = { Text("Weight") },
-                        modifier = Modifier.weight(1f)
+                lastPerformance?.let { last ->
+                    Text(
+                        text = "Last time: ${last.sets}x${last.reps} @ ${last.weight}${last.weightUnit}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 4.dp).clickable {
+                            sets = last.sets.toString()
+                            reps = last.reps.toString()
+                            weight = last.weight.toString()
+                        }
                     )
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = weightUnit == "kg", onClick = { weightUnit = "kg" })
-                        Text("kg")
-                        RadioButton(selected = weightUnit == "cm", onClick = { weightUnit = "cm" })
-                        Text("cm")
-                    }
                 }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    NumericInput(value = sets, onValueChange = { sets = it }, label = "Sets", modifier = Modifier.weight(1f))
+                    NumericInput(value = reps, onValueChange = { reps = it }, label = "Reps", modifier = Modifier.weight(1f))
+                }
+                
+                NumericInput(
+                    value = weight, 
+                    onValueChange = { weight = it }, 
+                    label = "Weight (kg)",
+                    modifier = Modifier.fillMaxWidth(),
+                    step = 2.5f
+                )
                 
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
+                    label = { Text("Notes") },
                     modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
+                    maxLines = 3,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
 
@@ -1422,7 +1489,8 @@ fun WorkoutDialog(
                     onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,
-                    trailingIcon = { IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, null) } }
+                    trailingIcon = { IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, null) } },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = isPB, onCheckedChange = { isPB = it })
