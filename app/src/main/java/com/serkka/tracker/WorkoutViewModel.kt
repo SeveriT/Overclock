@@ -17,6 +17,13 @@ class WorkoutViewModel(private val repository: WorkoutRepository) : ViewModel() 
             initialValue = emptyList()
         )
 
+    val allBodyWeights: StateFlow<List<BodyWeight>> = repository.getAllBodyWeights()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun addWorkout(exercise: String, sets: Int, reps: Int, weight: Float, dateMillis: Long, isPersonalBest: Boolean, weightUnit: String = "kg", notes: String = "") {
         viewModelScope.launch {
             val newWorkout = Workout(
@@ -42,6 +49,25 @@ class WorkoutViewModel(private val repository: WorkoutRepository) : ViewModel() 
     fun deleteWorkout(workout: Workout) {
         viewModelScope.launch {
             repository.deleteWorkout(workout)
+        }
+    }
+
+    // Body Weight operations
+    fun addBodyWeight(weight: Float, dateMillis: Long, notes: String = "") {
+        viewModelScope.launch {
+            repository.addBodyWeight(BodyWeight(date = dateMillis, weight = weight, notes = notes))
+        }
+    }
+
+    fun updateBodyWeight(bodyWeight: BodyWeight) {
+        viewModelScope.launch {
+            repository.updateBodyWeight(bodyWeight)
+        }
+    }
+
+    fun deleteBodyWeight(bodyWeight: BodyWeight) {
+        viewModelScope.launch {
+            repository.deleteBodyWeight(bodyWeight)
         }
     }
 }

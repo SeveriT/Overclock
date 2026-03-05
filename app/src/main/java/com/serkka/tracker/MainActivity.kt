@@ -26,8 +26,9 @@ class MainActivity : ComponentActivity() {
 
         // 1. Initialize the Database, DAO and Repository
         val database = WorkoutDatabase.getDatabase(applicationContext)
-        val dao = database.workoutDao()
-        val repository = WorkoutRepository(dao)
+        val workoutDao = database.workoutDao()
+        val bodyWeightDao = database.bodyWeightDao()
+        val repository = WorkoutRepository(workoutDao, bodyWeightDao)
 
         // 2. Initialize StravaViewModel immediately to handle intents
         stravaViewModel = ViewModelProvider(this)[StravaViewModel::class.java]
