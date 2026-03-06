@@ -20,4 +20,4 @@ val DarkBackground = Color(0xFF0A0A0A) // Deep black but not pure
 val SurfaceColor = Color(0xFF0F0F0F) // Slightly darker
 val WidgetColor = Color(0xFF0C0C0C) // Slightly darker
 val PersonalBestGold = Color(0xFFFFD700) // True Gold
-val PBGlow = Color(0x33FFD700)
+val PBGlow = Color(0x2FFFD700)
