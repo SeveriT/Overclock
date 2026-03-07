@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.serkka.tracker
 
 import android.app.Activity
@@ -65,7 +67,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
@@ -73,7 +77,7 @@ import java.util.*
 import kotlin.math.roundToInt
 
 enum class Screen {
-    Workouts, StravaCalendar, WeightTracking, WorkoutStats, Notes
+    Workouts, StravaCalendar, WeightTracking, WorkoutStats, Notes, Summary, Settings
 }
 
 private fun formatWeight(weight: Float): String {
@@ -81,6 +85,8 @@ private fun formatWeight(weight: Float): String {
     val rounded = (weight * 1000f).roundToInt() / 1000f
     return if (rounded % 1 == 0f) rounded.toInt().toString() else rounded.toString()
 }
+
+private fun String.LeadFloatOrNull(): Float? = this.replace(',', '.').toFloatOrNull()
 
 @Composable
 fun NumericInput(
@@ -110,7 +116,7 @@ fun NumericInput(
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 IconButton(
                     onClick = {
-                        val current = value.toFloatOrNull() ?: 0f
+                        val current = value.LeadFloatOrNull() ?: 0f
                         if (current >= step) {
                             val next = if (isInteger) (current.toInt() - step.toInt()).toFloat() else current - step
                             onValueChange(formatWeight(next))
@@ -126,7 +132,7 @@ fun NumericInput(
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 IconButton(
                     onClick = {
-                        val current = value.toFloatOrNull() ?: 0f
+                        val current = value.LeadFloatOrNull() ?: 0f
                         val next = if (isInteger) (current.toInt() + step.toInt()).toFloat() else current + step
                         onValueChange(formatWeight(next))
                     },
@@ -150,7 +156,7 @@ fun WorkoutScreen(
     val coroutineScope = rememberCoroutineScope()
     val backupManager = remember { BackupManager(context) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    var currentScreen by remember { mutableStateOf(Screen.Workouts) }
+    var currentScreen by remember { mutableStateOf(Screen.Summary) }
 
     val workouts by viewModel.allWorkouts.collectAsState()
     val bodyWeights by viewModel.allBodyWeights.collectAsState()
@@ -286,6 +292,26 @@ fun WorkoutScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
                 NavigationDrawerItem(
+                    label = { Text("Summary", modifier = Modifier.padding(start = 8.dp)) },
+                    icon = { Icon(Icons.Default.Dashboard, null) },
+                    selected = currentScreen == Screen.Summary,
+                    onClick = {
+                        currentScreen = Screen.Summary
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = primaryColor.copy(alpha = 0.1f),
+                        unselectedContainerColor = Color.Transparent,
+                        selectedIconColor = primaryColor,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedTextColor = primaryColor,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier
+                        .padding(NavigationDrawerItemDefaults.ItemPadding)
+                        .padding(vertical = 6.dp)
+                )
+                NavigationDrawerItem(
                     label = { Text("Workouts", modifier = Modifier.padding(start = 8.dp)) },
                     icon = { Icon(Icons.AutoMirrored.Filled.List, null) },
                     selected = currentScreen == Screen.Workouts,
@@ -393,76 +419,26 @@ fun WorkoutScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Text(
-                    text = "Accent Color (RGB)",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 36.dp, vertical = 8.dp)
-                )
-
-                Column(
+                NavigationDrawerItem(
+                    label = { Text("Settings", modifier = Modifier.padding(start = 8.dp)) },
+                    icon = { Icon(Icons.Default.Settings, null) },
+                    selected = currentScreen == Screen.Settings,
+                    onClick = {
+                        currentScreen = Screen.Settings
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = primaryColor.copy(alpha = 0.1f),
+                        unselectedContainerColor = Color.Transparent,
+                        selectedIconColor = primaryColor,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedTextColor = primaryColor,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
                     modifier = Modifier
-                        .padding(horizontal = 28.dp)
-                        .padding(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy((-8).dp)
-                ) {
-                    Slider(
-                        value = primaryColor.red,
-                        onValueChange = { themeViewModel.updatePrimaryColor(primaryColor.copy(red = it)) },
-                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor),
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = remember { MutableInteractionSource() },
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(4.dp),
-                                thumbTrackGapSize = 4.dp
-                            )
-                        }
-                    )
-
-                    Slider(
-                        value = primaryColor.green,
-                        onValueChange = { themeViewModel.updatePrimaryColor(primaryColor.copy(green = it)) },
-                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor),
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = remember { MutableInteractionSource() },
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(4.dp),
-                                thumbTrackGapSize = 4.dp
-                            )
-                        }
-                    )
-
-                    Slider(
-                        value = primaryColor.blue,
-                        onValueChange = { themeViewModel.updatePrimaryColor(primaryColor.copy(blue = it)) },
-                        colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor),
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = remember { MutableInteractionSource() },
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(4.dp),
-                                thumbTrackGapSize = 4.dp
-                            )
-                        }
-                    )
-                }
+                        .padding(NavigationDrawerItemDefaults.ItemPadding)
+                        .padding(vertical = 6.dp)
+                )
             }
         }
     ) {
@@ -477,6 +453,8 @@ fun WorkoutScreen(
                                 Screen.WeightTracking -> "Weight Tracking"
                                 Screen.WorkoutStats -> "Workout Stats"
                                 Screen.Notes -> "Notes"
+                                Screen.Summary -> "Weekly Summary"
+                                Screen.Settings -> "Settings"
                             }
                         )
                     },
@@ -486,28 +464,7 @@ fun WorkoutScreen(
                         }
                     },
                     actions = {
-                        if (currentScreen == Screen.Workouts || currentScreen == Screen.Notes) {
-                            IconButton(onClick = performDriveBackup) {
-                                Icon(Icons.Default.CloudUpload, "Drive Backup", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            IconButton(onClick = { backupLauncher.launch("workout_backup.db") }) {
-                                Icon(Icons.Default.Save, "Local Backup", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            IconButton(onClick = { restoreLauncher.launch(arrayOf("*/*")) }) {
-                                Icon(Icons.Default.SettingsBackupRestore, "Restore", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            IconButton(onClick = {
-                                googleSignInClient.signOut().addOnCompleteListener {
-                                    Toast.makeText(context, "Google signed out", Toast.LENGTH_SHORT).show()
-                                }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                                    contentDescription = "Google Logout",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
+                        // Buttons moved to Data Management page
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
@@ -522,7 +479,7 @@ fun WorkoutScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = if (currentScreen == Screen.Workouts || currentScreen == Screen.WeightTracking || currentScreen == Screen.Notes) 28.dp else 16.dp),
+                        .padding(horizontal = if (currentScreen == Screen.Workouts || currentScreen == Screen.WeightTracking || currentScreen == Screen.Notes || currentScreen == Screen.Summary) 28.dp else 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (currentSong.title != null) {
@@ -534,7 +491,7 @@ fun WorkoutScreen(
                             modifier = Modifier
                                 .height(56.dp)
                                 .weight(1f)
-                                .padding(end = if (currentScreen == Screen.Workouts || currentScreen == Screen.WeightTracking || currentScreen == Screen.Notes) 16.dp else 0.dp)
+                                .padding(end = if (currentScreen == Screen.Workouts || currentScreen == Screen.WeightTracking || currentScreen == Screen.Notes || currentScreen == Screen.Summary) 16.dp else 0.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -594,7 +551,7 @@ fun WorkoutScreen(
                         Spacer(modifier = Modifier.weight(1f))
                     }
 
-                    if (currentScreen == Screen.Workouts) {
+                    if (currentScreen == Screen.Workouts || currentScreen == Screen.Summary) {
                         FloatingActionButton(
                             onClick = { showAddWorkoutDialog = true },
                             containerColor = primaryColor,
@@ -668,6 +625,30 @@ fun WorkoutScreen(
                                 primaryColor = primaryColor,
                                 onNoteClick = { editingNote = it },
                                 onNoteDelete = { noteToDelete = it }
+                            )
+                        }
+                        Screen.Summary -> {
+                            SummaryPage(
+                                workouts = workouts,
+                                bodyWeights = bodyWeights,
+                                stravaViewModel = stravaViewModel,
+                                primaryColor = primaryColor,
+                                onWorkoutEdit = { editingWorkout = it },
+                                onWorkoutDelete = { workoutToDelete = it },
+                                onWorkoutCopy = { copyingWorkout = it }
+                            )
+                        }
+                        Screen.Settings -> {
+                            SettingsPage(
+                                primaryColor = primaryColor,
+                                themeViewModel = themeViewModel,
+                                stravaViewModel = stravaViewModel,
+                                viewModel = viewModel,
+                                performDriveBackup = performDriveBackup,
+                                backupLauncher = backupLauncher,
+                                restoreLauncher = restoreLauncher,
+                                googleSignInClient = googleSignInClient,
+                                context = context
                             )
                         }
                     }
@@ -843,6 +824,273 @@ fun WorkoutScreen(
 }
 
 @Composable
+fun SummaryPage(
+    workouts: List<Workout>,
+    bodyWeights: List<BodyWeight>,
+    stravaViewModel: StravaViewModel,
+    primaryColor: Color,
+    onWorkoutEdit: (Workout) -> Unit,
+    onWorkoutDelete: (Workout) -> Unit,
+    onWorkoutCopy: (Workout) -> Unit
+) {
+    val activities by stravaViewModel.activities.collectAsState()
+    val isLoading by stravaViewModel.isLoading.collectAsState()
+
+    val lastActivity = remember(activities) { activities.firstOrNull() }
+    val lastWeight = remember(bodyWeights) { bodyWeights.maxByOrNull { it.date } }
+
+    val activityData = remember(activities) { stravaViewModel.getActivityData() }
+
+    val today = LocalDate.now()
+    val todaysWorkouts = remember(workouts) {
+        workouts.filter {
+            val date = Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            date.isEqual(today)
+        }
+    }
+
+//
+//    val weeklyStreak = remember(workouts, activityData, today) {
+//        Log.d("WeeklyStreak", "Recalculating weeklyStreak with ${workouts.size} workouts")
+//        val startDate = today.minusDays(6)
+//        (0..6).map { i ->
+//            val date = startDate.plusDays(i.toLong())
+//            val hasWorkout = workouts.any { workout ->
+//                val workoutDate = Instant.ofEpochMilli(workout.date).atZone(ZoneId.systemDefault()).toLocalDate()
+//                if (date == today) {
+//                    Log.d("WeeklyStreak", "Checking workout - workoutDate: $workoutDate, comparing to: $date, match: ${workoutDate == date}")
+//                }
+//                workoutDate == date
+//            }
+//            val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
+//            val hasStrava = activityData.containsKey(dateString)
+//            val active = hasWorkout || hasStrava
+//
+//            if (date == today) {
+//                Log.d("WeeklyStreak", "Today - hasWorkout: $hasWorkout, hasStrava: $hasStrava, active: $active")
+//            }
+//
+//            date to active
+//        }
+//    }
+//
+
+    val weeklyStreak = remember(activityData, today) {
+        val startDate = today.minusDays(6)
+        (0..6).map { i ->
+            val date = startDate.plusDays(i.toLong())
+            val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
+            val hasStrava = activityData.containsKey(dateString)
+            date to hasStrava
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        stravaViewModel.checkAndFetchActivities()
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        weeklyStreak.forEach { (date, active) ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(1),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(
+                                            color = if (active && date == today) primaryColor
+                                            else if (active) primaryColor
+                                            else if (date == today) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                            shape = CircleShape
+                                        )
+                                        .border(
+                                            width = 2.dp,
+                                            color = if (date == today) Color.White
+                                            else Color.Transparent,
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (active) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color.Black
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (lastWeight != null) {
+            item {
+                Text(
+                    "Latest Weight",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "${formatWeight(lastWeight.weight)} kg",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                        Text(
+                            text = SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault()).format(Date(lastWeight.date)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "Last Strava Activity",
+                style = MaterialTheme.typography.titleMedium,
+                color = primaryColor,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (isLoading && activities.isEmpty()) {
+            item {
+                Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = primaryColor)
+                }
+            }
+        } else if (lastActivity != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(primaryColor.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                getIconForActivity(lastActivity.type),
+                                contentDescription = null,
+                                tint = primaryColor,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = lastActivity.name,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${lastActivity.type} • ${String.format(Locale.getDefault(), "%.2f", lastActivity.distance / 1000f)} km • ${lastActivity.movingTime / 60} min",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = lastActivity.startDate.substringBefore("T"),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            item {
+                Text(
+                    "No Strava activities found. Link your account in the Strava Calendar page.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Today's Exercises",
+                style = MaterialTheme.typography.titleMedium,
+                color = primaryColor,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (todaysWorkouts.isEmpty()) {
+            item {
+                Text(
+                    "No exercises recorded for today yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            items(todaysWorkouts) { workout ->
+                WorkoutCard(
+                    workout = workout,
+                    primaryColor = primaryColor,
+                    onEdit = { onWorkoutEdit(workout) },
+                    onDelete = { onWorkoutDelete(workout) },
+                    onCopy = { onWorkoutCopy(workout) }
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
 fun WorkoutCard(
     workout: Workout,
     primaryColor: Color,
@@ -945,8 +1193,6 @@ fun WorkoutCard(
         }
     }
 }
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1131,14 +1377,13 @@ fun WorkoutDialog(
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Button(onClick = {
-                    onConfirm(exercise, sets.toIntOrNull() ?: 0, reps.toIntOrNull() ?: 0, weight.toFloatOrNull() ?: 0f, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), isPB, weightUnit, notes)
+                    onConfirm(exercise, sets.toIntOrNull() ?: 0, reps.toIntOrNull() ?: 0, weight.LeadFloatOrNull() ?: 0f, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), isPB, weightUnit, notes)
                 }) { Text("Save") }
             }
         },
         dismissButton = null
     )
 }
-
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1201,7 +1446,6 @@ private fun getIconForActivity(type: String): ImageVector {
     }
 }
 
-
 @Composable
 fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color) {
     val context = LocalContext.current
@@ -1214,9 +1458,11 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color) {
     val streak = remember(activities) { stravaViewModel.getWeeklyStreak() }
     val totalStreakActivities = remember(activities) { stravaViewModel.getTotalStreakActivities() }
 
-    LaunchedEffect(Unit) {
-        stravaViewModel.checkAndFetchActivities()
-    }
+//
+//    LaunchedEffect(Unit) {
+//        stravaViewModel.checkAndFetchActivities()
+//    }
+//
 
     LaunchedEffect(error) {
         error?.let {
@@ -1552,7 +1798,6 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
     }
 }
 
-
 @Composable
 fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color) {
     val workoutStats = remember(workouts) {
@@ -1670,7 +1915,6 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color) {
         }
     }
 }
-
 
 @Composable
 fun WeightTrackingPage(
@@ -1842,7 +2086,6 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
                 alpha = animationProgress.value
             )
 
-            // Draw gradient fill with animation
             val fillPath = Path().apply {
                 addPath(path)
                 lineTo(width, height)
@@ -1921,7 +2164,7 @@ fun BodyWeightDialog(
         },
         confirmButton = {
             Button(onClick = {
-                val w = weight.toFloatOrNull() ?: 0f
+                val w = weight.LeadFloatOrNull() ?: 0f
                 if (w > 0) {
                     onConfirm(w, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), notes)
                 }
@@ -1930,8 +2173,6 @@ fun BodyWeightDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
-
-
 
 @Composable
 fun NotesPage(
@@ -1949,7 +2190,7 @@ fun NotesPage(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .padding(bottom = 16.dp)
                         .animateItem()
                         .clickable { onNoteClick(note) },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -2083,4 +2324,451 @@ fun NoteDialog(
         },
         dismissButton = null
     )
+}
+
+
+@Composable
+fun SettingsPage(
+    primaryColor: Color,
+    themeViewModel: ThemeViewModel,
+    stravaViewModel: StravaViewModel,
+    viewModel: WorkoutViewModel,
+    performDriveBackup: () -> Unit,
+    backupLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    restoreLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+    googleSignInClient: com.google.android.gms.auth.api.signin.GoogleSignInClient,
+    context: android.content.Context
+) {
+    val workouts by viewModel.allWorkouts.collectAsState()
+    val bodyWeights by viewModel.allBodyWeights.collectAsState()
+    val notesList by viewModel.allNotes.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text(
+                "Appearance",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Accent Color (RGB)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy((-8).dp)) {
+                        Slider(
+                            value = primaryColor.red,
+                            onValueChange = {
+                                themeViewModel.updatePrimaryColor(
+                                    primaryColor.copy(
+                                        red = it
+                                    )
+                                )
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor
+                            ),
+                            thumb = {
+                                SliderDefaults.Thumb(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(4.dp),
+                                    thumbTrackGapSize = 4.dp
+                                )
+                            }
+                        )
+
+                        Slider(
+                            value = primaryColor.green,
+                            onValueChange = {
+                                themeViewModel.updatePrimaryColor(
+                                    primaryColor.copy(
+                                        green = it
+                                    )
+                                )
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor
+                            ),
+                            thumb = {
+                                SliderDefaults.Thumb(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(4.dp),
+                                    thumbTrackGapSize = 4.dp
+                                )
+                            }
+                        )
+
+                        Slider(
+                            value = primaryColor.blue,
+                            onValueChange = {
+                                themeViewModel.updatePrimaryColor(
+                                    primaryColor.copy(
+                                        blue = it
+                                    )
+                                )
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = primaryColor,
+                                activeTrackColor = primaryColor
+                            ),
+                            thumb = {
+                                SliderDefaults.Thumb(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    sliderState = sliderState,
+                                    modifier = Modifier.height(4.dp),
+                                    thumbTrackGapSize = 4.dp
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Data Backup & Restore",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // First Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = performDriveBackup,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudUpload,
+                                    contentDescription = "Drive Backup",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Drive Backup",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { backupLauncher.launch("workout_backup.db") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = "Local Backup",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Local Backup",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+                    }
+
+                    // Second Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = { restoreLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SettingsBackupRestore,
+                                    contentDescription = "Restore",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Restore Data",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                googleSignInClient.signOut().addOnCompleteListener {
+                                    Toast.makeText(
+                                        context,
+                                        "Google signed out",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = "Google Logout",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    "Google Sign Out",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+                    }
+
+                    // Third Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                stravaViewModel.logout()
+                                Toast.makeText(
+                                    context,
+                                    "Strava signed out",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DirectionsRun,
+                                    contentDescription = "Strava Logout",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Strava Sign Out",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                showDeleteConfirmDialog = true
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.Red
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteForever,
+                                    contentDescription = "Clear All",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    "Clear All Data",
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Left
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Delete All Data?",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "This will permanently delete:\n\n" +
+                            "• All workouts\n" +
+                            "• All body weight entries\n" +
+                            "• All notes\n\n" +
+                            "This action cannot be undone!",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                // Delete all data
+                                workouts.forEach { viewModel.deleteWorkout(it) }
+                                bodyWeights.forEach { viewModel.deleteBodyWeight(it) }
+                                notesList.forEach { viewModel.deleteNote(it) }
+
+                                showDeleteConfirmDialog = false
+                                Toast.makeText(
+                                    context,
+                                    "All data deleted successfully",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "Error deleting data: ${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete All", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
