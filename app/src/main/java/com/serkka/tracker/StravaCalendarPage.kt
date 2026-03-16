@@ -87,12 +87,12 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, to
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
-                            val authUri = "https://www.strava.com/oauth/mobile/authorize".toUri()
+                            val authUri = "https://www.strava.com/oauth/authorize".toUri()
                                 .buildUpon()
                                 .appendQueryParameter("client_id", STRAVA_CLIENT_ID)
                                 .appendQueryParameter("redirect_uri", "tracker-app://localhost")
                                 .appendQueryParameter("response_type", "code")
-                                .appendQueryParameter("approval_prompt", "force")
+                                .appendQueryParameter("approval_prompt", "auto")
                                 .appendQueryParameter("scope", "activity:read_all,activity:write,profile:read_all")
                                 .build()
                             context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
