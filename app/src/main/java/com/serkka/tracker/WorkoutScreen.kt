@@ -679,9 +679,6 @@ fun WorkoutScreen(
                                             modifier = Modifier
                                                 .size(44.dp)
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .graphicsLayer {
-                                                    translationX = dragX * 0.01f
-                                                }
                                         )
                                         Spacer(Modifier.width(4.dp))
                                     }
