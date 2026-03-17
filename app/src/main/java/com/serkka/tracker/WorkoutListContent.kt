@@ -51,69 +51,72 @@ fun WorkoutListContent(
     onEdit: (Workout) -> Unit,
     onCopy: (Workout) -> Unit,
     listState: LazyListState = rememberLazyListState(),
-    topPadding: Dp = 0.dp
+    topPadding: Dp = 0.dp,
+    searchBar: (@Composable () -> Unit)? = null
 ) {
     val groupedWorkouts = workouts.groupBy {
         SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault()).format(Date(it.date))
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = topPadding),
-        contentPadding = PaddingValues(bottom = 170.dp)
-    ) {
-        groupedWorkouts.forEach { (date, workoutsInDay) ->
-            stickyHeader {
-                val bgColor = MaterialTheme.colorScheme.background
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to bgColor,
-                                    0.5f to bgColor,
-                                    1.0f to Color.Transparent
-                                )
-                            )
-                        ),
-                    color = Color.Transparent
-                ) {
-                    Text(
-                        text = date,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+    Column(modifier = Modifier.fillMaxSize().padding(top = topPadding)) {
+        searchBar?.invoke()
 
-            items(workoutsInDay.chunked(2), key = { pair -> pair.first().id }) { workoutPair ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    workoutPair.forEach { workout ->
-                        WorkoutCard(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .animateContentSize()
-                                .animateItem(),
-                            workout = workout,
-                            primaryColor = primaryColor,
-                            onDelete = { onDelete(workout) },
-                            onEdit = { onEdit(workout) },
-                            onCopy = { onCopy(workout) }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 170.dp)
+        ) {
+            groupedWorkouts.forEach { (date, workoutsInDay) ->
+                stickyHeader {
+                    val bgColor = MaterialTheme.colorScheme.background
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to bgColor,
+                                        0.5f to bgColor,
+                                        1.0f to Color.Transparent
+                                    )
+                                )
+                            ),
+                        color = Color.Transparent
+                    ) {
+                        Text(
+                            text = date,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    if (workoutPair.size == 1) Spacer(Modifier.weight(1f))
+                }
+
+                items(workoutsInDay.chunked(2), key = { pair -> pair.first().id }) { workoutPair ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        workoutPair.forEach { workout ->
+                            WorkoutCard(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .animateContentSize()
+                                    .animateItem(),
+                                workout = workout,
+                                primaryColor = primaryColor,
+                                onDelete = { onDelete(workout) },
+                                onEdit = { onEdit(workout) },
+                                onCopy = { onCopy(workout) }
+                            )
+                        }
+                        if (workoutPair.size == 1) Spacer(Modifier.weight(1f))
+                    }
                 }
             }
         }
