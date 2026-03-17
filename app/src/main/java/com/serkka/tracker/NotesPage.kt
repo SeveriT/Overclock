@@ -213,6 +213,9 @@ fun NoteDialog(
                             onConfirm(title, content, datePickerState.selectedDateMillis ?: System.currentTimeMillis())
                         }
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
                     interactionSource = saveInteractionSource,
                     modifier = Modifier.bounceClick(saveInteractionSource)
                 ) { Text("Save") }

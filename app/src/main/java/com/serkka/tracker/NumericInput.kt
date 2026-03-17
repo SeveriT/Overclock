@@ -3,6 +3,8 @@
 package com.serkka.tracker
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -24,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -41,13 +45,20 @@ fun NumericInput(
 
     OutlinedTextField(
         value = value,
-        onValueChange = { newValue ->
+        onValueChange = { newValue: String ->
             if (!isInteger || (!newValue.contains(".") && !newValue.contains(","))) {
                 onValueChange(newValue)
             }
         },
-        label = {
-            Text(text = label, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+        placeholder = {  // <-- replace label with placeholder
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         modifier = modifier,
         keyboardOptions = KeyboardOptions(
@@ -59,7 +70,10 @@ fun NumericInput(
             onDone = { onNext?.invoke() }
         ),
         singleLine = true,
-        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 14.sp),
+        textStyle = LocalTextStyle.current.copy(
+            textAlign = TextAlign.Center,
+            fontSize = 14.sp
+        ),
         leadingIcon = {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 val subInteractionSource = remember { MutableInteractionSource() }
@@ -73,9 +87,13 @@ fun NumericInput(
                         }
                     },
                     interactionSource = subInteractionSource,
-                    modifier = Modifier.size(24.dp).bounceClick(subInteractionSource)
+                    modifier = Modifier.size(28.dp).bounceClick(subInteractionSource)
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Decrease",
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         },
@@ -90,9 +108,13 @@ fun NumericInput(
                         onValueChange(formatWeight(next))
                     },
                     interactionSource = addInteractionSource,
-                    modifier = Modifier.size(24.dp).bounceClick(addInteractionSource)
+                    modifier = Modifier.size(28.dp).bounceClick(addInteractionSource)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Increase",
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }

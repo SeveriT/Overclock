@@ -500,6 +500,9 @@ fun BodyWeightDialog(
                         val w = weight.toLeadFloat() ?: 0f
                         if (w > 0) onConfirm(w, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), notes)
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
                     interactionSource = saveInteractionSource,
                     modifier = Modifier.bounceClick(saveInteractionSource)
                 ) { Text("Save") }
