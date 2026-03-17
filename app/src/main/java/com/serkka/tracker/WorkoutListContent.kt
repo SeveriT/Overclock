@@ -476,6 +476,9 @@ fun WorkoutDialog(
                                 notes
                             )
                         },
+                        colors = ButtonDefaults.buttonColors(
+                            contentColor = MaterialTheme.colorScheme.surface,
+                        ),
                         interactionSource = saveInteractionSource,
                         modifier = Modifier.bounceClick(saveInteractionSource)
                     ) { Text("Save") }

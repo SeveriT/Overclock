@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.sp
 object TrackerColors {
     // Backgrounds
     val Background        = Color(0xFF050505)   // deepest dark
-    val Surface           = Color(0xFF0A0A0A)   // slightly lifted
-    val SurfaceContainer  = Color(0xFF0F0F0F)   // card surface
-    val SurfaceBright     = Color(0xFF0F0F0F)   // hover / pressed
+    val Surface           = Color(0xFF0F0F0F)   // slightly lifted
+    val SurfaceContainer  = Color(0xFF141414)   // card surface
+    val SurfaceBright     = Color(0xFF191919)   // hover / pressed
 
     // Primaries
     val Purple            = Color(0xFF8766EB)   // primary brand purple

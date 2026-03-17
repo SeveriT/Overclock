@@ -52,6 +52,10 @@ import androidx.navigation.compose.rememberNavController
 import com.serkka.tracker.ui.theme.DarkSurfaceColor
 import kotlinx.coroutines.launch
 import kotlin.math.sin
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.clipToBounds
 
 
 @Composable
@@ -276,12 +280,12 @@ fun WorkoutScreen(
         Scaffold(
             topBar = {},
             bottomBar = {},
-        ) { _ ->
+        ) { innerPadding ->
             val topBarBaseHeight = 55.dp
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             val swipeScreens = listOf(
                 Screen.WorkoutTimer.name,
                 Screen.Workouts.name,
@@ -626,7 +630,9 @@ fun WorkoutScreen(
             ) {
                 if (hasMusicWidget) {
                     val musicInteractionSource = remember { MutableInteractionSource() }
-                    var dragX by remember { mutableFloatStateOf(0f) }
+                    val dragX = remember { Animatable(0f) }
+                    var swipeDirection by remember { mutableIntStateOf(1) }
+                    var swipeConfirmed by remember { mutableIntStateOf(0) }
 
                     Box(
                         modifier = Modifier
@@ -634,18 +640,24 @@ fun WorkoutScreen(
                             .padding(top = if (isFabVisible && currentRoute in fabScreens) 80.dp else 0.dp)
                             .pointerInput(Unit) {
                                 detectHorizontalDragGestures(
-                                    onDragStart = { dragX = 0f },
+                                    onDragStart = { coroutineScope.launch { dragX.snapTo(0f) } },
                                     onDragEnd = {
-                                        if (dragX < -100f) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (dragX.value < -100f) {
+                                            swipeDirection = 1
+                                            swipeConfirmed++
                                             MediaRepository.getInstance().nextTrack()
-                                        } else if (dragX > 100f) {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        } else if (dragX.value > 100f) {
+                                            swipeDirection = -1
+                                            swipeConfirmed++
                                             MediaRepository.getInstance().previousTrack()
                                         }
-                                        dragX = 0f
+                                        coroutineScope.launch {
+                                            dragX.animateTo(0f, tween(150, easing = FastOutSlowInEasing))
+                                        }
                                     },
-                                    onHorizontalDrag = { _, delta -> dragX += delta }
+                                    onHorizontalDrag = { _, delta ->
+                                        coroutineScope.launch { dragX.snapTo(dragX.value + delta) }
+                                    }
                                 )
                             }
                     ) {
@@ -666,43 +678,134 @@ fun WorkoutScreen(
                                     onClick = { MediaRepository.getInstance().openApp() }
                                 )
                         ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
+                            // clipToBounds on the Column so sliding text is clipped at the
+                            // widget boundary — text can freely travel the full widget width
+                            Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(64.dp)
+                                        .padding(horizontal = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    currentSong.albumArt?.let { bitmap ->
-                                        androidx.compose.foundation.Image(
-                                            bitmap = bitmap.asImageBitmap(),
-                                            contentDescription = "Album art",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .size(44.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                        )
+                                    val songKey = "${currentSong.title}|${currentSong.artist}"
+
+                                    // Cache: only store non-null bitmaps, never overwrite with null
+                                    val artCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
+                                    currentSong.albumArt?.let { artCache[songKey] = it }
+                                    if (artCache.size > 3) {
+                                        artCache.keys.firstOrNull { it != songKey }?.let { artCache.remove(it) }
+                                    }
+
+                                    // Gate: only advance once the new bitmap has arrived so neither
+                                    // art nor text flash blank while Spotify sends metadata in stages
+                                    var displayedKey by remember { mutableStateOf(songKey) }
+                                    LaunchedEffect(songKey, currentSong.albumArt) {
+                                        if (currentSong.albumArt != null) displayedKey = songKey
+                                    }
+
+                                    // Album art: slow crossfade keyed on displayedKey
+                                    if (artCache.isNotEmpty()) {
+                                        AnimatedContent(
+                                            targetState = displayedKey,
+                                            transitionSpec = {
+                                                fadeIn(tween(600)) togetherWith fadeOut(tween(600))
+                                            },
+                                            label = "AlbumArt"
+                                        ) { key ->
+                                            artCache[key]?.let { bitmap ->
+                                                androidx.compose.foundation.Image(
+                                                    bitmap = bitmap.asImageBitmap(),
+                                                    contentDescription = "Album art",
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier
+                                                        .size(44.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                )
+                                            }
+                                        }
                                         Spacer(Modifier.width(4.dp))
                                     }
 
-                                    Column(
-                                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp)
-                                            .graphicsLayer {
-                                                translationX = dragX * 0.4f
-                                                alpha = (1f - (kotlin.math.abs(dragX) / 300f)).coerceIn(0f, 1f)
-                                            }
+                                    val outOffset = remember { Animatable(0f) }
+                                    val outAlpha  = remember { Animatable(1f) }
+                                    val inOffset  = remember { Animatable(0f) }
+                                    val inAlpha   = remember { Animatable(1f) }
+
+                                    var outTitle  by remember { mutableStateOf(currentSong.title  ?: "") }
+                                    var outArtist by remember { mutableStateOf(currentSong.artist ?: "") }
+                                    var inTitle   by remember { mutableStateOf(currentSong.title  ?: "") }
+                                    var inArtist  by remember { mutableStateOf(currentSong.artist ?: "") }
+
+                                    // Step 1: finger lifts — snapshot current text into outgoing layer,
+                                    // hide incoming layer immediately so old text never shows in both
+                                    LaunchedEffect(swipeConfirmed) {
+                                        if (swipeConfirmed == 0) return@LaunchedEffect
+                                        val d = swipeDirection
+                                        outTitle  = inTitle
+                                        outArtist = inArtist
+                                        outOffset.snapTo(0f)
+                                        outAlpha.snapTo(1f)
+                                        inAlpha.snapTo(0f)   // hide incoming until new song text is ready
+                                        inOffset.snapTo(800f * d)
+                                        launch { outOffset.animateTo(-600f * d, tween(100, easing = FastOutLinearInEasing)) }
+                                        launch { outAlpha.animateTo(0f, tween(100)) }
+                                    }
+
+                                    // Step 2: new song confirmed — update incoming text and slide it in
+                                    LaunchedEffect(displayedKey) {
+                                        val d = swipeDirection
+                                        inTitle  = currentSong.title  ?: ""
+                                        inArtist = currentSong.artist ?: ""
+                                        inOffset.snapTo(800f * d)
+                                        inAlpha.snapTo(1f)
+                                        inOffset.animateTo(0f, tween(100, easing = FastOutSlowInEasing))
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(horizontal = 10.dp)
+                                            .graphicsLayer { translationX = dragX.value * 0.4f }
                                     ) {
-                                        Text(
-                                            text = currentSong.title ?: "",
-                                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text(
-                                            text = currentSong.artist ?: "",
-                                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        // Outgoing layer
+                                        Column(modifier = Modifier.graphicsLayer {
+                                            translationX = outOffset.value
+                                            alpha = outAlpha.value
+                                        }) {
+                                            Text(
+                                                text = outTitle,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = outArtist,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        // Incoming layer
+                                        Column(modifier = Modifier.graphicsLayer {
+                                            translationX = inOffset.value
+                                            alpha = inAlpha.value
+                                        }) {
+                                            Text(
+                                                text = inTitle,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = inArtist,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
 
                                     val playInteractionSource = remember { MutableInteractionSource() }
