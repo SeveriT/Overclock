@@ -26,8 +26,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.1.5"
+        versionCode = 6
+        versionName = "1.2.0"
 
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaSecret\"")
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")

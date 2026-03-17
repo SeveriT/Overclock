@@ -188,6 +188,7 @@ fun WorkoutScreen(
     var showAddWorkoutDialog by remember { mutableStateOf(false) }
     var showAddWeightDialog  by remember { mutableStateOf(false) }
     var showAddNoteDialog    by remember { mutableStateOf(false) }
+    var searchQuery          by remember { mutableStateOf("") }
     var editingWorkout       by remember { mutableStateOf<Workout?>(null) }
     var copyingWorkout       by remember { mutableStateOf<Workout?>(null) }
     var editingWeight        by remember { mutableStateOf<BodyWeight?>(null) }
@@ -202,7 +203,10 @@ fun WorkoutScreen(
     val primaryColor   by themeViewModel.primaryColor.collectAsState()
 
     fun navigate(route: String) = navController.navigate(route) {
-        popUpTo(Screen.Summary.name) { saveState = true }
+        popUpTo(navController.graph.startDestinationId) {
+            saveState = true
+            inclusive = false
+        }
         launchSingleTop = true
         restoreState = true
     }
@@ -280,6 +284,7 @@ fun WorkoutScreen(
         Scaffold(
             topBar = {},
             bottomBar = {},
+            contentWindowInsets = WindowInsets(0)
         ) { innerPadding ->
             val topBarBaseHeight = 55.dp
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
@@ -343,14 +348,47 @@ fun WorkoutScreen(
                 }
                 composable(Screen.Workouts.name) {
                     ElasticColumnWrapper {
+                        val filteredWorkouts = remember(workouts, searchQuery) {
+                            if (searchQuery.isBlank()) workouts
+                            else workouts.filter {
+                                it.exerciseName.contains(searchQuery, ignoreCase = true)
+                            }
+                        }
                         WorkoutListContent(
-                            workouts = workouts,
+                            workouts = filteredWorkouts,
                             primaryColor = primaryColor,
                             onDelete  = { workoutToDelete = it },
                             onEdit    = { editingWorkout = it },
                             onCopy    = { copyingWorkout = it },
                             listState = workoutsListState,
-                            topPadding = totalTopPadding
+                            topPadding = totalTopPadding,
+                            searchBar = {
+                                OutlinedTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    placeholder = { Text("Search workouts…") },
+                                    singleLine = true,
+                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                    trailingIcon = {
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(onClick = { searchQuery = "" }) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                            }
+                                        }
+                                    },
+                                    shape = MaterialTheme.shapes.large,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = primaryColor,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .padding(bottom = 8.dp)
+                                )
+                            }
                         )
                     }
                 }
