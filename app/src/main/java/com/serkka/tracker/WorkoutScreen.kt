@@ -203,12 +203,8 @@ fun WorkoutScreen(
     val primaryColor   by themeViewModel.primaryColor.collectAsState()
 
     fun navigate(route: String) = navController.navigate(route) {
-        popUpTo(navController.graph.startDestinationId) {
-            saveState = true
-            inclusive = false
-        }
+        popUpTo(navController.graph.startDestinationId) { inclusive = false }
         launchSingleTop = true
-        restoreState = true
     }
 
     val navBarColors = NavigationBarItemDefaults.colors(

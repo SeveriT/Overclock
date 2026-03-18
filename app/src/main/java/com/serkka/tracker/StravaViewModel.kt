@@ -215,9 +215,6 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                     return@launch
                 }
 
-                // Publish summary immediately
-                _activities.value = response
-
                 // Fetch full details only for the most recent activities
                 val detailedActivities = response
                     .take(DETAIL_FETCH_LIMIT)
