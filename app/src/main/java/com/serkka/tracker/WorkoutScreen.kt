@@ -833,7 +833,7 @@ fun WorkoutScreen(
                                     }
 
                                     val outOffset = remember { Animatable(0f) }
-                                    val outAlpha  = remember { Animatable(1f) }
+                                    val outAlpha  = remember { Animatable(0f) }
                                     val inOffset  = remember { Animatable(0f) }
                                     val inAlpha   = remember { Animatable(1f) }
 
