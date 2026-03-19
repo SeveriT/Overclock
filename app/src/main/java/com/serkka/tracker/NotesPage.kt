@@ -71,8 +71,7 @@ fun NotesPage(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault())
-                                    .format(Date(note.date)),
+                                text = formatDate(note.date),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(bottom = 4.dp)
@@ -99,10 +98,9 @@ fun NotesPage(
             }
         } else {
             item {
-                Text(
-                    text = "Start taking notes to keep track of your progress!",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                EmptyState(
+                    icon = Icons.Default.StickyNote2,
+                    message = "No notes yet.\nTap + to start tracking your progress."
                 )
             }
         }
@@ -164,8 +162,7 @@ fun NoteDialog(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
                 OutlinedTextField(
-                    value = SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault())
-                        .format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    value = formatDate(datePickerState.selectedDateMillis ?: System.currentTimeMillis()),
                     onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,

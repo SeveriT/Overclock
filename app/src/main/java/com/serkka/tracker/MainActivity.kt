@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
@@ -36,12 +37,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // 1. Initialize the Database, DAO and Repository
         val database = WorkoutDatabase.getDatabase(applicationContext)
         val workoutDao = database.workoutDao()
         val bodyWeightDao = database.bodyWeightDao()
-        val repository = WorkoutRepository(workoutDao, bodyWeightDao)
+        val workoutSessionDao = database.workoutSessionDao()
+        val repository = WorkoutRepository(workoutDao, bodyWeightDao, workoutSessionDao)
 
         // 2. Initialize StravaViewModel immediately to handle intents
         stravaViewModel = ViewModelProvider(this)[StravaViewModel::class.java]

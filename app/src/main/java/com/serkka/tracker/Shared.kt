@@ -17,6 +17,12 @@ import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Waves
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,10 +44,11 @@ import kotlin.math.roundToInt
 enum class Screen(val title: String) {
     Summary("Weekly Summary"),
     Workouts("Workouts"),
-    StravaCalendar("Strava Calendar"),
+    StravaCalendar("Calendar"),
     WeightTracking("Weight Tracking"),
     WorkoutStats("Workout Stats"),
     Notes("Notes"),
+    Sessions("Sessions"),
     Settings("Settings"),
     WorkoutTimer("Workout Timer")
 }
@@ -50,6 +57,26 @@ enum class Screen(val title: String) {
 
 internal val STRAVA_CLIENT_ID = BuildConfig.STRAVA_CLIENT_ID
 internal val STRAVA_CLIENT_SECRET = BuildConfig.STRAVA_CLIENT_SECRET
+
+// ── Date & time formatting ────────────────────────────────────────────────────
+
+private val fullDateFormat = java.text.SimpleDateFormat("EEEE d.M.yyyy", java.util.Locale.getDefault())
+private val shortDateFormat = java.text.SimpleDateFormat("EEEE d.M.yy", java.util.Locale.getDefault())
+private val backupDateFormat = java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.getDefault())
+private val chartDateFormat = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault())
+
+internal fun formatDate(epochMs: Long): String = fullDateFormat.format(java.util.Date(epochMs))
+internal fun formatDateShort(epochMs: Long): String = shortDateFormat.format(java.util.Date(epochMs))
+internal fun formatBackupDate(epochMs: Long): String = backupDateFormat.format(java.util.Date(epochMs))
+internal fun formatChartDate(epochMs: Long): String = chartDateFormat.format(java.util.Date(epochMs))
+
+internal fun formatElapsed(totalSeconds: Long): String {
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
+           else       String.format("%02d:%02d", m, s)
+}
 
 // ── Number formatting ─────────────────────────────────────────────────────────
 
@@ -136,4 +163,32 @@ internal fun ConfirmDeleteDialog(
             ) { Text("Cancel") }
         }
     )
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+
+@Composable
+internal fun EmptyState(
+    icon: ImageVector,
+    message: String,
+    primaryColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = primaryColor.copy(alpha = 0.5f),
+            modifier = Modifier.size(48.dp)
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
 }

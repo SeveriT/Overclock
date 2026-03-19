@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class ThemeViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = application.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+    private val prefs = PreferencesManager.getInstance(application).theme
     
     // Default color is now White (0xFFFFFFFF)
     private val _primaryColor = MutableStateFlow(Color(prefs.getInt("primary_color", Color.White.toArgb())))

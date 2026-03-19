@@ -2,7 +2,11 @@ package com.serkka.tracker
 
 import kotlinx.coroutines.flow.Flow
 
-class WorkoutRepository(private val workoutDao: WorkoutDao, private val bodyWeightDao: BodyWeightDao) {
+class WorkoutRepository(
+    private val workoutDao: WorkoutDao,
+    private val bodyWeightDao: BodyWeightDao,
+    private val workoutSessionDao: WorkoutSessionDao
+) {
 
     fun getAllWorkouts(): Flow<List<Workout>> {
         return workoutDao.getAllWorkouts()
@@ -52,5 +56,20 @@ class WorkoutRepository(private val workoutDao: WorkoutDao, private val bodyWeig
 
     suspend fun deleteNote(note: Note) {
         workoutDao.deleteNote(note)
+    }
+
+    // WorkoutSession operations
+    fun getAllSessions(): Flow<List<WorkoutSession>> = workoutSessionDao.getAllSessions()
+
+    suspend fun addSession(session: WorkoutSession) {
+        workoutSessionDao.insert(session)
+    }
+
+    suspend fun updateSession(session: WorkoutSession) {
+        workoutSessionDao.update(session)
+    }
+
+    suspend fun deleteSession(session: WorkoutSession) {
+        workoutSessionDao.delete(session)
     }
 }

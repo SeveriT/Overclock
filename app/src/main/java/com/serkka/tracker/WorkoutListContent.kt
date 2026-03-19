@@ -55,7 +55,7 @@ fun WorkoutListContent(
     searchBar: (@Composable () -> Unit)? = null
 ) {
     val groupedWorkouts = workouts.groupBy {
-        SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault()).format(Date(it.date))
+        formatDate(it.date)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(top = topPadding)) {
@@ -404,8 +404,7 @@ fun WorkoutDialog(
                 )
 
                 OutlinedTextField(
-                    value = SimpleDateFormat("EEEE d.M.yy", Locale.getDefault())
-                        .format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    value = formatDateShort(datePickerState.selectedDateMillis ?: System.currentTimeMillis()),
                     onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,

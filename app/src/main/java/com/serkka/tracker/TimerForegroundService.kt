@@ -20,6 +20,10 @@ class TimerForegroundService : Service() {
     private var elapsedSeconds = 0L
     private var isRunning      = false
 
+    private val timerPrefs by lazy {
+        getSharedPreferences("timer_state", MODE_PRIVATE)
+    }
+
     private val ticker = object : Runnable {
         override fun run() {
             if (isRunning) {
@@ -40,11 +44,13 @@ class TimerForegroundService : Service() {
                 startForeground(notifId, buildNotification())
                 handler.removeCallbacks(ticker)
                 handler.postDelayed(ticker, 1000)
+                saveTimerState()
             }
             ACTION_PAUSE -> {
                 isRunning = false
                 handler.removeCallbacks(ticker)
                 updateNotification()
+                saveTimerState()
             }
             ACTION_RESUME -> {
                 elapsedSeconds = intent.getLongExtra(EXTRA_ELAPSED, elapsedSeconds)
@@ -52,15 +58,52 @@ class TimerForegroundService : Service() {
                 handler.removeCallbacks(ticker)
                 handler.postDelayed(ticker, 1000)
                 updateNotification()
+                saveTimerState()
             }
             ACTION_STOP -> {
                 isRunning = false
                 handler.removeCallbacks(ticker)
+                clearTimerState()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+            null -> {
+                // Service restarted by the system — recover state
+                val saved = timerPrefs
+                if (saved.getBoolean("active", false)) {
+                    val savedElapsed = saved.getLong("elapsed_seconds", 0L)
+                    val savedTimestamp = saved.getLong("timestamp", 0L)
+                    val wasRunning = saved.getBoolean("running", false)
+                    elapsedSeconds = if (wasRunning && savedTimestamp > 0L) {
+                        val drift = (System.currentTimeMillis() - savedTimestamp) / 1000
+                        savedElapsed + drift
+                    } else savedElapsed
+                    isRunning = wasRunning
+                    createChannel()
+                    startForeground(notifId, buildNotification())
+                    if (isRunning) {
+                        handler.removeCallbacks(ticker)
+                        handler.postDelayed(ticker, 1000)
+                    }
+                } else {
+                    stopSelf()
+                }
+            }
         }
-        return START_NOT_STICKY
+        return START_STICKY
+    }
+
+    private fun saveTimerState() {
+        timerPrefs.edit()
+            .putBoolean("active", true)
+            .putBoolean("running", isRunning)
+            .putLong("elapsed_seconds", elapsedSeconds)
+            .putLong("timestamp", System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun clearTimerState() {
+        timerPrefs.edit().clear().apply()
     }
 
     private fun buildNotification(): Notification {
@@ -76,14 +119,11 @@ class TimerForegroundService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Workout: $timeString")
-            .setContentText(if (isRunning) "Timer is running" else "Paused")
+            .setContentText(if (isRunning) "Workout in progress" else "Paused")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            // Ticker text shows up briefly in the status bar on older Android versions
-            .setTicker("Workout: $timeString") 
+            .setTicker("Workout")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // setUsesChronometer(true) makes the notification show a live timer
-            .setUsesChronometer(isRunning)
             .setWhen(baseTime)
             .setShowWhen(isRunning)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)

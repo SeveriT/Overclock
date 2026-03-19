@@ -49,6 +49,9 @@ class MediaNotificationListener : NotificationListenerService() {
     }
 
     private var activeController: MediaController? = null
+    private var lastKnownTitle: String? = null
+    private var lastKnownArtist: String? = null
+    private var lastKnownAlbumArt: Bitmap? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -81,18 +84,26 @@ class MediaNotificationListener : NotificationListenerService() {
         val metadata = activeController?.metadata
         val playbackState = activeController?.playbackState
         val isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING
-        
+
+        val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)
+        val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
+
+        // Preserve last known metadata during track transitions (e.g. previous track)
+        if (!title.isNullOrBlank()) lastKnownTitle = title
+        if (!artist.isNullOrBlank()) lastKnownArtist = artist
+
         val albumArt = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
+        if (albumArt != null) lastKnownAlbumArt = albumArt
 
         val info = SongInfo(
-            title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
-            artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST),
-            isPlaying = playbackState?.state == PlaybackState.STATE_PLAYING,
+            title = lastKnownTitle,
+            artist = lastKnownArtist,
+            isPlaying = isPlaying,
             packageName = activeController?.packageName,
             position = playbackState?.position,
             duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION),
-            albumArt = albumArt
+            albumArt = lastKnownAlbumArt
         )
         mediaRepository.updateSong(info)
 

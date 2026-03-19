@@ -50,6 +50,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.serkka.tracker.ui.theme.DarkSurfaceColor
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.sin
 import androidx.compose.animation.AnimatedContent
@@ -174,9 +175,10 @@ fun WorkoutScreen(
         }
     }
 
-    val workouts    by viewModel.allWorkouts.collectAsState()
-    val bodyWeights by viewModel.allBodyWeights.collectAsState()
-    val notesList   by viewModel.allNotes.collectAsState()
+    val workouts        by viewModel.allWorkouts.collectAsState()
+    val bodyWeights     by viewModel.allBodyWeights.collectAsState()
+    val notesList       by viewModel.allNotes.collectAsState()
+    val workoutSessions by viewModel.allSessions.collectAsState()
 
     val workoutHistory = remember(workouts) {
         workouts.asSequence()
@@ -188,6 +190,7 @@ fun WorkoutScreen(
     var showAddWorkoutDialog by remember { mutableStateOf(false) }
     var showAddWeightDialog  by remember { mutableStateOf(false) }
     var showAddNoteDialog    by remember { mutableStateOf(false) }
+    var showAddSessionDialog by remember { mutableStateOf(false) }
     var searchQuery          by remember { mutableStateOf("") }
     var editingWorkout       by remember { mutableStateOf<Workout?>(null) }
     var copyingWorkout       by remember { mutableStateOf<Workout?>(null) }
@@ -196,6 +199,9 @@ fun WorkoutScreen(
     var workoutToDelete      by remember { mutableStateOf<Workout?>(null) }
     var weightToDelete       by remember { mutableStateOf<BodyWeight?>(null) }
     var noteToDelete         by remember { mutableStateOf<Note?>(null) }
+    var sessionToDelete      by remember { mutableStateOf<WorkoutSession?>(null) }
+    var sessionToEdit        by remember { mutableStateOf<WorkoutSession?>(null) }
+    val sessionsListState    = rememberLazyListState()
 
     val currentSong    by MediaRepository.getInstance().currentSong.collectAsState()
     val timerIsRunning by timerViewModel.isRunning.collectAsState()
@@ -257,6 +263,18 @@ fun WorkoutScreen(
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
                 )
 
+                NavigationDrawerItem(
+                    label    = { Text("Sessions", modifier = Modifier.padding(start = 8.dp)) },
+                    icon     = { Icon(Icons.Default.Timer, null) },
+                    selected = currentRoute == Screen.Sessions.name,
+                    onClick  = {
+                        navigate(Screen.Sessions.name)
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    colors   = drawerItemColors(),
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
+                )
+
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
                     color = MaterialTheme.colorScheme.outlineVariant
@@ -292,6 +310,7 @@ fun WorkoutScreen(
                 Screen.Workouts.name,
                 Screen.Summary.name,
                 Screen.WeightTracking.name,
+                Screen.Sessions.name,
                 Screen.StravaCalendar.name
             )
 
@@ -331,12 +350,14 @@ fun WorkoutScreen(
                         SummaryPage(
                             workouts = workouts,
                             bodyWeights = bodyWeights,
+                            workoutSessions = workoutSessions,
                             stravaViewModel = stravaViewModel,
                             primaryColor = primaryColor,
                             onWorkoutEdit   = { editingWorkout = it },
                             onWorkoutDelete = { workoutToDelete = it },
                             onWorkoutCopy   = { copyingWorkout = it },
                             onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
+                            onNavigateToSessions = { navigate(Screen.Sessions.name) },
                             listState = summaryListState,
                             topPadding = totalTopPadding
                         )
@@ -389,7 +410,7 @@ fun WorkoutScreen(
                     }
                 }
                 composable(Screen.StravaCalendar.name) {
-                    StravaCalendarPage(stravaViewModel, primaryColor, topPadding = totalTopPadding)
+                    StravaCalendarPage(stravaViewModel, workoutSessions, primaryColor, topPadding = totalTopPadding)
                 }
                 composable(Screen.WeightTracking.name) {
                     ElasticColumnWrapper {
@@ -418,6 +439,18 @@ fun WorkoutScreen(
                         )
                     }
                 }
+                composable(Screen.Sessions.name) {
+                    ElasticColumnWrapper {
+                        SessionsPage(
+                            sessions = workoutSessions,
+                            primaryColor = primaryColor,
+                            onDelete = { sessionToDelete = it },
+                            onEdit = { sessionToEdit = it },
+                            listState = sessionsListState,
+                            topPadding = totalTopPadding
+                        )
+                    }
+                }
                 composable(Screen.Settings.name) {
                     SettingsPage(
                         primaryColor = primaryColor,
@@ -434,7 +467,10 @@ fun WorkoutScreen(
                         timerViewModel  = timerViewModel,
                         stravaViewModel = stravaViewModel,
                         bottomPadding   = if (musicVisible) 88.dp else 0.dp,
-                        topPadding = totalTopPadding
+                        topPadding = totalTopPadding,
+                        onSaveLocally = { name, type, startMs, duration ->
+                            viewModel.addWorkoutSession(name, type, startMs, duration)
+                        }
                     )
                 }
             }
@@ -572,6 +608,17 @@ fun WorkoutScreen(
                 )
             }
 
+            if (showAddSessionDialog) {
+                AddSessionDialog(
+                    primaryColor = primaryColor,
+                    onDismiss = { showAddSessionDialog = false },
+                    onSave = { name, type, dateMs, duration ->
+                        viewModel.addWorkoutSession(name, type, dateMs, duration)
+                        showAddSessionDialog = false
+                    }
+                )
+            }
+
             editingWorkout?.let { workout ->
                 WorkoutDialog(
                     workout = workout,
@@ -651,8 +698,29 @@ fun WorkoutScreen(
                 )
             }
 
+            sessionToDelete?.let { session ->
+                ConfirmDeleteDialog(
+                    title   = "Delete Session",
+                    message = "Are you sure you want to delete \"${session.name}\"?",
+                    onConfirm = { viewModel.deleteWorkoutSession(session); sessionToDelete = null },
+                    onDismiss = { sessionToDelete = null }
+                )
+            }
+
+            sessionToEdit?.let { session ->
+                EditSessionDialog(
+                    session = session,
+                    primaryColor = primaryColor,
+                    onDismiss = { sessionToEdit = null },
+                    onSave = { updated ->
+                        viewModel.updateWorkoutSession(updated)
+                        sessionToEdit = null
+                    }
+                )
+            }
+
             // ── Music widget + FAB ────────────────────────────────────────────
-            val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name)
+            val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
             val hasMusicWidget = currentSong.title != null && currentSong.packageName == "com.spotify.music"
 
             Box(
@@ -728,7 +796,10 @@ fun WorkoutScreen(
                                     val artCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
                                     currentSong.albumArt?.let { artCache[songKey] = it }
                                     if (artCache.size > 3) {
-                                        artCache.keys.firstOrNull { it != songKey }?.let { artCache.remove(it) }
+                                        artCache.keys.firstOrNull { it != songKey }?.let { old ->
+                                            artCache[old]?.recycle()
+                                            artCache.remove(old)
+                                        }
                                     }
 
                                     // Gate: only advance once the new bitmap has arrived so neither
@@ -776,6 +847,7 @@ fun WorkoutScreen(
                                     LaunchedEffect(swipeConfirmed) {
                                         if (swipeConfirmed == 0) return@LaunchedEffect
                                         val d = swipeDirection
+                                        val keyBeforeSwipe = songKey
                                         outTitle  = inTitle
                                         outArtist = inArtist
                                         outOffset.snapTo(0f)
@@ -784,6 +856,15 @@ fun WorkoutScreen(
                                         inOffset.snapTo(800f * d)
                                         launch { outOffset.animateTo(-600f * d, tween(100, easing = FastOutLinearInEasing)) }
                                         launch { outAlpha.animateTo(0f, tween(100)) }
+                                        // Fallback: if song doesn't change (e.g. same song restarts),
+                                        // restore the incoming layer so text doesn't stay blank
+                                        delay(600)
+                                        if (songKey == keyBeforeSwipe && inAlpha.value == 0f) {
+                                            inTitle  = currentSong.title  ?: ""
+                                            inArtist = currentSong.artist ?: ""
+                                            inAlpha.snapTo(1f)
+                                            inOffset.snapTo(0f)
+                                        }
                                     }
 
                                     // Step 2: new song confirmed — update incoming text and slide it in
@@ -909,6 +990,7 @@ fun WorkoutScreen(
                                             Screen.Workouts.name -> showAddWorkoutDialog = true
                                             Screen.WeightTracking.name -> { viewModel.prepareNewEntry(); showAddWeightDialog = true }
                                             Screen.Notes.name -> showAddNoteDialog = true
+                                            Screen.Sessions.name -> showAddSessionDialog = true
                                         }
                                     }
                                 ),
@@ -946,6 +1028,7 @@ fun WorkoutScreen(
                             )
                         )
                     )
+                    .navigationBarsPadding()
             ) {
                 Spacer(modifier = Modifier.width(4.dp))
                 NavigationBarItem(
@@ -957,14 +1040,14 @@ fun WorkoutScreen(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.FitnessCenter, null) },
-                    label = { Text("Workouts") },
+                    label = { Text("Reps") },
                     selected = currentRoute == Screen.Workouts.name,
                     onClick  = { navigate(Screen.Workouts.name) },
                     colors = navBarColors
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Dashboard, null) },
-                    label = { Text("Summary") },
+                    label = { Text("Home") },
                     selected = currentRoute == Screen.Summary.name,
                     onClick  = { navigate(Screen.Summary.name) },
                     colors = navBarColors
@@ -977,8 +1060,15 @@ fun WorkoutScreen(
                     colors = navBarColors
                 )
                 NavigationBarItem(
+                    icon = { Icon(Icons.Default.History, null) },
+                    label = { Text("Log") },
+                    selected = currentRoute == Screen.Sessions.name,
+                    onClick  = { navigate(Screen.Sessions.name) },
+                    colors = navBarColors
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.Default.CalendarMonth, null) },
-                    label = { Text("Strava") },
+                    label = { Text("Cal") },
                     selected = currentRoute == Screen.StravaCalendar.name,
                     onClick  = { navigate(Screen.StravaCalendar.name) },
                     colors = navBarColors

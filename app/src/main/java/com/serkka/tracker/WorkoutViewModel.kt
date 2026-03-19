@@ -36,6 +36,13 @@ class WorkoutViewModel(
             initialValue = emptyList()
         )
 
+    val allSessions: StateFlow<List<WorkoutSession>> = repository.getAllSessions()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun addWorkout(exercise: String, sets: Int, reps: Int, weight: Float, dateMillis: Long, isPersonalBest: Boolean, weightUnit: String = "kg", notes: String = "") {
         viewModelScope.launch {
             val newWorkout = Workout(
@@ -112,6 +119,25 @@ class WorkoutViewModel(
     fun deleteNote(note: Note) {
         viewModelScope.launch {
             repository.deleteNote(note)
+        }
+    }
+
+    // WorkoutSession operations
+    fun addWorkoutSession(name: String, type: String, startEpochMs: Long, durationSeconds: Int) {
+        viewModelScope.launch {
+            repository.addSession(WorkoutSession(name = name, type = type, date = startEpochMs, durationSeconds = durationSeconds))
+        }
+    }
+
+    fun updateWorkoutSession(session: WorkoutSession) {
+        viewModelScope.launch {
+            repository.updateSession(session)
+        }
+    }
+
+    fun deleteWorkoutSession(session: WorkoutSession) {
+        viewModelScope.launch {
+            repository.deleteSession(session)
         }
     }
 

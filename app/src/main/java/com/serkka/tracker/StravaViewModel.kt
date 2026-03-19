@@ -35,7 +35,7 @@ sealed class UploadState {
 // ---------------------------------------------------------------------------
 
 class StravaViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = application.getSharedPreferences("strava_prefs", Context.MODE_PRIVATE)
+    private val prefs = PreferencesManager.getInstance(application).strava
 
     private val _activities = MutableStateFlow<List<StravaActivity>>(emptyList())
     val activities: StateFlow<List<StravaActivity>> = _activities
@@ -68,6 +68,9 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         val client = OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor(logging)
             .build()
 

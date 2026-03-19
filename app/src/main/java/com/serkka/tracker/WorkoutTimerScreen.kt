@@ -37,9 +37,11 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -68,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 data class WorkoutActivityType(
@@ -81,20 +84,13 @@ val workoutActivityTypes = listOf(
     WorkoutActivityType("Other",   "Workout", Icons.Default.MoreHoriz),
 )
 
-fun formatElapsed(totalSeconds: Long): String {
-    val h = totalSeconds / 3600
-    val m = (totalSeconds % 3600) / 60
-    val s = totalSeconds % 60
-    return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
-           else       String.format("%02d:%02d", m, s)
-}
-
 @Composable
 fun WorkoutTimerScreen(
     timerViewModel: WorkoutTimerViewModel,
     stravaViewModel: StravaViewModel,
     bottomPadding: Dp = 0.dp,
     topPadding: Dp,
+    onSaveLocally: (name: String, type: String, startEpochMs: Long, durationSeconds: Int) -> Unit = { _, _, _, _ -> }
 ) {
     val context = LocalContext.current
 
@@ -280,9 +276,17 @@ fun WorkoutTimerScreen(
             UploadWorkoutDialog(
                 activityName = activityName,
                 onNameChange = { timerViewModel.setActivityName(it) },
+                selectedType = selectedType,
+                onTypeChange = { timerViewModel.setSelectedType(it) },
                 elapsedSeconds = elapsedSeconds,
                 isUploading = uploadState == UploadState.Loading,
                 isStravaLinked = savedToken.isNotBlank(),
+                onSaveLocally = {
+                    val dt = startDateTime ?: LocalDateTime.now().minusSeconds(elapsedSeconds)
+                    val startMs = dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    onSaveLocally(activityName, selectedType.stravaType, startMs, elapsedSeconds.toInt())
+                    timerViewModel.discard()
+                },
                 onUpload = {
                     val dt = startDateTime
                         ?: LocalDateTime.now().minusSeconds(elapsedSeconds)
@@ -308,32 +312,28 @@ fun WorkoutTimerScreen(
 private fun UploadWorkoutDialog(
     activityName: String,
     onNameChange: (String) -> Unit,
+    selectedType: WorkoutActivityType,
+    onTypeChange: (WorkoutActivityType) -> Unit,
     elapsedSeconds: Long,
     isUploading: Boolean,
     isStravaLinked: Boolean,
+    onSaveLocally: () -> Unit,
     onUpload: () -> Unit,
     onDismiss: () -> Unit,
     onDiscard: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = { if (!isUploading) onDismiss() },
-        title = { Text("Upload Workout", fontWeight = FontWeight.Bold) },
+        title = { Text("Save Workout", fontWeight = FontWeight.Bold) },
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Timer,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(
-                        "Duration: ${formatElapsed(elapsedSeconds)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Text("Duration: ${formatElapsed(elapsedSeconds)}", style = MaterialTheme.typography.bodyMedium)
                 }
 
                 OutlinedTextField(
@@ -344,81 +344,85 @@ private fun UploadWorkoutDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                if (!isStravaLinked) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Strava not linked – connect in Settings to upload",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
+
             }
         },
         confirmButton = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val discardInteractionSource = remember { MutableInteractionSource() }
-                val cancelInteractionSource = remember { MutableInteractionSource() }
-                val uploadInteractionSource = remember { MutableInteractionSource() }
-                
-                TextButton(
-                    onClick = onDiscard,
-                    interactionSource = discardInteractionSource,
-                    enabled = !isUploading,
-                    modifier = Modifier.weight(1.2f).bounceClick(discardInteractionSource)
+                // Save locally + Upload to Strava row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Discard", color = MaterialTheme.colorScheme.error)
-                }
-                TextButton(
-                    onClick = onDismiss,
-                    interactionSource = cancelInteractionSource,
-                    enabled = !isUploading,
-                    modifier = Modifier.weight(1.2f).bounceClick(cancelInteractionSource)
-                ) {
-                    Text("Cancel")
-                }
-                Spacer(Modifier.width(4.dp))
-                Button(
-                    onClick = onUpload,
-                    interactionSource = uploadInteractionSource,
-                    enabled = activityName.isNotBlank() && !isUploading && isStravaLinked,
-                    modifier = Modifier.weight(1.6f).bounceClick(uploadInteractionSource)
-                ) {
-                    if (isUploading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                    val saveInteractionSource = remember { MutableInteractionSource() }
+                    val uploadInteractionSource = remember { MutableInteractionSource() }
+
+                    Button(
+                        onClick = onSaveLocally,
+                        interactionSource = saveInteractionSource,
+                        enabled = activityName.isNotBlank() && !isUploading,
+                        modifier = Modifier.weight(1f).bounceClick(saveInteractionSource),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.surface
                         )
-                    } else {
-                        Icon(
-                            Icons.Default.CloudUpload,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.surface,
-                        )
-                        Spacer(Modifier.width(2.dp))
-                        Text("Upload",color = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Text("Save")
+                    }
+
+                    if (isStravaLinked) {
+                    Button(
+                        onClick = onUpload,
+                        interactionSource = uploadInteractionSource,
+                        enabled = activityName.isNotBlank() && !isUploading,
+                        modifier = Modifier.weight(1f).bounceClick(uploadInteractionSource)
+                    ) {
+                        if (isUploading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.surface,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Strava", color = MaterialTheme.colorScheme.surface)
+                        }
+                    }
+                    }
+                }
+
+                // Discard + Cancel row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val discardInteractionSource = remember { MutableInteractionSource() }
+                    val cancelInteractionSource = remember { MutableInteractionSource() }
+
+                    TextButton(
+                        onClick = onDiscard,
+                        interactionSource = discardInteractionSource,
+                        enabled = !isUploading,
+                        modifier = Modifier.weight(1f).bounceClick(discardInteractionSource)
+                    ) {
+                        Text("Discard", color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(
+                        onClick = onDismiss,
+                        interactionSource = cancelInteractionSource,
+                        enabled = !isUploading,
+                        modifier = Modifier.weight(1f).bounceClick(cancelInteractionSource)
+                    ) {
+                        Text("Cancel")
                     }
                 }
             }
