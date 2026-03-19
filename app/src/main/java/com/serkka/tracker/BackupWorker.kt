@@ -59,8 +59,7 @@ class BackupWorker(
                 )
                 if (fileId != null) {
                     Log.d("BackupWorker", "Auto-backup successful: $fileId")
-                    applicationContext
-                        .getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+                    PreferencesManager.getInstance(applicationContext).backup
                         .edit().putLong("last_backup_ms", System.currentTimeMillis()).apply()
                     androidx.work.ListenableWorker.Result.success()
                 } else {

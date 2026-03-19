@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,12 +47,14 @@ import java.util.*
 fun SummaryPage(
     workouts: List<Workout>,
     bodyWeights: List<BodyWeight>,
+    workoutSessions: List<WorkoutSession>,
     stravaViewModel: StravaViewModel,
     primaryColor: Color,
     onWorkoutEdit: (Workout) -> Unit,
     onWorkoutDelete: (Workout) -> Unit,
     onWorkoutCopy: (Workout) -> Unit,
     onNavigateToWeightTracking: () -> Unit,
+    onNavigateToSessions: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp
 ) {
@@ -78,12 +81,15 @@ fun SummaryPage(
         }
     }
 
-    val weeklyStreak = remember(activityData, today) {
+    val weeklyStreak = remember(activityData, workoutSessions, today) {
         val startDate = today.minusDays(6)
+        val sessionDates = workoutSessions.map { session ->
+            Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.toSet()
         (0..6).map { i ->
             val date = startDate.plusDays(i.toLong())
             val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
-            date to activityData.containsKey(dateString)
+            date to (activityData.containsKey(dateString) || sessionDates.contains(date))
         }
     }
 
@@ -92,6 +98,14 @@ fun SummaryPage(
         activities.filter { activity ->
             val activityDate = LocalDate.parse(activity.startDate.substringBefore("T"))
             !activityDate.isBefore(twoDaysAgo) && !activityDate.isAfter(today)
+        }
+    }
+
+    val recentSessions = remember(workoutSessions) {
+        val sevenDaysAgo = today.minusDays(6)
+        workoutSessions.filter { session ->
+            val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            !d.isBefore(sevenDaysAgo) && !d.isAfter(today)
         }
     }
 
@@ -226,8 +240,7 @@ fun SummaryPage(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault())
-                                        .format(Date(lastWeight.date)),
+                                    text = formatDate(lastWeight.date),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -367,7 +380,8 @@ fun SummaryPage(
                 }
             }
 
-            // ── Strava section ────────────────────────────────────────────────
+            // ── Strava section (only when signed in) ────────────────────────
+            if (savedToken.isNotBlank()) {
             item {
                 Text(
                     "Strava Activities (Last 7 Days)",
@@ -386,10 +400,9 @@ fun SummaryPage(
                 }
             } else if (recentActivities.isEmpty()) {
                 item {
-                    Text(
-                        "No Strava activities in the past 7 days. Link your account in the Strava Calendar page.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                        message = "No Strava activities in the past 7 days."
                     )
                 }
             } else {
@@ -501,6 +514,86 @@ fun SummaryPage(
                     }
                 }
             }
+            }
+
+            // ── Recent sessions ───────────────────────────────────────────────
+            item {
+                val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Recent Sessions (Last 7 Days)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(
+                        onClick = onNavigateToSessions,
+                        interactionSource = sessionsTitleInteractionSource,
+                        modifier = Modifier.bounceClick(sessionsTitleInteractionSource)
+                    ) { Text("See all") }
+                }
+            }
+
+            if (recentSessions.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Default.Schedule,
+                        message = "No sessions in the past 7 days."
+                    )
+                }
+            } else {
+                items(recentSessions.chunked(2)) { sessionPair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        sessionPair.forEach { session ->
+                            ElevatedCard(
+                                modifier = Modifier.weight(1f).animateContentSize().height(90.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                shape = RoundedCornerShape(12.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(32.dp).background(primaryColor.copy(alpha = 0.1f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(getIconForActivity(session.type), null, tint = primaryColor, modifier = Modifier.size(18.dp))
+                                        }
+                                        Text(
+                                            session.name,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text(
+                                        formatElapsed(session.durationSeconds.toLong()),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = primaryColor
+                                    )
+                                }
+                            }
+                        }
+                        if (sessionPair.size == 1) Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
 
             // ── Today's exercises ─────────────────────────────────────────────
             item {
@@ -515,10 +608,9 @@ fun SummaryPage(
 
             if (todaysWorkouts.isEmpty()) {
                 item {
-                    Text(
-                        "No exercises recorded for today yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    EmptyState(
+                        icon = Icons.Default.FitnessCenter,
+                        message = "No exercises recorded for today yet."
                     )
                 }
             } else {

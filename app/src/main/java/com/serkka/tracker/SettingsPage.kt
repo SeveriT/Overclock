@@ -67,6 +67,7 @@ fun SettingsPage(
     val workouts by viewModel.allWorkouts.collectAsState()
     val bodyWeights by viewModel.allBodyWeights.collectAsState()
     val notesList by viewModel.allNotes.collectAsState()
+    val sessions by viewModel.allSessions.collectAsState()
     val activities by stravaViewModel.activities.collectAsState()
     val isLoading by stravaViewModel.isLoading.collectAsState()
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -151,7 +152,7 @@ fun SettingsPage(
 
                         withContext(Dispatchers.Main) {
                             if (fileId != null) {
-                                context.getSharedPreferences("backup_prefs", android.content.Context.MODE_PRIVATE)
+                                PreferencesManager.getInstance(context).backup
                                     .edit().putLong("last_backup_ms", System.currentTimeMillis()).apply()
                                 Toast.makeText(context, "Drive backup successful!", Toast.LENGTH_SHORT).show()
                             } else {
@@ -203,9 +204,7 @@ fun SettingsPage(
         }
 
         item {
-            val prefs = remember {
-                context.getSharedPreferences("tracker_prefs", android.content.Context.MODE_PRIVATE)
-            }
+            val prefs = remember { PreferencesManager.getInstance(context).tracker }
             var heightInput by remember {
                 mutableStateOf(
                     prefs.getFloat("height_cm", 0f).let { h ->
@@ -539,6 +538,7 @@ fun SettingsPage(
                                 workouts.forEach { viewModel.deleteWorkout(it) }
                                 bodyWeights.forEach { viewModel.deleteBodyWeight(it) }
                                 notesList.forEach { viewModel.deleteNote(it) }
+                                sessions.forEach { viewModel.deleteWorkoutSession(it) }
                                 showDeleteConfirmDialog = false
                                 Toast.makeText(context, "All data deleted successfully", Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
@@ -580,12 +580,14 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                GuideSection("1. Navigation", "Switch between Timer, Workouts, Summary, Weight, and Strava. Swipe horizontally to glide between screens.")
-                GuideSection("2. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. Use the status bar notification to track time outside the app.")
+                GuideSection("1. Navigation", "Switch between Timer, Reps, Home, Weight, Log, and Calendar. Swipe horizontally to glide between screens.")
+                GuideSection("2. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. Use the status bar notification to track time outside the app. Completed sessions are saved locally.")
                 GuideSection("3. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history will appear as you type.")
-                GuideSection("4. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify, skip forward, or long-press to skip back.")
-                GuideSection("5. Backups", "Enable Google Drive backups in settings to keep your data safe and synced across devices.")
-                GuideSection("6. Customization", "Change your primary accent color using the RGB sliders in Settings. The entire UI will adapt to your choice.")
+                GuideSection("4. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak.")
+                GuideSection("5. Calendar", "View your activity history with daily dot indicators combining both Strava activities and local sessions.")
+                GuideSection("6. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify, skip forward, or long-press to skip back.")
+                GuideSection("7. Backups", "Enable Google Drive backups in settings to keep your data safe and synced across devices.")
+                GuideSection("8. Customization", "Change your primary accent color using the RGB sliders in Settings. The entire UI will adapt to your choice.")
             }
         },
         confirmButton = {
@@ -645,9 +647,7 @@ private fun SettingsButton(
 @Composable
 private fun NextBackupCountdown(primaryColor: Color) {
     val context = LocalContext.current
-    val prefs = remember {
-        context.getSharedPreferences("backup_prefs", android.content.Context.MODE_PRIVATE)
-    }
+    val prefs = remember { PreferencesManager.getInstance(context).backup }
 
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -698,8 +698,7 @@ private fun NextBackupCountdown(primaryColor: Color) {
             }
             if (lastBackupMs > 0L) {
                 Text(
-                    text = "Last: " + java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.getDefault())
-                        .format(java.util.Date(lastBackupMs)),
+                    text = "Last: " + formatBackupDate(lastBackupMs),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

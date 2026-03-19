@@ -69,7 +69,7 @@ fun WeightTrackingPage(
 
     // ── Height preference for BMI ─────────────────────────────────────────────
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE) }
+    val prefs = remember { PreferencesManager.getInstance(context).tracker }
     var heightCm by remember { mutableStateOf(prefs.getFloat("height_cm", 0f)) }
 
     LazyColumn(
@@ -223,7 +223,7 @@ fun WeightTrackingPage(
                             modifier = Modifier.weight(1f).padding(start = 8.dp)
                         ) {
                             Text(
-                                SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault()).format(Date(weightEntry.date)),
+                                formatDate(weightEntry.date),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium
                             )
@@ -303,14 +303,13 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     }
 
     // Pre-format x-axis date labels
-    val dateFmt = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
     val xLabels: List<Pair<Float, String>> = remember(weights) {
         if (weights.size < 2) return@remember emptyList()
         val step = (weights.size - 1).toFloat() / (xLabelCount - 1).coerceAtLeast(1)
         (0 until xLabelCount).map { i ->
             val idx = (i * step).toInt().coerceIn(0, weights.size - 1)
             val ratio = (weights[idx].date - minDate).toFloat() / dateRange.toFloat()
-            Pair(ratio, dateFmt.format(Date(weights[idx].date)))
+            Pair(ratio, formatChartDate(weights[idx].date))
         }
     }
 
@@ -466,8 +465,7 @@ fun BodyWeightDialog(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                 )
                 OutlinedTextField(
-                    value = SimpleDateFormat("EEEE d.M.yyyy", Locale.getDefault())
-                        .format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    value = formatDate(datePickerState.selectedDateMillis ?: System.currentTimeMillis()),
                     onValueChange = {},
                     label = { Text("Date") },
                     readOnly = true,

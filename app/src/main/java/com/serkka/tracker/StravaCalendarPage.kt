@@ -31,8 +31,10 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.serkka.tracker.TrackerColors.StravaOrange
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.*
@@ -40,7 +42,12 @@ import java.util.*
 // ── Strava calendar page ──────────────────────────────────────────────────────
 
 @Composable
-fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, topPadding: Dp) {
+fun StravaCalendarPage(
+    stravaViewModel: StravaViewModel,
+    workoutSessions: List<WorkoutSession>,
+    primaryColor: Color,
+    topPadding: Dp
+) {
     val context = LocalContext.current
     val activities by stravaViewModel.activities.collectAsState()
     val isLoading by stravaViewModel.isLoading.collectAsState()
@@ -55,9 +62,55 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, to
         if (!isLoading && refreshTrigger) refreshTrigger = false
     }
 
-    val activityData = remember(activities) { stravaViewModel.getActivityData() }
-    val streak = remember(activities) { stravaViewModel.getWeeklyStreak() }
-    val totalStreakActivities = remember(activities) { stravaViewModel.getTotalStreakActivities() }
+    val stravaActivityData = remember(activities) { stravaViewModel.getActivityData() }
+    val activityData = remember(stravaActivityData, workoutSessions) {
+        val combined = stravaActivityData.toMutableMap()
+        workoutSessions.forEach { session ->
+            val dateKey = Instant.ofEpochMilli(session.date)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .toString()
+            combined[dateKey] = (combined[dateKey] ?: emptyList()) + session.type
+        }
+        combined
+    }
+    val allActivityDates = remember(activities, workoutSessions) {
+        val stravaDates = activities.map { LocalDate.parse(it.startDate.substringBefore("T")) }
+        val localDates = workoutSessions.map {
+            Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }
+        (stravaDates + localDates).distinct().sortedDescending()
+    }
+
+    val streak = remember(allActivityDates) {
+        if (allActivityDates.isEmpty()) 0
+        else {
+            var count = 0
+            var weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            if (allActivityDates.none { !it.isBefore(weekStart) }) weekStart = weekStart.minusWeeks(1)
+            while (allActivityDates.any { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }) {
+                count++
+                weekStart = weekStart.minusWeeks(1)
+            }
+            count
+        }
+    }
+
+    val totalStreakActivities = remember(allActivityDates, activities, workoutSessions) {
+        if (allActivityDates.isEmpty()) 0
+        else {
+            var weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            if (allActivityDates.none { !it.isBefore(weekStart) }) weekStart = weekStart.minusWeeks(1)
+            val allDates = activities.map { LocalDate.parse(it.startDate.substringBefore("T")) } +
+                workoutSessions.map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
+            var total = 0
+            while (allDates.any { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }) {
+                total += allDates.count { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }
+                weekStart = weekStart.minusWeeks(1)
+            }
+            total
+        }
+    }
 
     LaunchedEffect(error) {
         error?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
@@ -67,7 +120,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, to
         isRefreshing = isRefreshing,
         onRefresh = {
             if (savedToken.isBlank()) {
-                Toast.makeText(context, "Link Strava to refresh activities", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Link Strava in Settings to sync activities", Toast.LENGTH_SHORT).show()
             } else {
                 refreshTrigger = true
                 stravaViewModel.checkAndFetchActivities()
@@ -80,33 +133,7 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, to
             contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (activities.isEmpty() && !isLoading) {
-                item {
-                    val interactionSource = remember { MutableInteractionSource() }
-                    Text("Link Strava to see your progress", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val authUri = "https://www.strava.com/oauth/mobile/authorize".toUri()
-                                .buildUpon()
-                                .appendQueryParameter("client_id", STRAVA_CLIENT_ID)
-                                .appendQueryParameter("redirect_uri", "tracker-app://localhost")
-                                .appendQueryParameter("response_type", "code")
-                                .appendQueryParameter("approval_prompt", "force")
-                                .appendQueryParameter("scope", "activity:read_all,activity:write,profile:read_all")
-                                .build()
-                            context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
-                        },
-                        interactionSource = interactionSource,
-                        modifier = Modifier.bounceClick(interactionSource),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = StravaOrange, contentColor = Color.Black
-                        )
-                    ) {
-                        Text("Login with Strava", fontSize = 18.sp)
-                    }
-                }
-            } else {
+            if (activities.isNotEmpty()) {
                 item {
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 16.dp),
@@ -146,15 +173,16 @@ fun StravaCalendarPage(stravaViewModel: StravaViewModel, primaryColor: Color, to
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
-                items(months) { month ->
-                    StravaCalendar(month, activityData, primaryColor)
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-
-                item { Spacer(modifier = Modifier.height(140.dp)) }
             }
+
+            val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
+            items(months) { month ->
+                StravaCalendar(month, activityData, primaryColor)
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+
+
+            item { Spacer(modifier = Modifier.height(140.dp)) }
         }
     }
 }

@@ -24,7 +24,7 @@ android {
 
     defaultConfig {
         applicationId = "com.serkka.tracker"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 6
         versionName = "1.2.0"

@@ -27,6 +27,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     private val _hasStarted = MutableStateFlow(false)
     val hasStarted: StateFlow<Boolean> = _hasStarted
 
+    init { recoverTimerState() }
+
     private val _startDateTime = MutableStateFlow<LocalDateTime?>(null)
     val startDateTime: StateFlow<LocalDateTime?> = _startDateTime
 
@@ -119,7 +121,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         _selectedType.value     = workoutActivityTypes[0]
     }
 
-    fun setActivityName(name: String)              { _activityName.value  = name }
+    fun setActivityName(name: String) { _activityName.value = name }
+    fun setSelectedType(type: WorkoutActivityType) { _selectedType.value = type }
 
     // ── Foreground service helpers ─────────────────────────────────────────────
     private fun serviceIntent(action: String) =
@@ -143,6 +146,34 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
 
     private fun stopTimerService() {
         app.startService(serviceIntent(TimerForegroundService.ACTION_STOP))
+    }
+
+    private fun recoverTimerState() {
+        val prefs = app.getSharedPreferences("timer_state", android.content.Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("active", false)) return
+
+        val savedElapsed = prefs.getLong("elapsed_seconds", 0L)
+        val savedTimestamp = prefs.getLong("timestamp", 0L)
+        val wasRunning = prefs.getBoolean("running", false)
+
+        _elapsedSeconds.value = if (wasRunning && savedTimestamp > 0L) {
+            val drift = (System.currentTimeMillis() - savedTimestamp) / 1000
+            savedElapsed + drift
+        } else savedElapsed
+
+        _currentLapSeconds.value = 0L
+        _hasStarted.value = true
+
+        if (wasRunning) {
+            _isRunning.value = true
+            tickJob = viewModelScope.launch {
+                while (true) {
+                    delay(1000L)
+                    _elapsedSeconds.value++
+                    _currentLapSeconds.value++
+                }
+            }
+        }
     }
 
     override fun onCleared() {
