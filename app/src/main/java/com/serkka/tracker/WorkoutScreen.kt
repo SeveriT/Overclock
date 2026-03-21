@@ -179,6 +179,7 @@ fun WorkoutScreen(
     val bodyWeights     by viewModel.allBodyWeights.collectAsState()
     val notesList       by viewModel.allNotes.collectAsState()
     val workoutSessions by viewModel.allSessions.collectAsState()
+    val stravaActivities by stravaViewModel.activities.collectAsState()
 
     val workoutHistory = remember(workouts) {
         workouts.asSequence()
@@ -443,6 +444,7 @@ fun WorkoutScreen(
                     ElasticColumnWrapper {
                         SessionsPage(
                             sessions = workoutSessions,
+                            stravaActivities = stravaActivities,
                             primaryColor = primaryColor,
                             onDelete = { sessionToDelete = it },
                             onEdit = { sessionToEdit = it },
