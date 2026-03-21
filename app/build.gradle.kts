@@ -26,8 +26,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.2.2"
+        versionCode = 9
+        versionName = "1.2.3"
 
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaSecret\"")
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
@@ -104,6 +104,9 @@ dependencies {
     
     // Coil for Image Loading
     implementation(libs.coil.compose)
+
+    // Palette for extracting colors from album art
+    implementation("androidx.palette:palette-ktx:1.0.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

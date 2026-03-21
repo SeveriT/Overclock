@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -93,20 +94,34 @@ fun SummaryPage(
         }
     }
 
-    val recentActivities = remember(activities) {
-        val twoDaysAgo = today.minusDays(6)
-        activities.filter { activity ->
-            val activityDate = LocalDate.parse(activity.startDate.substringBefore("T"))
-            !activityDate.isBefore(twoDaysAgo) && !activityDate.isAfter(today)
-        }
-    }
+    // Combine Strava activities and local sessions into one sorted list
+    data class RecentItem(
+        val name: String,
+        val type: String,
+        val date: Long,          // epoch ms
+        val durationSeconds: Int,
+        val distance: Float = 0f,
+        val calories: Float = 0f,
+        val isStrava: Boolean = false
+    )
 
-    val recentSessions = remember(workoutSessions) {
+    val recentItems = remember(activities, workoutSessions) {
         val sevenDaysAgo = today.minusDays(6)
-        workoutSessions.filter { session ->
-            val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            !d.isBefore(sevenDaysAgo) && !d.isAfter(today)
+        val stravaItems = activities.mapNotNull { activity ->
+            val activityDate = LocalDate.parse(activity.startDate.substringBefore("T"))
+            if (activityDate.isBefore(sevenDaysAgo) || activityDate.isAfter(today)) return@mapNotNull null
+            val epochMs = try {
+                java.time.OffsetDateTime.parse(activity.startDate.replace("Z", "+00:00"))
+                    .toInstant().toEpochMilli()
+            } catch (_: Exception) { 0L }
+            RecentItem(activity.name, activity.type, epochMs, activity.movingTime, activity.distance, activity.calories, isStrava = true)
         }
+        val sessionItems = workoutSessions.mapNotNull { session ->
+            val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            if (d.isBefore(sevenDaysAgo) || d.isAfter(today)) return@mapNotNull null
+            RecentItem(session.name, session.type, session.date, session.durationSeconds)
+        }
+        (stravaItems + sessionItems).sortedByDescending { it.date }
     }
 
     PullToRefreshBox(
@@ -380,47 +395,55 @@ fun SummaryPage(
                 }
             }
 
-            // ── Strava section (only when signed in) ────────────────────────
-            if (savedToken.isNotBlank()) {
+            // ── Recent Activity (combined Strava + local sessions) ──────────
             item {
-                Text(
-                    "Strava Activities (Last 7 Days)",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = primaryColor,
-                    fontWeight = FontWeight.Bold
-                )
+                val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Recent Activity (Last 7 Days)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(
+                        onClick = onNavigateToSessions,
+                        interactionSource = sessionsTitleInteractionSource,
+                        modifier = Modifier.bounceClick(sessionsTitleInteractionSource)
+                    ) { Text("See all") }
+                }
             }
 
-            if (isLoading && activities.isEmpty()) {
+            if (isLoading && activities.isEmpty() && recentItems.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier.fillMaxWidth().height(100.dp),
                         contentAlignment = Alignment.Center
                     ) { CircularProgressIndicator(color = primaryColor) }
                 }
-            } else if (recentActivities.isEmpty()) {
+            } else if (recentItems.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                        message = "No Strava activities in the past 7 days."
+                        icon = Icons.Default.Schedule,
+                        message = "No activity in the past 7 days."
                     )
                 }
             } else {
-                items(recentActivities.chunked(2)) { activityPair ->
+                items(recentItems.chunked(2)) { pair ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        activityPair.forEach { activity ->
+                        pair.forEach { item ->
+                            val accentColor = if (item.isStrava) Color(0xFFFC4C02) else primaryColor
                             ElevatedCard(
                                 modifier = Modifier.weight(1f).animateContentSize().height(100.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                                ),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                                 shape = RoundedCornerShape(12.dp),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = 8.dp
-                                )
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.fillMaxSize().padding(12.dp),
@@ -430,22 +453,27 @@ fun SummaryPage(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .background(primaryColor.copy(alpha = 0.1f), CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                getIconForActivity(activity.type),
-                                                contentDescription = null,
-                                                tint = primaryColor,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                        Box(modifier = Modifier.size(36.dp)) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(getIconForActivity(item.type), null, tint = accentColor, modifier = Modifier.size(20.dp))
+                                            }
+                                            if (item.isStrava) {
+                                                Icon(
+                                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.strava_logo),
+                                                    contentDescription = "Strava",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(14.dp)
+                                                        .align(Alignment.BottomEnd)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                )
+                                            }
                                         }
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = activity.name,
+                                                item.name,
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1,
@@ -453,31 +481,31 @@ fun SummaryPage(
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = activity.type,
+                                                item.type,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
 
                                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        if (activity.distance != 0f || activity.calories != 0f) {
+                                        if (item.isStrava && (item.distance != 0f || item.calories != 0f)) {
                                             Row(
                                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    imageVector = if (activity.distance == 0f) Icons.Default.LocalFireDepartment
+                                                    imageVector = if (item.distance == 0f) Icons.Default.LocalFireDepartment
                                                                   else Icons.Default.Straighten,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(14.dp),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                                 )
                                                 Text(
-                                                    text = if (activity.distance == 0f)
-                                                               "${activity.calories.toInt()} kcal"
+                                                    text = if (item.distance == 0f)
+                                                               "${item.calories.toInt()} kcal"
                                                            else
-                                                               "${String.format(Locale.getDefault(), "%.1f", activity.distance / 1000f)} km",
+                                                               "${String.format(Locale.getDefault(), "%.1f", item.distance / 1000f)} km",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -488,14 +516,13 @@ fun SummaryPage(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Schedule,
-                                                contentDescription = null,
+                                                Icons.Default.Schedule, null,
                                                 modifier = Modifier.size(14.dp),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )
                                             Text(
                                                 text = run {
-                                                    val totalMinutes = activity.movingTime / 60
+                                                    val totalMinutes = item.durationSeconds / 60
                                                     when {
                                                         totalMinutes < 60      -> "$totalMinutes min"
                                                         totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
@@ -510,87 +537,7 @@ fun SummaryPage(
                                 }
                             }
                         }
-                        if (activityPair.size == 1) Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-            }
-
-            // ── Recent sessions ───────────────────────────────────────────────
-            item {
-                val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Recent Sessions (Last 7 Days)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                    TextButton(
-                        onClick = onNavigateToSessions,
-                        interactionSource = sessionsTitleInteractionSource,
-                        modifier = Modifier.bounceClick(sessionsTitleInteractionSource)
-                    ) { Text("See all") }
-                }
-            }
-
-            if (recentSessions.isEmpty()) {
-                item {
-                    EmptyState(
-                        icon = Icons.Default.Schedule,
-                        message = "No sessions in the past 7 days."
-                    )
-                }
-            } else {
-                items(recentSessions.chunked(2)) { sessionPair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        sessionPair.forEach { session ->
-                            ElevatedCard(
-                                modifier = Modifier.weight(1f).animateContentSize().height(90.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                                shape = RoundedCornerShape(12.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(12.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.size(32.dp).background(primaryColor.copy(alpha = 0.1f), CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(getIconForActivity(session.type), null, tint = primaryColor, modifier = Modifier.size(18.dp))
-                                        }
-                                        Text(
-                                            session.name,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 2,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                    Text(
-                                        formatElapsed(session.durationSeconds.toLong()),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = primaryColor
-                                    )
-                                }
-                            }
-                        }
-                        if (sessionPair.size == 1) Spacer(modifier = Modifier.weight(1f))
+                        if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
