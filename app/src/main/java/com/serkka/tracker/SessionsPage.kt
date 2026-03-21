@@ -16,9 +16,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -200,20 +202,12 @@ private fun SessionDisplayCard(
                     }
                 }
                 if (item.isStrava) {
-                    Surface(
-                        color = StravaOrange,
-                        shape = CircleShape,
-                        modifier = Modifier.size(18.dp).align(Alignment.BottomEnd)
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Text(
-                                "S",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.strava_logo),
+                        contentDescription = "Strava",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(16.dp).align(Alignment.BottomEnd).clip(RoundedCornerShape(8.dp))
+                    )
                 }
             }
 

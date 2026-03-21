@@ -269,7 +269,7 @@ fun WorkoutDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center).padding(24.dp).fillMaxWidth(),
+        modifier = Modifier.padding(24.dp).fillMaxWidth(),
         title = { Text(if (workout == null) "Add Workout" else "Edit Workout") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

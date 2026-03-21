@@ -2,6 +2,7 @@
 
 package com.serkka.tracker
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -102,7 +103,7 @@ fun WavyProgressIndicator(
 
             val centerY = size.height / 2
             val amplitude = if (isPlaying) 1.dp.toPx() else 0f
-            val wavelength = 100.dp.toPx()
+            val wavelength = 50.dp.toPx()
 
             val path = Path().apply {
                 val startY = if (isPlaying) centerY + amplitude * sin(waveOffset) else centerY
@@ -147,7 +148,6 @@ fun WorkoutScreen(
 
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) {
@@ -220,82 +220,7 @@ fun WorkoutScreen(
         indicatorColor = Color.Transparent,
     )
 
-    val drawerItemColors: @Composable () -> NavigationDrawerItemColors = {
-        NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = primaryColor.copy(alpha = 0.1f),
-            unselectedContainerColor = Color.Transparent,
-            selectedIconColor = primaryColor,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            selectedTextColor = primaryColor,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = MaterialTheme.colorScheme.surface,
-                drawerContentColor = MaterialTheme.colorScheme.onSurface
-            ) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                NavigationDrawerItem(
-                    label    = { Text("Workout Stats", modifier = Modifier.padding(start = 8.dp)) },
-                    icon     = { Icon(Icons.Default.BarChart, null) },
-                    selected = currentRoute == Screen.WorkoutStats.name,
-                    onClick  = {
-                        navigate(Screen.WorkoutStats.name)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    colors   = drawerItemColors(),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
-                )
-
-                NavigationDrawerItem(
-                    label    = { Text("Notes", modifier = Modifier.padding(start = 8.dp)) },
-                    icon     = { Icon(Icons.Default.Create, null) },
-                    selected = currentRoute == Screen.Notes.name,
-                    onClick  = {
-                        navigate(Screen.Notes.name)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    colors   = drawerItemColors(),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
-                )
-
-                NavigationDrawerItem(
-                    label    = { Text("Sessions", modifier = Modifier.padding(start = 8.dp)) },
-                    icon     = { Icon(Icons.Default.Timer, null) },
-                    selected = currentRoute == Screen.Sessions.name,
-                    onClick  = {
-                        navigate(Screen.Sessions.name)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    colors   = drawerItemColors(),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-                Spacer(modifier = Modifier.weight(1f))
-
-                NavigationDrawerItem(
-                    label    = { Text("Settings", modifier = Modifier.padding(start = 8.dp)) },
-                    icon     = { Icon(Icons.Default.Settings, null) },
-                    selected = currentRoute == Screen.Settings.name,
-                    onClick  = {
-                        navigate(Screen.Settings.name)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    colors   = drawerItemColors(),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = 6.dp)
-                )
-            }
-        }
-    ) {
+    run {
         Scaffold(
             topBar = {},
             bottomBar = {},
@@ -545,6 +470,21 @@ fun WorkoutScreen(
                                     .bounceClick(assistInteractionSource)
                             )
                         }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Workouts.name,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val statsInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { navigate(Screen.WorkoutStats.name) },
+                                interactionSource = statsInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(statsInteractionSource)
+                            ) {
+                                Icon(Icons.Default.BarChart, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+
                         val notesInteractionSource = remember { MutableInteractionSource() }
                         IconButton(
                             onClick = { navigate(Screen.Notes.name) },
@@ -765,6 +705,30 @@ fun WorkoutScreen(
                                 )
                             }
                     ) {
+                        val songKey = "${currentSong.title}|${currentSong.artist}"
+
+                        // Extract accent color from album art
+                        val albumAccent by remember(songKey, currentSong.albumArt) {
+                            mutableStateOf(
+                                currentSong.albumArt?.let { bmp ->
+                                    val palette = androidx.palette.graphics.Palette.from(bmp)
+                                        .maximumColorCount(16)
+                                        .generate()
+                                    val rgb = palette.getVibrantColor(
+                                        palette.getMutedColor(
+                                            palette.getDominantColor(0)
+                                        )
+                                    )
+                                    if (rgb != 0) Color(rgb) else null
+                                }
+                            )
+                        }
+                        val musicAccent by animateColorAsState(
+                            targetValue = albumAccent ?: primaryColor,
+                            animationSpec = tween(600),
+                            label = "musicAccent"
+                        )
+
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
@@ -772,7 +736,7 @@ fun WorkoutScreen(
                                 .background(Color.Black.copy(alpha = 0.95f))
                         )
                         Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            color = musicAccent.copy(alpha = 0.25f),
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxWidth()
                                 .clip(MaterialTheme.shapes.large)
@@ -785,6 +749,16 @@ fun WorkoutScreen(
                             // clipToBounds on the Column so sliding text is clipped at the
                             // widget boundary — text can freely travel the full widget width
                             Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
+                                // Cache: only store non-null bitmaps, never overwrite with null
+                                val artCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
+                                currentSong.albumArt?.let { artCache[songKey] = it }
+                                if (artCache.size > 3) {
+                                    artCache.keys.firstOrNull { it != songKey }?.let { old ->
+                                        artCache[old]?.recycle()
+                                        artCache.remove(old)
+                                    }
+                                }
+
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -792,17 +766,6 @@ fun WorkoutScreen(
                                         .padding(horizontal = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val songKey = "${currentSong.title}|${currentSong.artist}"
-
-                                    // Cache: only store non-null bitmaps, never overwrite with null
-                                    val artCache = remember { mutableMapOf<String, android.graphics.Bitmap>() }
-                                    currentSong.albumArt?.let { artCache[songKey] = it }
-                                    if (artCache.size > 3) {
-                                        artCache.keys.firstOrNull { it != songKey }?.let { old ->
-                                            artCache[old]?.recycle()
-                                            artCache.remove(old)
-                                        }
-                                    }
 
                                     // Gate: only advance once the new bitmap has arrived so neither
                                     // art nor text flash blank while Spotify sends metadata in stages
@@ -941,7 +904,7 @@ fun WorkoutScreen(
                                         Icon(
                                             imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                             contentDescription = "Play/Pause",
-                                            tint = if (currentSong.isPlaying) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = if (currentSong.isPlaying) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(32.dp)
                                         )
                                     }
@@ -954,7 +917,7 @@ fun WorkoutScreen(
                                     modifier = Modifier.fillMaxWidth()
                                         .padding(horizontal = 16.dp)
                                         .padding(bottom = 10.dp),
-                                    color = primaryColor,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     trackColor = DarkSurfaceColor,
                                     isPlaying = currentSong.isPlaying
                                 )
