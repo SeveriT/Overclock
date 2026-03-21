@@ -26,27 +26,73 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
+/**
+ * A unified display item for the sessions list, wrapping either a local session or a Strava activity.
+ */
+internal data class SessionDisplayItem(
+    val id: String,
+    val name: String,
+    val type: String,
+    val date: Long,           // epoch ms
+    val durationSeconds: Int,
+    val notes: String = "",
+    val isStrava: Boolean = false,
+    val localSession: WorkoutSession? = null
+)
+
+private fun WorkoutSession.toDisplayItem() = SessionDisplayItem(
+    id = "local_$id",
+    name = name,
+    type = type,
+    date = date,
+    durationSeconds = durationSeconds,
+    notes = notes,
+    isStrava = false,
+    localSession = this
+)
+
+private fun StravaActivity.toDisplayItem(): SessionDisplayItem {
+    val epochMs = try {
+        java.time.OffsetDateTime.parse(startDate.replace("Z", "+00:00"))
+            .toInstant().toEpochMilli()
+    } catch (_: Exception) { 0L }
+    return SessionDisplayItem(
+        id = "strava_$id",
+        name = name,
+        type = type,
+        date = epochMs,
+        durationSeconds = movingTime,
+        isStrava = true
+    )
+}
+
 @Composable
 fun SessionsPage(
     sessions: List<WorkoutSession>,
+    stravaActivities: List<StravaActivity> = emptyList(),
     primaryColor: Color,
     onDelete: (WorkoutSession) -> Unit,
     onEdit: (WorkoutSession) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp
 ) {
-    val totalDurationSeconds = remember(sessions) { sessions.sumOf { it.durationSeconds.toLong() } }
+    val allItems = remember(sessions, stravaActivities) {
+        (sessions.map { it.toDisplayItem() } + stravaActivities.map { it.toDisplayItem() })
+            .sortedByDescending { it.date }
+    }
+    val totalDurationSeconds = remember(allItems) { allItems.sumOf { it.durationSeconds.toLong() } }
 
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
-        if (sessions.isNotEmpty()) {
+        if (allItems.isNotEmpty()) {
             item {
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -59,7 +105,7 @@ fun SessionsPage(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                "${sessions.size}",
+                                "${allItems.size}",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = primaryColor
@@ -87,12 +133,12 @@ fun SessionsPage(
                 }
             }
 
-            items(sessions, key = { it.id }) { session ->
-                SessionCard(
-                    session = session,
+            items(allItems, key = { it.id }) { item ->
+                SessionDisplayCard(
+                    item = item,
                     primaryColor = primaryColor,
-                    onDelete = { onDelete(session) },
-                    onEdit = { onEdit(session) },
+                    onDelete = { item.localSession?.let { onDelete(it) } },
+                    onEdit = { item.localSession?.let { onEdit(it) } },
                     modifier = Modifier.animateItem()
                 )
             }
@@ -110,19 +156,21 @@ fun SessionsPage(
     }
 }
 
+private val StravaOrange = Color(0xFFFC4C02)
+
 @Composable
-private fun SessionCard(
-    session: WorkoutSession,
+private fun SessionDisplayCard(
+    item: SessionDisplayItem,
     primaryColor: Color,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
     val cardInteractionSource = remember { MutableInteractionSource() }
+    val accentColor = if (item.isStrava) StravaOrange else primaryColor
 
     ElevatedCard(
-        onClick = onEdit,
+        onClick = { if (!item.isStrava) onEdit() },
         interactionSource = cardInteractionSource,
         modifier = modifier
             .fillMaxWidth()
@@ -136,18 +184,36 @@ private fun SessionCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                color = primaryColor.copy(alpha = 0.12f),
-                shape = CircleShape,
-                modifier = Modifier.size(44.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(
-                        getIconForActivity(session.type),
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(24.dp)
-                    )
+            Box(modifier = Modifier.size(44.dp)) {
+                Surface(
+                    color = accentColor.copy(alpha = 0.12f),
+                    shape = CircleShape,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            getIconForActivity(item.type),
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                if (item.isStrava) {
+                    Surface(
+                        color = StravaOrange,
+                        shape = CircleShape,
+                        modifier = Modifier.size(18.dp).align(Alignment.BottomEnd)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                "S",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
 
@@ -155,13 +221,13 @@ private fun SessionCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    session.name,
+                    item.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    formatDate(session.date),
+                    formatDate(item.date),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -173,19 +239,19 @@ private fun SessionCard(
                     Icon(
                         Icons.Default.Schedule,
                         contentDescription = null,
-                        tint = primaryColor,
+                        tint = accentColor,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        formatElapsed(session.durationSeconds.toLong()),
+                        formatElapsed(item.durationSeconds.toLong()),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = primaryColor
+                        color = accentColor
                     )
                 }
-                if (session.notes.isNotEmpty()) {
+                if (item.notes.isNotEmpty()) {
                     Text(
-                        session.notes,
+                        item.notes,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp)
@@ -193,18 +259,20 @@ private fun SessionCard(
                 }
             }
 
-            val deleteInteractionSource = remember { MutableInteractionSource() }
-            IconButton(
-                onClick = onDelete,
-                interactionSource = deleteInteractionSource,
-                modifier = Modifier.bounceClick(deleteInteractionSource)
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
+            if (!item.isStrava) {
+                val deleteInteractionSource = remember { MutableInteractionSource() }
+                IconButton(
+                    onClick = onDelete,
+                    interactionSource = deleteInteractionSource,
+                    modifier = Modifier.bounceClick(deleteInteractionSource)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
