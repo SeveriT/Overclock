@@ -21,14 +21,14 @@ Overclock is an Android app built for athletes who want full control over their 
 - **Workout logging** — log sets, reps and weight with auto-fill from history and personal best tracking
 - **Weight tracking** — smooth trend chart with BMI, height profile, and historical data management
 - **Strava integration** — view your activity calendar, sync profile data, and upload workouts directly from the timer
-- **Workout timer** — animated ring timer with lap tracking, persistent status bar notification, and optional Strava upload on finish
-- **Sessions** — browse and manually add saved workout sessions with duration, activity type, and date
-- **Music widget** — integrated Spotify controller with wavy progress bar, album art, and gesture-based playback controls
+- **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed
+- **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes
+- **Music widget** — integrated Spotify controller with wavy progress bar, album art, and swipe gesture playback controls
 - **Volume stats** — total volume lifted broken down per exercise with animated progress bars and volume tracking
 - **Notes** — dedicated training journal for freeform notes with date-based organization
 - **Weekly summary** — overview of recent workouts, weight trends, and activity streaks from both Strava and local sessions
-- **Calendar** — view activity history with dot indicators combining Strava activities and local sessions
-- **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors
+- **Calendar** — activity history with dot indicators combining Strava activities and local sessions, works without Strava
+- **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors and edge-to-edge display
 - **Cloud sync & Backup** — automated Google Drive backups via WorkManager and manual local backup/restore options
 
 ## Built with
