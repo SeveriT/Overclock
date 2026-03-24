@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -152,7 +153,7 @@ fun WorkoutTimerScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
 
-        Spacer(modifier = Modifier.weight(0.5f))
+        Spacer(modifier = Modifier.weight(0.25f))
 
         Text(
             text = if (hasStarted) lapTimeString else "",
@@ -164,16 +165,18 @@ fun WorkoutTimerScreen(
         )
 
 
-        Spacer(modifier = Modifier.weight(0.5f))
+        Spacer(modifier = Modifier.weight(0.25f))
 
         // ── Ring + time display ───────────────────────────────────────────────
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val ringSize = (screenHeight * 0.38f).coerceIn(200.dp, 320.dp)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(320.dp)
+                .size(ringSize)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false, radius = 160.dp),
+                    indication = ripple(bounded = false, radius = ringSize / 2),
                     onClick = { timerViewModel.lap() }
                 )
         ) {
@@ -216,7 +219,7 @@ fun WorkoutTimerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(0.5f))
+        Spacer(modifier = Modifier.weight(0.25f))
 
         // ── Controls ──────────────────────────────────────────────────────────
         Row(
@@ -268,8 +271,7 @@ fun WorkoutTimerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(0.5f))
-        Spacer(modifier = Modifier.height(60.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
         // ── Upload dialog ─────────────────────────────────────────────────────────
         if (showUploadDialog) {
