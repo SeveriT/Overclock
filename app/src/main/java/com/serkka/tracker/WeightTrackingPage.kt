@@ -1,14 +1,18 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.serkka.tracker
 
 import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -177,85 +181,106 @@ fun WeightTrackingPage(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Box(
-                            modifier = Modifier.fillMaxWidth().height(200.dp).padding(vertical = 8.dp)
-                        ) {
-                            WeightChart(weights = sortedWeights, color = primaryColor)
-                        }
+                        WeightChart(weights = sortedWeights, color = primaryColor)
                     }
                 }
             }
 
-            item {
-                Text(
-                    "History",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
+            val groupedByMonth = sortedWeights.reversed().groupBy { entry ->
+                val cal = Calendar.getInstance().apply { timeInMillis = entry.date }
+                val month = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+                month
             }
 
-            items(sortedWeights.reversed(), key = { it.id }) { weightEntry ->
-                val interactionSource = remember { MutableInteractionSource() }
-                ElevatedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .animateContentSize()
-                        .animateItem()
-                        .bounceClick(
-                            interactionSource = interactionSource,
-                            onClick = { onWeightClick(weightEntry) }
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 8.dp
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            groupedByMonth.forEach { (month, entries) ->
+                stickyHeader {
+                    val bgColor = MaterialTheme.colorScheme.background
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to bgColor,
+                                        0.5f to bgColor,
+                                        1.0f to Color.Transparent
+                                    )
+                                )
+                            ),
+                        color = Color.Transparent
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f).padding(start = 8.dp)
+                        Text(
+                            text = month,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                items(entries, key = { it.id }) { weightEntry ->
+                    val interactionSource = remember { MutableInteractionSource() }
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .animateContentSize()
+                            .animateItem()
+                            .bounceClick(
+                                interactionSource = interactionSource,
+                                onClick = { onWeightClick(weightEntry) }
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 8.dp
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                formatDate(weightEntry.date),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            Text(
-                                "${formatWeight(weightEntry.weight)} kg",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                            if (weightEntry.notes.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier.weight(1f).padding(start = 8.dp)
+                            ) {
                                 Text(
-                                    weightEntry.notes,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    formatDate(weightEntry.date),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                                Text(
+                                    "${formatWeight(weightEntry.weight)} kg",
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Bold,
-                                    overflow = TextOverflow.Ellipsis
+                                    style = MaterialTheme.typography.titleLarge,
+                                    modifier = Modifier.padding(top = 6.dp)
+                                )
+                                if (weightEntry.notes.isNotEmpty()) {
+                                    Text(
+                                        weightEntry.notes,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            val deleteInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { onWeightDelete(weightEntry) },
+                                interactionSource = deleteInteractionSource,
+                                modifier = Modifier.bounceClick(deleteInteractionSource)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
-                        }
-                        val deleteInteractionSource = remember { MutableInteractionSource() }
-                        IconButton(
-                            onClick = { onWeightDelete(weightEntry) },
-                            interactionSource = deleteInteractionSource,
-                            modifier = Modifier.bounceClick(deleteInteractionSource)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
                     }
                 }
@@ -283,8 +308,8 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     val gridLineColor  = Color(0xFF424349)
     val labelColor     = Color(0xFF9E9EA8)
     val gridLineStroke = 1.dp
-    val yLabelCount    = 4   // number of horizontal grid lines
-    val xLabelCount    = minOf(weights.size, 5)  // up to 5 date labels
+    val yLabelCount    = 4
+    val visibleDaysMs  = 30L * 24 * 60 * 60 * 1000  // 30 days in ms
 
     val rawMin = weights.minOf { it.weight }
     val rawMax = weights.maxOf { it.weight }
@@ -297,117 +322,212 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     val maxDate  = weights.last().date
     val dateRange = maxOf(1L, maxDate - minDate)
 
+    // Calculate how wide the canvas needs to be relative to the 30-day viewport
+    val totalPages = if (dateRange > visibleDaysMs) dateRange.toFloat() / visibleDaysMs else 1f
+
     val animationProgress = remember { Animatable(0f) }
     LaunchedEffect(weights) {
         animationProgress.animateTo(1f, animationSpec = tween(600, easing = FastOutSlowInEasing))
     }
 
-    // Pre-format x-axis date labels
-    val xLabels: List<Pair<Float, String>> = remember(weights) {
-        if (weights.size < 2) return@remember emptyList()
-        val step = (weights.size - 1).toFloat() / (xLabelCount - 1).coerceAtLeast(1)
-        (0 until xLabelCount).map { i ->
-            val idx = (i * step).toInt().coerceIn(0, weights.size - 1)
-            val ratio = (weights[idx].date - minDate).toFloat() / dateRange.toFloat()
-            Pair(ratio, formatChartDate(weights[idx].date))
-        }
+    // Scroll to end (most recent data) on first load
+    val scrollState = rememberScrollState()
+    LaunchedEffect(weights) {
+        scrollState.scrollTo(scrollState.maxValue)
     }
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val yLabelWidthPx = 30.dp.toPx()
-        val xLabelHeightPx = 20.dp.toPx()
-        val chartLeft   = yLabelWidthPx
-        val chartBottom = size.height - xLabelHeightPx
-        val chartWidth  = size.width - chartLeft
-        val chartHeight = chartBottom
-
-        val textPaint = android.graphics.Paint().apply {
-            isAntiAlias = true
-            textSize    = 10.sp.toPx()
-            setColor(labelColor.toArgb())
+    // X-axis labels: one per ~7 days
+    val xLabels: List<Pair<Float, String>> = remember(weights) {
+        if (weights.size < 2) return@remember emptyList()
+        val stepMs = 7L * 24 * 60 * 60 * 1000 // 7 days
+        val labels = mutableListOf<Pair<Float, String>>()
+        var nextLabel = minDate
+        while (nextLabel <= maxDate) {
+            val ratio = (nextLabel - minDate).toFloat() / dateRange.toFloat()
+            labels.add(Pair(ratio, formatChartDate(nextLabel)))
+            nextLabel += stepMs
         }
+        labels
+    }
 
-        // ── Horizontal grid lines + Y labels ─────────────────────────────────
-        for (i in 0..yLabelCount) {
-            val fraction = i.toFloat() / yLabelCount
-            val yVal     = minWeight + fraction * weightRange
-            val yPx      = chartBottom - fraction * chartHeight
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(210.dp)
+            .padding(vertical = 8.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            // Fixed Y-axis labels on the left
+            Canvas(modifier = Modifier.width(30.dp).fillMaxHeight()) {
+                val xLabelHeightPx = 20.dp.toPx()
+                val chartBottom = size.height - xLabelHeightPx
+                val chartHeight = chartBottom
+                val textPaint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    textSize = 10.sp.toPx()
+                    setColor(labelColor.toArgb())
+                    textAlign = android.graphics.Paint.Align.LEFT
+                }
+                for (i in 0..yLabelCount) {
+                    val fraction = i.toFloat() / yLabelCount
+                    val yVal = minWeight + fraction * weightRange
+                    val yPx = chartBottom - fraction * chartHeight
+                    val label = if (yVal % 1 == 0f) yVal.toInt().toString()
+                    else String.format("%.1f", yVal)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label, 0f, yPx + textPaint.textSize / 3f, textPaint
+                    )
+                }
+            }
 
-            // Grid line
-            drawLine(
-                color       = gridLineColor,
-                start       = Offset(chartLeft, yPx),
-                end         = Offset(size.width, yPx),
-                strokeWidth = gridLineStroke.toPx()
-            )
+            // Scrollable chart area
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .horizontalScroll(scrollState)
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .width(with(androidx.compose.ui.platform.LocalDensity.current) {
+                            // Minimum width = parent width, scales up for longer date ranges
+                            (300.dp * totalPages).coerceAtLeast(300.dp)
+                        })
+                        .fillMaxHeight()
+                ) {
+                    val xLabelHeightPx = 20.dp.toPx()
+                    val chartBottom = size.height - xLabelHeightPx
+                    val chartHeight = chartBottom
 
-            // Y-axis label
-            val label = if (yVal % 1 == 0f) yVal.toInt().toString()
-            else String.format("%.1f", yVal)
-            drawContext.canvas.nativeCanvas.drawText(
-                label,
-                0f,
-                yPx + textPaint.textSize / 3f,
-                textPaint.apply { textAlign = android.graphics.Paint.Align.LEFT }
-            )
-        }
+                    val textPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        textSize = 10.sp.toPx()
+                        setColor(labelColor.toArgb())
+                        textAlign = android.graphics.Paint.Align.CENTER
+                    }
 
-        // ── Map data to canvas points ─────────────────────────────────────────
-        val points = weights.map { w ->
-            val x = chartLeft + ((w.date - minDate).toFloat() / dateRange.toFloat()) * chartWidth
-            val y = chartBottom - ((w.weight - minWeight) / weightRange) * chartHeight
-            Offset(x, y)
-        }
+                    // ── Horizontal grid lines ─────────────────────────────────
+                    for (i in 0..yLabelCount) {
+                        val fraction = i.toFloat() / yLabelCount
+                        val yPx = chartBottom - fraction * chartHeight
+                        drawLine(
+                            color = gridLineColor,
+                            start = Offset(0f, yPx),
+                            end = Offset(size.width, yPx),
+                            strokeWidth = gridLineStroke.toPx()
+                        )
+                    }
 
-        // ── Smooth cubic bezier helper ────────────────────────────────────────
-        fun Path.smoothCurveTo(pts: List<Offset>) {
-            if (pts.size < 2) return
-            moveTo(pts.first().x, pts.first().y)
-            if (pts.size == 2) { lineTo(pts[1].x, pts[1].y); return }
-            for (i in 0 until pts.size - 1) {
-                val cur  = pts[i]
-                val next = pts[i + 1]
-                val cp1x = cur.x  + (next.x - (if (i > 0) pts[i - 1].x else cur.x)) / 6f
-                val cp1y = cur.y  + (next.y - (if (i > 0) pts[i - 1].y else cur.y)) / 6f
-                val cp2x = next.x - ((if (i < pts.size - 2) pts[i + 2].x else next.x) - cur.x) / 6f
-                val cp2y = next.y - ((if (i < pts.size - 2) pts[i + 2].y else next.y) - cur.y) / 6f
-                cubicTo(cp1x, cp1y, cp2x, cp2y, next.x, next.y)
+                    // ── X-axis date labels ────────────────────────────────────
+                    xLabels.forEach { (ratio, label) ->
+                        val x = ratio * size.width
+                        drawContext.canvas.nativeCanvas.drawText(
+                            label, x, size.height, textPaint
+                        )
+                        drawLine(
+                            color = gridLineColor.copy(alpha = 0.5f),
+                            start = Offset(x, 0f),
+                            end = Offset(x, chartBottom),
+                            strokeWidth = 0.5.dp.toPx()
+                        )
+                    }
+
+                    // ── Map data to canvas points ─────────────────────────────
+                    val dotRadius = 4.dp.toPx()
+                    val chartRight = size.width - dotRadius
+                    val chartLeft = dotRadius
+                    val usableWidth = chartRight - chartLeft
+                    val points = weights.map { w ->
+                        val x = chartLeft + ((w.date - minDate).toFloat() / dateRange.toFloat()) * usableWidth
+                        val y = chartBottom - ((w.weight - minWeight) / weightRange) * chartHeight
+                        Offset(x, y)
+                    }
+
+                    // ── Monotone cubic spline (no overshoot) ────────────────
+                    fun Path.smoothCurveTo(pts: List<Offset>) {
+                        if (pts.size < 2) return
+                        moveTo(pts.first().x, pts.first().y)
+                        if (pts.size == 2) { lineTo(pts[1].x, pts[1].y); return }
+
+                        // Compute tangents with Fritsch-Carlson monotone method
+                        val n = pts.size
+                        val dx = FloatArray(n - 1) { pts[it + 1].x - pts[it].x }
+                        val dy = FloatArray(n - 1) { pts[it + 1].y - pts[it].y }
+                        val slope = FloatArray(n - 1) { if (dx[it] != 0f) dy[it] / dx[it] else 0f }
+                        val tangent = FloatArray(n)
+
+                        tangent[0] = slope[0] * 0.5f
+                        tangent[n - 1] = slope[n - 2] * 0.5f
+                        for (i in 1 until n - 1) {
+                            if (slope[i - 1] * slope[i] <= 0f) {
+                                tangent[i] = 0f
+                            } else {
+                                tangent[i] = (slope[i - 1] + slope[i]) / 2f
+                            }
+                        }
+
+                        // Clamp tangents to ensure monotonicity
+                        for (i in 0 until n - 1) {
+                            if (slope[i] == 0f) {
+                                tangent[i] = 0f
+                                tangent[i + 1] = 0f
+                            } else {
+                                val alpha = tangent[i] / slope[i]
+                                val beta = tangent[i + 1] / slope[i]
+                                val mag = alpha * alpha + beta * beta
+                                if (mag > 9f) {
+                                    val tau = 3f / kotlin.math.sqrt(mag)
+                                    tangent[i] = tau * alpha * slope[i]
+                                    tangent[i + 1] = tau * beta * slope[i]
+                                }
+                            }
+                        }
+
+                        for (i in 0 until n - 1) {
+                            val seg = dx[i] / 3f
+                            cubicTo(
+                                pts[i].x + seg, pts[i].y + tangent[i] * seg,
+                                pts[i + 1].x - seg, pts[i + 1].y - tangent[i + 1] * seg,
+                                pts[i + 1].x, pts[i + 1].y
+                            )
+                        }
+                    }
+
+                    // ── Fill gradient ─────────────────────────────────────────
+                    if (points.size > 1) {
+                        val fillPath = Path().apply {
+                            smoothCurveTo(points)
+                            lineTo(points.last().x, chartBottom)
+                            lineTo(points.first().x, chartBottom)
+                            close()
+                        }
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(color.copy(alpha = 0.25f * animationProgress.value), Color.Transparent),
+                                startY = 0f,
+                                endY = chartBottom
+                            )
+                        )
+
+                        // ── Line ──────────────────────────────────────────────
+                        val linePath = Path().apply { smoothCurveTo(points) }
+                        drawPath(
+                            path = linePath,
+                            color = color,
+                            style = Stroke(width = 2.5.dp.toPx()),
+                            alpha = animationProgress.value
+                        )
+                    }
+
+                    // ── Data point dots ───────────────────────────────────────
+                    points.forEach { pt ->
+                        drawCircle(color = color, radius = 4.dp.toPx() * animationProgress.value, center = pt)
+                        drawCircle(color = Color(0xFF24252B), radius = 2.dp.toPx() * animationProgress.value, center = pt)
+                    }
+                }
             }
         }
-
-        // ── Fill gradient ─────────────────────────────────────────────────────
-        if (points.size > 1) {
-            val fillPath = Path().apply {
-                smoothCurveTo(points)
-                lineTo(points.last().x, chartBottom)
-                lineTo(points.first().x, chartBottom)
-                close()
-            }
-            drawPath(
-                path  = fillPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(color.copy(alpha = 0.25f * animationProgress.value), Color.Transparent),
-                    startY = 0f,
-                    endY   = chartBottom
-                )
-            )
-
-            // ── Line ─────────────────────────────────────────────────────────
-            val linePath = Path().apply { smoothCurveTo(points) }
-            drawPath(
-                path  = linePath,
-                color = color,
-                style = Stroke(width = 2.5.dp.toPx()),
-                alpha = animationProgress.value
-            )
-        }
-
-        // ── Data point dots ───────────────────────────────────────────────────
-        points.forEach { pt ->
-            drawCircle(color = color,       radius = 4.dp.toPx() * animationProgress.value, center = pt)
-            drawCircle(color = Color(0xFF24252B), radius = 2.dp.toPx() * animationProgress.value, center = pt)
-        }
-
     }
 }
 
