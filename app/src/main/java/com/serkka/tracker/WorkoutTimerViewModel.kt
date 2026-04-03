@@ -48,29 +48,54 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     // ── Tick job ──────────────────────────────────────────────────────────────
     private var tickJob: Job? = null
 
+    // Wall-clock anchors for accurate timing
+    private var wallClockBase = 0L        // System.currentTimeMillis() when timer started/resumed
+    private var elapsedAtBase = 0L        // _elapsedSeconds snapshot at that moment
+    private var lapWallClockBase = 0L
+    private var lapElapsedAtBase = 0L
+
     // Start (or resume) the timer
     fun start() {
         if (!_hasStarted.value) {
             _startDateTime.value = LocalDateTime.now()
             _hasStarted.value = true
             _currentLapSeconds.value = 0L
+            lapWallClockBase = System.currentTimeMillis()
+            lapElapsedAtBase = 0L
             startTimerService()
         } else {
             resumeTimerService()
         }
         if (_isRunning.value) return          // already ticking
         _isRunning.value = true
+
+        // Anchor wall clock
+        wallClockBase = System.currentTimeMillis()
+        elapsedAtBase = _elapsedSeconds.value
+        if (lapWallClockBase == 0L) {
+            lapWallClockBase = wallClockBase
+            lapElapsedAtBase = _currentLapSeconds.value
+        }
+
         tickJob?.cancel()
         tickJob = viewModelScope.launch {
             while (true) {
-                delay(1000L)
-                _elapsedSeconds.value++
-                _currentLapSeconds.value++
+                delay(250L) // poll frequently for smooth updates
+                val now = System.currentTimeMillis()
+                _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
+                _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
             }
         }
     }
 
     fun pause() {
+        // Snapshot wall-clock elapsed before stopping
+        if (_isRunning.value) {
+            val now = System.currentTimeMillis()
+            _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
+            _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
+            lapElapsedAtBase = _currentLapSeconds.value
+        }
         _isRunning.value = false
         tickJob?.cancel()
         tickJob = null
@@ -84,6 +109,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     fun lap() {
         if (_isRunning.value) {
             _currentLapSeconds.value = 0L
+            lapWallClockBase = System.currentTimeMillis()
+            lapElapsedAtBase = 0L
         }
     }
 
@@ -156,21 +183,27 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         val savedTimestamp = prefs.getLong("timestamp", 0L)
         val wasRunning = prefs.getBoolean("running", false)
 
-        _elapsedSeconds.value = if (wasRunning && savedTimestamp > 0L) {
+        val recovered = if (wasRunning && savedTimestamp > 0L) {
             val drift = (System.currentTimeMillis() - savedTimestamp) / 1000
             savedElapsed + drift
         } else savedElapsed
 
+        _elapsedSeconds.value = recovered
         _currentLapSeconds.value = 0L
         _hasStarted.value = true
 
         if (wasRunning) {
             _isRunning.value = true
+            wallClockBase = System.currentTimeMillis()
+            elapsedAtBase = recovered
+            lapWallClockBase = wallClockBase
+            lapElapsedAtBase = 0L
             tickJob = viewModelScope.launch {
                 while (true) {
-                    delay(1000L)
-                    _elapsedSeconds.value++
-                    _currentLapSeconds.value++
+                    delay(250L)
+                    val now = System.currentTimeMillis()
+                    _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
+                    _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
                 }
             }
         }

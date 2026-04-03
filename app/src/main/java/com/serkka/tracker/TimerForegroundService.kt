@@ -20,6 +20,10 @@ class TimerForegroundService : Service() {
     private var elapsedSeconds = 0L
     private var isRunning      = false
 
+    // Wall-clock anchors for accurate timing
+    private var wallClockBase = 0L
+    private var elapsedAtBase = 0L
+
     private val timerPrefs by lazy {
         getSharedPreferences("timer_state", MODE_PRIVATE)
     }
@@ -27,9 +31,9 @@ class TimerForegroundService : Service() {
     private val ticker = object : Runnable {
         override fun run() {
             if (isRunning) {
-                elapsedSeconds++
-                // We still update to keep our internal state and notification text sync'd
+                elapsedSeconds = elapsedAtBase + (System.currentTimeMillis() - wallClockBase) / 1000
                 updateNotification()
+                saveTimerState()
                 handler.postDelayed(this, 1000)
             }
         }
@@ -39,6 +43,8 @@ class TimerForegroundService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 elapsedSeconds = intent.getLongExtra(EXTRA_ELAPSED, 0L)
+                elapsedAtBase = elapsedSeconds
+                wallClockBase = System.currentTimeMillis()
                 isRunning = true
                 createChannel()
                 startForeground(notifId, buildNotification())
@@ -47,6 +53,10 @@ class TimerForegroundService : Service() {
                 saveTimerState()
             }
             ACTION_PAUSE -> {
+                // Snapshot accurate elapsed before pausing
+                if (isRunning && wallClockBase > 0L) {
+                    elapsedSeconds = elapsedAtBase + (System.currentTimeMillis() - wallClockBase) / 1000
+                }
                 isRunning = false
                 handler.removeCallbacks(ticker)
                 updateNotification()
@@ -54,6 +64,8 @@ class TimerForegroundService : Service() {
             }
             ACTION_RESUME -> {
                 elapsedSeconds = intent.getLongExtra(EXTRA_ELAPSED, elapsedSeconds)
+                elapsedAtBase = elapsedSeconds
+                wallClockBase = System.currentTimeMillis()
                 isRunning = true
                 handler.removeCallbacks(ticker)
                 handler.postDelayed(ticker, 1000)
@@ -78,6 +90,8 @@ class TimerForegroundService : Service() {
                         val drift = (System.currentTimeMillis() - savedTimestamp) / 1000
                         savedElapsed + drift
                     } else savedElapsed
+                    elapsedAtBase = elapsedSeconds
+                    wallClockBase = System.currentTimeMillis()
                     isRunning = wasRunning
                     createChannel()
                     startForeground(notifId, buildNotification())
