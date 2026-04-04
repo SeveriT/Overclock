@@ -669,6 +669,7 @@ fun WorkoutScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 80.dp)
             ) {
