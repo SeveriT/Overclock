@@ -187,7 +187,7 @@ fun StravaCalendarPage(
             }
 
 
-            item { Spacer(modifier = Modifier.height(60.dp)) }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
         }
     }
 }
