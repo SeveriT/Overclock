@@ -10,7 +10,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -46,7 +48,9 @@ fun StravaCalendarPage(
     stravaViewModel: StravaViewModel,
     workoutSessions: List<WorkoutSession>,
     primaryColor: Color,
-    topPadding: Dp
+    topPadding: Dp,
+    bottomPadding: Dp = 16.dp,
+    listState: LazyListState = rememberLazyListState()
 ) {
     val context = LocalContext.current
     val activities by stravaViewModel.activities.collectAsState()
@@ -129,8 +133,9 @@ fun StravaCalendarPage(
         modifier = Modifier.padding(top = topPadding)
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, 16.dp),
+            contentPadding = PaddingValues(top = 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (activities.isNotEmpty()) {
@@ -182,7 +187,7 @@ fun StravaCalendarPage(
             }
 
 
-            item { Spacer(modifier = Modifier.height(140.dp)) }
+            item { Spacer(modifier = Modifier.height(60.dp)) }
         }
     }
 }

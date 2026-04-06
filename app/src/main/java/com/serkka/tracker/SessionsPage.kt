@@ -81,7 +81,8 @@ fun SessionsPage(
     onDelete: (WorkoutSession) -> Unit,
     onEdit: (WorkoutSession) -> Unit,
     listState: LazyListState = rememberLazyListState(),
-    topPadding: Dp
+    topPadding: Dp,
+    bottomPadding: Dp = 16.dp
 ) {
     val allItems = remember(sessions, stravaActivities) {
         (sessions.map { it.toDisplayItem() } + stravaActivities.map { it.toDisplayItem() })
@@ -92,7 +93,7 @@ fun SessionsPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
     ) {
         if (allItems.isNotEmpty()) {
             item {
@@ -153,8 +154,6 @@ fun SessionsPage(
                 )
             }
         }
-
-        item { Spacer(modifier = Modifier.height(145.dp)) }
     }
 }
 

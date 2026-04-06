@@ -52,6 +52,7 @@ fun WorkoutListContent(
     onCopy: (Workout) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 170.dp,
     searchBar: (@Composable () -> Unit)? = null
 ) {
     val groupedWorkouts = workouts.groupBy {
@@ -64,7 +65,7 @@ fun WorkoutListContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 170.dp)
+            contentPadding = PaddingValues(bottom = bottomPadding)
         ) {
             groupedWorkouts.forEach { (date, workoutsInDay) ->
                 stickyHeader {

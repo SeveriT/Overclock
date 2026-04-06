@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import java.util.Locale
 
 @Composable
-fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: Dp) {
+fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: Dp, bottomPadding: Dp = 16.dp) {
     val workoutStats = remember(workouts) {
         workouts.filter { it.weightUnit == "kg" }
             .groupBy { it.exerciseName }
@@ -39,7 +39,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
     ) {
         item {
             ElevatedCard(
