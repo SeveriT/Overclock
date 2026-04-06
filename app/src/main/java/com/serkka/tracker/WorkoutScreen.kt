@@ -188,10 +188,19 @@ fun WorkoutScreen(
         snapshotFlow {
             activeListState.firstVisibleItemIndex to activeListState.firstVisibleItemScrollOffset
         }.collect { (index, offset) ->
-            val scrollingDown = index > previousIndex || (index == previousIndex && offset > previousOffset)
-            val scrollingUp = index < previousIndex || (index == previousIndex && offset < previousOffset)
-            if (scrollingDown && index > 0) isNavBarVisible = false
-            if (scrollingUp) isNavBarVisible = true
+            val indexDelta = index - previousIndex
+            val offsetDelta = offset - previousOffset
+            val scrollThreshold = 5 // Pixels
+
+            val scrollingDown = indexDelta > 0 || (indexDelta == 0 && offsetDelta > scrollThreshold)
+            val scrollingUp = indexDelta < 0 || (indexDelta == 0 && offsetDelta < -scrollThreshold)
+
+            if (scrollingDown && index > 0) {
+                isNavBarVisible = false
+            } else if (scrollingUp) {
+                isNavBarVisible = true
+            }
+
             previousIndex = index
             previousOffset = offset
         }
@@ -206,7 +215,7 @@ fun WorkoutScreen(
 
     val navBarOffsetY by animateDpAsState(
         targetValue = if (isNavBarVisible) 0.dp else 120.dp,
-        animationSpec = tween(100),
+        animationSpec = tween(300),
         label = "navBarOffset"
     )
 
@@ -264,8 +273,8 @@ fun WorkoutScreen(
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
             val contentBottomPadding by animateDpAsState(
-                targetValue = if (isNavBarVisible) 170.dp else 130.dp,
-                animationSpec = tween(100),
+                targetValue = if (isNavBarVisible) 170.dp else 120.dp,
+                animationSpec = tween(300),
                 label = "contentBottom"
             )
 
