@@ -57,7 +57,8 @@ fun SummaryPage(
     onNavigateToWeightTracking: () -> Unit,
     onNavigateToSessions: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
-    topPadding: Dp = 0.dp
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 16.dp
 ) {
     val context = LocalContext.current
     val activities by stravaViewModel.activities.collectAsState()
@@ -139,7 +140,7 @@ fun SummaryPage(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, 16.dp),
+            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ── Weekly streak dots ────────────────────────────────────────────
@@ -584,8 +585,7 @@ fun SummaryPage(
                     }
                 }
             }
-
-            item { Spacer(modifier = Modifier.height(135.dp)) }
+            item { Spacer(modifier = Modifier.height(10.dp)) }
         }
     }
 }

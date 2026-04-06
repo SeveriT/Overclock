@@ -53,7 +53,8 @@ fun WeightTrackingPage(
     onWeightClick: (BodyWeight) -> Unit,
     onWeightDelete: (BodyWeight) -> Unit,
     listState: LazyListState = rememberLazyListState(),
-    topPadding: Dp
+    topPadding: Dp,
+    bottomPadding: Dp = 16.dp
 ) {
     val sortedWeights = remember(bodyWeights) { bodyWeights.sortedBy { it.date } }
 
@@ -79,7 +80,7 @@ fun WeightTrackingPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 6.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+        contentPadding = PaddingValues(top = topPadding + 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
     ) {
         if (sortedWeights.isNotEmpty()) {
             item {
@@ -294,8 +295,6 @@ fun WeightTrackingPage(
                 )
             }
         }
-
-        item { Spacer(modifier = Modifier.height(155.dp)) }
     }
 }
 

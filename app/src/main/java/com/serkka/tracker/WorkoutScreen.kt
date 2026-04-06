@@ -58,6 +58,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.animation.core.animateDpAsState
 
 
 @Composable
@@ -161,19 +162,53 @@ fun WorkoutScreen(
     val summaryListState  = rememberLazyListState()
     val weightListState   = rememberLazyListState()
     val notesListState    = rememberLazyListState()
+    val sessionsListState = rememberLazyListState()
+    val calendarListState = rememberLazyListState()
 
-    val isFabVisible by remember {
-        derivedStateOf {
-            val state = when (currentRoute) {
-                Screen.Workouts.name       -> workoutsListState
-                Screen.Summary.name        -> summaryListState
-                Screen.WeightTracking.name -> weightListState
-                Screen.Notes.name          -> notesListState
-                else                       -> null
-            }
-            (state?.firstVisibleItemIndex ?: 0) <= 2
+    // ── Navbar collapse on scroll down ───────────────────────────────────────
+    val activeListState = when (currentRoute) {
+        Screen.Workouts.name       -> workoutsListState
+        Screen.Summary.name        -> summaryListState
+        Screen.WeightTracking.name -> weightListState
+        Screen.Notes.name          -> notesListState
+        Screen.Sessions.name       -> sessionsListState
+        Screen.StravaCalendar.name -> calendarListState
+        else                       -> null
+    }
+
+    var isNavBarVisible by remember { mutableStateOf(true) }
+    var previousIndex by remember { mutableIntStateOf(0) }
+    var previousOffset by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(activeListState) {
+        if (activeListState == null) {
+            isNavBarVisible = true
+            return@LaunchedEffect
+        }
+        snapshotFlow {
+            activeListState.firstVisibleItemIndex to activeListState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            val scrollingDown = index > previousIndex || (index == previousIndex && offset > previousOffset)
+            val scrollingUp = index < previousIndex || (index == previousIndex && offset < previousOffset)
+            if (scrollingDown && index > 0) isNavBarVisible = false
+            if (scrollingUp) isNavBarVisible = true
+            previousIndex = index
+            previousOffset = offset
         }
     }
+
+    // Reset navbar visibility on screen change
+    LaunchedEffect(currentRoute) {
+        isNavBarVisible = true
+        previousIndex = 0
+        previousOffset = 0
+    }
+
+    val navBarOffsetY by animateDpAsState(
+        targetValue = if (isNavBarVisible) 0.dp else 120.dp,
+        animationSpec = tween(100),
+        label = "navBarOffset"
+    )
 
     val workouts        by viewModel.allWorkouts.collectAsState()
     val bodyWeights     by viewModel.allBodyWeights.collectAsState()
@@ -202,7 +237,6 @@ fun WorkoutScreen(
     var noteToDelete         by remember { mutableStateOf<Note?>(null) }
     var sessionToDelete      by remember { mutableStateOf<WorkoutSession?>(null) }
     var sessionToEdit        by remember { mutableStateOf<WorkoutSession?>(null) }
-    val sessionsListState    = rememberLazyListState()
 
     val currentSong    by MediaRepository.getInstance().currentSong.collectAsState()
     val timerIsRunning by timerViewModel.isRunning.collectAsState()
@@ -229,6 +263,11 @@ fun WorkoutScreen(
             val topBarBaseHeight = 55.dp
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
+            val contentBottomPadding by animateDpAsState(
+                targetValue = if (isNavBarVisible) 170.dp else 130.dp,
+                animationSpec = tween(100),
+                label = "contentBottom"
+            )
 
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             val swipeScreens = listOf(
@@ -285,7 +324,8 @@ fun WorkoutScreen(
                             onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
                             onNavigateToSessions = { navigate(Screen.Sessions.name) },
                             listState = summaryListState,
-                            topPadding = totalTopPadding
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
                         )
                     }
                 }
@@ -305,6 +345,7 @@ fun WorkoutScreen(
                             onCopy    = { copyingWorkout = it },
                             listState = workoutsListState,
                             topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding,
                             searchBar = {
                                 OutlinedTextField(
                                     value = searchQuery,
@@ -336,7 +377,14 @@ fun WorkoutScreen(
                     }
                 }
                 composable(Screen.StravaCalendar.name) {
-                    StravaCalendarPage(stravaViewModel, workoutSessions, primaryColor, topPadding = totalTopPadding)
+                    StravaCalendarPage(
+                        stravaViewModel = stravaViewModel,
+                        workoutSessions = workoutSessions,
+                        primaryColor = primaryColor,
+                        topPadding = totalTopPadding,
+                        bottomPadding = contentBottomPadding,
+                        listState = calendarListState
+                    )
                 }
                 composable(Screen.WeightTracking.name) {
                     ElasticColumnWrapper {
@@ -346,12 +394,13 @@ fun WorkoutScreen(
                             onWeightClick  = { editingWeight = it },
                             onWeightDelete = { weightToDelete = it },
                             listState = weightListState,
-                            topPadding = totalTopPadding
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
                         )
                     }
                 }
                 composable(Screen.WorkoutStats.name) {
-                    WorkoutStatsPage(workouts, primaryColor, topPadding = totalTopPadding)
+                    WorkoutStatsPage(workouts, primaryColor, topPadding = totalTopPadding, bottomPadding = contentBottomPadding)
                 }
                 composable(Screen.Notes.name) {
                     ElasticColumnWrapper {
@@ -361,7 +410,8 @@ fun WorkoutScreen(
                             onNoteClick  = { editingNote = it },
                             onNoteDelete = { noteToDelete = it },
                             listState = notesListState,
-                            topPadding = totalTopPadding
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
                         )
                     }
                 }
@@ -374,7 +424,8 @@ fun WorkoutScreen(
                             onDelete = { sessionToDelete = it },
                             onEdit = { sessionToEdit = it },
                             listState = sessionsListState,
-                            topPadding = totalTopPadding
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
                         )
                     }
                 }
@@ -384,7 +435,8 @@ fun WorkoutScreen(
                         themeViewModel = themeViewModel,
                         stravaViewModel = stravaViewModel,
                         viewModel = viewModel,
-                        topPadding = totalTopPadding
+                        topPadding = totalTopPadding,
+                        bottomPadding = contentBottomPadding
                     )
                 }
                 composable(Screen.WorkoutTimer.name) {
@@ -665,13 +717,18 @@ fun WorkoutScreen(
             val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
             val hasMusicWidget = currentSong.title != null && currentSong.packageName == "com.spotify.music"
 
+            val widgetBottomPadding by animateDpAsState(
+                targetValue = if (isNavBarVisible) 80.dp else 16.dp,
+                animationSpec = tween(300),
+                label = "widgetBottom"
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 80.dp)
+                    .padding(bottom = widgetBottomPadding)
             ) {
                 if (hasMusicWidget) {
                     val musicInteractionSource = remember { MutableInteractionSource() }
@@ -682,7 +739,7 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = if (isFabVisible && currentRoute in fabScreens) 80.dp else 0.dp)
+                            .padding(top = if (isNavBarVisible && currentRoute in fabScreens) 80.dp else 0.dp)
                             .pointerInput(Unit) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { coroutineScope.launch { dragX.snapTo(0f) } },
@@ -928,7 +985,7 @@ fun WorkoutScreen(
                 }
 
                 AnimatedVisibility(
-                    visible = isFabVisible && currentRoute in fabScreens,
+                    visible = isNavBarVisible && currentRoute in fabScreens,
                     enter = fadeIn() + scaleIn(),
                     exit  = fadeOut() + scaleOut(),
                     modifier = Modifier.align(if (hasMusicWidget) Alignment.TopEnd else Alignment.BottomEnd)
@@ -983,6 +1040,7 @@ fun WorkoutScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .offset(y = navBarOffsetY)
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(

@@ -148,7 +148,7 @@ fun WorkoutTimerScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
-            .padding(top = topPadding, bottom = 8.dp + bottomPadding),
+            .padding(top = topPadding, bottom = 60.dp + bottomPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {

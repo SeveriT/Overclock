@@ -58,7 +58,8 @@ fun SettingsPage(
     themeViewModel: ThemeViewModel,
     stravaViewModel: StravaViewModel,
     viewModel: WorkoutViewModel,
-    topPadding: Dp
+    topPadding: Dp,
+    bottomPadding: Dp
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -173,7 +174,7 @@ fun SettingsPage(
     // ── UI ────────────────────────────────────────────────────────────────────
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -502,10 +503,7 @@ fun SettingsPage(
                 }
             }
         }
-
-
-
-        item { Spacer(modifier = Modifier.height(145.dp)) }
+        item { Spacer(modifier = Modifier.height(8.dp)) }
     }
 
     if (showDeleteConfirmDialog) {
