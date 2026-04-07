@@ -186,18 +186,18 @@ fun WorkoutScreen(
             return@LaunchedEffect
         }
         snapshotFlow {
-            activeListState.firstVisibleItemIndex to activeListState.firstVisibleItemScrollOffset
-        }.collect { (index, offset) ->
-            val indexDelta = index - previousIndex
-            val offsetDelta = offset - previousOffset
-            val scrollThreshold = 5 // Pixels
-
-            val scrollingDown = indexDelta > 0 || (indexDelta == 0 && offsetDelta > scrollThreshold)
-            val scrollingUp = indexDelta < 0 || (indexDelta == 0 && offsetDelta < -scrollThreshold)
+            Triple(
+                activeListState.firstVisibleItemIndex,
+                activeListState.firstVisibleItemScrollOffset,
+                activeListState.canScrollForward
+            )
+        }.collect { (index, offset, canScrollForward) ->
+            val scrollingDown = index > previousIndex || (index == previousIndex && offset > previousOffset + 5)
+            val scrollingUp = index < previousIndex || (index == previousIndex && offset < previousOffset - 5)
 
             if (scrollingDown && index > 0) {
                 isNavBarVisible = false
-            } else if (scrollingUp) {
+            } else if (scrollingUp && canScrollForward) {
                 isNavBarVisible = true
             }
 
@@ -214,8 +214,8 @@ fun WorkoutScreen(
     }
 
     val navBarOffsetY by animateDpAsState(
-        targetValue = if (isNavBarVisible) 0.dp else 120.dp,
-        animationSpec = tween(300),
+        targetValue = if (isNavBarVisible) 0.dp else 100.dp,
+        animationSpec = tween(200),
         label = "navBarOffset"
     )
 
