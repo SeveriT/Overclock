@@ -213,8 +213,9 @@ fun WorkoutScreen(
         previousOffset = 0
     }
 
+    val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val navBarOffsetY by animateDpAsState(
-        targetValue = if (isNavBarVisible) 0.dp else 100.dp,
+        targetValue = if (isNavBarVisible) 0.dp else 100.dp + systemNavBarHeight,
         animationSpec = tween(200),
         label = "navBarOffset"
     )
