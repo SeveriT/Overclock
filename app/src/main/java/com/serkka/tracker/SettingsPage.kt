@@ -578,12 +578,12 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                GuideSection("1. Navigation", "Switch between Timer, Reps, Home, Weight, Log, and Calendar. Swipe horizontally to glide between screens.")
+                GuideSection("1. Navigation", "Swipe horizontally to glide between screens.")
                 GuideSection("2. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. Use the status bar notification to track time outside the app. Completed sessions are saved locally.")
                 GuideSection("3. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history will appear as you type.")
                 GuideSection("4. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak.")
                 GuideSection("5. Calendar", "View your activity history with daily dot indicators combining both Strava activities and local sessions.")
-                GuideSection("6. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify, skip forward, or long-press to skip back.")
+                GuideSection("6. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify. Swipe left or right to skip tracks.")
                 GuideSection("7. Backups", "Enable Google Drive backups in settings to keep your data safe and synced across devices.")
                 GuideSection("8. Customization", "Change your primary accent color using the RGB sliders in Settings. The entire UI will adapt to your choice.")
             }
