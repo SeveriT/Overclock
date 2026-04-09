@@ -19,6 +19,10 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
         billingManager.refreshStatus()
     }
 
+    fun recheckWhitelist() {
+        billingManager.recheckWhitelist()
+    }
+
     fun getFormattedPrice(): String? {
         return billingManager.getFormattedPrice()
     }

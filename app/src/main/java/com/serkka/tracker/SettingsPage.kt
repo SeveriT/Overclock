@@ -66,7 +66,8 @@ fun SettingsPage(
     topPadding: Dp,
     bottomPadding: Dp,
     isSubscribed: Boolean = false,
-    onSubscribe: () -> Unit = {}
+    onSubscribe: () -> Unit = {},
+    onRecheckWhitelist: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -104,6 +105,29 @@ fun SettingsPage(
             } catch (e: ApiException) {
                 Log.e("SettingsPage", "Sign-in failed: ${e.statusCode}", e)
                 Toast.makeText(context, "Sign-in failed: ${e.statusCode}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Google Sign-In for premium activation (email-only, no Drive scope)
+    val premiumGso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .build()
+    }
+    val premiumSignInClient = remember { GoogleSignIn.getClient(context, premiumGso) }
+    val premiumSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                task.getResult(ApiException::class.java)
+                onRecheckWhitelist()
+                Toast.makeText(context, "Checking premium status...", Toast.LENGTH_SHORT).show()
+            } catch (e: ApiException) {
+                Log.e("SettingsPage", "Premium sign-in failed: ${e.statusCode}", e)
+                Toast.makeText(context, "Sign-in failed", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -639,6 +663,24 @@ fun SettingsPage(
                                 contentColor = MaterialTheme.colorScheme.surface
                             )
                         ) { Text("Subscribe") }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        Text(
+                            "Have a premium account?",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        SettingsButton(
+                            label = "Sign in with Google",
+                            icon = Icons.Default.AccountCircle,
+                            containerColor = primaryColor,
+                            onClick = { premiumSignInLauncher.launch(premiumSignInClient.signInIntent) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
