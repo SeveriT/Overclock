@@ -23,6 +23,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
@@ -55,13 +57,7 @@ class MainActivity : ComponentActivity() {
         // 3. Schedule Automatic Backup
         scheduleBackup()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                0
-            )
-        }
+        // Notification permission is now handled in WelcomeScreen
 
         setContent {
             val primaryColor by themeViewModel.primaryColor.collectAsState()
@@ -77,10 +73,17 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                val welcomePrefs = remember { getSharedPreferences("app_prefs", MODE_PRIVATE) }
+                var showWelcome by remember { mutableStateOf(!welcomePrefs.getBoolean("welcome_done", false)) }
                 var showExitDialog by remember { mutableStateOf(false) }
 
                 BackHandler {
-                    showExitDialog = true
+                    if (showWelcome) {
+                        showWelcome = false
+                        welcomePrefs.edit().putBoolean("welcome_done", true).apply()
+                    } else {
+                        showExitDialog = true
+                    }
                 }
 
                 if (showExitDialog) {
@@ -95,7 +98,11 @@ class MainActivity : ComponentActivity() {
                             Button(
                                 onClick = { finishAffinity() },
                                 interactionSource = exitInteractionSource,
-                                modifier = Modifier.bounceClick(exitInteractionSource)
+                                modifier = Modifier.bounceClick(exitInteractionSource),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = primaryColor,
+                                    contentColor = MaterialTheme.colorScheme.surface
+                                )
                             ) {
                                 Text("Exit")
                             }
@@ -113,11 +120,21 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // 5. Launch the UI
-                WorkoutScreen(
-                    viewModel = workoutViewModel,
-                    stravaViewModel = stravaViewModel,
-                    themeViewModel = themeViewModel
-                )
+                if (showWelcome) {
+                    WelcomeScreen(
+                        primaryColor = primaryColor,
+                        onGetStarted = {
+                            showWelcome = false
+                            welcomePrefs.edit().putBoolean("welcome_done", true).apply()
+                        }
+                    )
+                } else {
+                    WorkoutScreen(
+                        viewModel = workoutViewModel,
+                        stravaViewModel = stravaViewModel,
+                        themeViewModel = themeViewModel
+                    )
+                }
             }
         }
         

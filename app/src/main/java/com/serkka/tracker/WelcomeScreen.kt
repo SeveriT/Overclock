@@ -1,0 +1,249 @@
+package com.serkka.tracker
+
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+
+@Composable
+fun WelcomeScreen(
+    primaryColor: Color,
+    onGetStarted: () -> Unit
+) {
+    val context = LocalContext.current
+    val fadeIn = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        fadeIn.animateTo(1f, animationSpec = tween(600))
+    }
+
+    // Notification permission
+    var notificationGranted by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notificationGranted = granted
+    }
+
+    // Notification listener permission (for music widget)
+    var listenerEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
+    val listenerSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        listenerEnabled = isNotificationListenerEnabled(context)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp)
+            .alpha(fadeIn.value),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.weight(0.1f))
+
+        Image(
+            painter = painterResource(id = R.mipmap.app_logo_foreground),
+            contentDescription = "Overclock logo",
+            modifier = Modifier.size(120.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "Overclock",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Text(
+            "Your personal fitness companion",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Features
+        FeatureItem(Icons.Default.FitnessCenter, "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
+        FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
+        FeatureItem(Icons.Default.AutoAwesome, "AI Assistant", "Generate personalized workouts with Gemini AI", primaryColor)
+        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)
+        FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Permissions
+        Text(
+            "Permissions",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        PermissionRow(
+            icon = Icons.Default.Notifications,
+            label = "Notifications",
+            description = "Timer alerts and backup status",
+            granted = notificationGranted,
+            primaryColor = primaryColor,
+            onEnable = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        )
+
+        PermissionRow(
+            icon = Icons.Default.MusicNote,
+            label = "Notification Listener",
+            description = "Required for music widget controls",
+            granted = listenerEnabled,
+            primaryColor = primaryColor,
+            onEnable = {
+                listenerSettingsLauncher.launch(
+                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                )
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Subscription info
+        Surface(
+            color = primaryColor.copy(alpha = 0.1f),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Free to use",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Unlock Cloud Backup, Strava Sync, and AI Assistant with Premium",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(0.15f))
+
+        Button(
+            onClick = onGetStarted,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = primaryColor,
+                contentColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+    }
+}
+
+@Composable
+private fun FeatureItem(icon: ImageVector, title: String, description: String, primaryColor: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(24.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PermissionRow(
+    icon: ImageVector,
+    label: String,
+    description: String,
+    granted: Boolean,
+    primaryColor: Color,
+    onEnable: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (granted) Color(0xFF4AC067) else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (granted) {
+            Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = Color(0xFF4AC067), modifier = Modifier.size(24.dp))
+        } else {
+            TextButton(onClick = onEnable) {
+                Text("Enable", color = primaryColor, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+private fun isNotificationListenerEnabled(context: Context): Boolean {
+    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
+    val component = ComponentName(context, MediaNotificationListener::class.java)
+    return flat.contains(component.flattenToString())
+}

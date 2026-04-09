@@ -29,6 +29,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -213,11 +217,18 @@ fun WorkoutScreen(
         }
     }
 
+    var searchQuery          by remember { mutableStateOf("") }
+    var searchExpanded       by remember { mutableStateOf(false) }
+
     // Reset navbar visibility on screen change
     LaunchedEffect(currentRoute) {
         isNavBarVisible = true
         previousIndex = 0
         previousOffset = 0
+        if (currentRoute != Screen.Workouts.name) {
+            searchExpanded = false
+            searchQuery = ""
+        }
     }
 
     val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
@@ -244,7 +255,6 @@ fun WorkoutScreen(
     var showAddWeightDialog  by remember { mutableStateOf(false) }
     var showAddNoteDialog    by remember { mutableStateOf(false) }
     var showAddSessionDialog by remember { mutableStateOf(false) }
-    var searchQuery          by remember { mutableStateOf("") }
     var editingWorkout       by remember { mutableStateOf<Workout?>(null) }
     var copyingWorkout       by remember { mutableStateOf<Workout?>(null) }
     var editingWeight        by remember { mutableStateOf<BodyWeight?>(null) }
@@ -362,34 +372,7 @@ fun WorkoutScreen(
                             onCopy    = { copyingWorkout = it },
                             listState = workoutsListState,
                             topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding,
-                            searchBar = {
-                                OutlinedTextField(
-                                    value = searchQuery,
-                                    onValueChange = { searchQuery = it },
-                                    placeholder = { Text("Search workouts…") },
-                                    singleLine = true,
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                                    trailingIcon = {
-                                        if (searchQuery.isNotEmpty()) {
-                                            IconButton(onClick = { searchQuery = "" }) {
-                                                Icon(Icons.Default.Clear, contentDescription = "Clear")
-                                            }
-                                        }
-                                    },
-                                    shape = MaterialTheme.shapes.large,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = primaryColor,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(bottom = 8.dp)
-                                )
-                            }
+                            bottomPadding = contentBottomPadding
                         )
                     }
                 }
@@ -503,16 +486,65 @@ fun WorkoutScreen(
             ) {
                 TopAppBar(
                     title = {
-                        Text(
-                            modifier = Modifier.padding(start = 8.dp),
-                            text = Screen.entries.find { it.name == currentRoute }?.title ?: "",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        if (searchExpanded && currentRoute == Screen.Workouts.name) {
+                            val focusRequester = remember { FocusRequester() }
+                            var hadFocus by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search workouts…") },
+                                singleLine = true,
+                                leadingIcon = {
+                                    IconButton(onClick = {
+                                        searchQuery = ""
+                                        searchExpanded = false
+                                    }) {
+                                        Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
+                                    }
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                        }
+                                    }
+                                },
+                                shape = MaterialTheme.shapes.large,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = primaryColor,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 8.dp, end = 8.dp)
+                                    .heightIn(max = 48.dp)
+                                    .focusRequester(focusRequester)
+                                    .onFocusChanged { state ->
+                                        if (state.isFocused) {
+                                            hadFocus = true
+                                        } else if (hadFocus) {
+                                            searchQuery = ""
+                                            searchExpanded = false
+                                        }
+                                    },
+                                textStyle = MaterialTheme.typography.bodyMedium
+                            )
+                        } else {
+                            Text(
+                                modifier = Modifier.padding(start = 8.dp),
+                                text = Screen.entries.find { it.name == currentRoute }?.title ?: "",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     },
                     windowInsets = WindowInsets(0),
                     actions = {
+                        if (searchExpanded && currentRoute == Screen.Workouts.name) return@TopAppBar
                         AnimatedVisibility(
                             visible = timerIsRunning && currentRoute != Screen.WorkoutTimer.name,
                             enter   = fadeIn() + slideInHorizontally { it },
@@ -553,7 +585,7 @@ fun WorkoutScreen(
                             )
                         }
                         AnimatedVisibility(
-                            visible = currentRoute == Screen.Workouts.name,
+                            visible = currentRoute == Screen.Workouts.name && !searchExpanded,
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
                         ) {
@@ -570,7 +602,7 @@ fun WorkoutScreen(
                             }
                         }
                         AnimatedVisibility(
-                            visible = currentRoute == Screen.Workouts.name,
+                            visible = currentRoute == Screen.Workouts.name && !searchExpanded,
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
                         ) {
@@ -581,6 +613,20 @@ fun WorkoutScreen(
                                 modifier = Modifier.size(42.dp).bounceClick(statsInteractionSource)
                             ) {
                                 Icon(Icons.Default.BarChart, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Workouts.name && !searchExpanded,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val searchInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { searchExpanded = true },
+                                interactionSource = searchInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(searchInteractionSource)
+                            ) {
+                                Icon(Icons.Default.Search, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
 

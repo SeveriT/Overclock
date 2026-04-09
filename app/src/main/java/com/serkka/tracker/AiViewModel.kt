@@ -72,7 +72,7 @@ class AiViewModel(application: Application) : AndroidViewModel(application) {
             }
             _uiState.value = AiUiState.Loading
             try {
-                val service = GeminiApiService(BuildConfig.GEMINI_API_KEY)
+                val service = GeminiApiService(billing.geminiApiKey)
                 val response = service.generateWorkout(prompt, recentWorkouts)
                 recordRequest()
                 _generatedWorkouts.value = response.workouts
