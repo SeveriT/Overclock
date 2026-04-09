@@ -42,6 +42,14 @@ class AiViewModel(application: Application) : AndroidViewModel(application) {
 
     val dailyRequestLimit: Int get() = dailyLimit
 
+    init {
+        viewModelScope.launch {
+            billing.isWhitelisted.collect {
+                _remainingRequests.value = getRemainingRequests()
+            }
+        }
+    }
+
     private fun getTodayString(): String = LocalDate.now().toString()
 
     private fun getRemainingRequests(): Int {

@@ -194,6 +194,10 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         }
     }
 
+    fun recheckWhitelist() {
+        fetchRemoteEmails()
+    }
+
     fun getFormattedPrice(): String? {
         return productDetails?.subscriptionOfferDetails?.firstOrNull()
             ?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice

@@ -438,7 +438,8 @@ fun WorkoutScreen(
                         topPadding = totalTopPadding,
                         bottomPadding = contentBottomPadding,
                         isSubscribed = isSubscribed,
-                        onSubscribe = { showSubscriptionDialog = true }
+                        onSubscribe = { showSubscriptionDialog = true },
+                        onRecheckWhitelist = { subscriptionViewModel.recheckWhitelist() }
                     )
                 }
                 composable(Screen.WorkoutTimer.name) {

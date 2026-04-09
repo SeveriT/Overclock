@@ -39,6 +39,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 import java.util.*
 
 // ── Strava calendar page ──────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        Row(modifier = Modifier.fillMaxWidth().padding(end = 40.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { day ->
                 Text(
                     text = day,
@@ -222,132 +223,128 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.width(36.dp))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            val totalSlots = firstDayOfMonth + daysInMonth
-            val rows = (totalSlots + 6) / 7
+        val totalSlots = firstDayOfMonth + daysInMonth
+        val rows = (totalSlots + 6) / 7
 
-            Column(modifier = Modifier.fillMaxWidth().padding(end = 40.dp)) {
-                var currentDayIndex = 0
-                for (row in 0 until rows) {
-                    Row(modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                        for (col in 0 until 7) {
-                            val slotIndex = row * 7 + col
-                            if (slotIndex < firstDayOfMonth || currentDayIndex >= daysInMonth) {
-                                Box(
-                                    modifier = Modifier.weight(1f).aspectRatio(1f),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val dayNum = if (slotIndex < firstDayOfMonth) {
-                                        month.minusMonths(1).lengthOfMonth() - (firstDayOfMonth - slotIndex - 1)
-                                    } else {
-                                        slotIndex - (firstDayOfMonth + daysInMonth) + 1
-                                    }
-                                    Text(
-                                        text = dayNum.toString(),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                                        fontSize = 14.sp
-                                    )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            var currentDayIndex = 0
+            for (row in 0 until rows) {
+                val weekStartDay = if (row == 0) 1 else (row * 7 - firstDayOfMonth + 1)
+                val weekEndDay = minOf(daysInMonth, (row + 1) * 7 - firstDayOfMonth)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (col in 0 until 7) {
+                        val slotIndex = row * 7 + col
+                        if (slotIndex < firstDayOfMonth || currentDayIndex >= daysInMonth) {
+                            Box(
+                                modifier = Modifier.weight(1f).aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val dayNum = if (slotIndex < firstDayOfMonth) {
+                                    month.minusMonths(1).lengthOfMonth() - (firstDayOfMonth - slotIndex - 1)
+                                } else {
+                                    slotIndex - (firstDayOfMonth + daysInMonth) + 1
                                 }
-                            } else {
-                                currentDayIndex++
-                                val day = currentDayIndex
-                                val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, day)
-                                val activitiesOnDay = activityData[dateString] ?: emptyList()
-                                val isToday = today.year == year && today.monthValue == monthValue && today.dayOfMonth == day
+                                Text(
+                                    text = dayNum.toString(),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            currentDayIndex++
+                            val day = currentDayIndex
+                            val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, day)
+                            val activitiesOnDay = activityData[dateString] ?: emptyList()
+                            val isToday = today.year == year && today.monthValue == monthValue && today.dayOfMonth == day
 
-                                Box(
-                                    modifier = Modifier.weight(1f).aspectRatio(1f),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (activitiesOnDay.isNotEmpty()) {
-                                        val bgColor = if (isToday) primaryColor else MaterialTheme.colorScheme.onSurface
-                                        val iconTint = if (isToday) Color.Black else MaterialTheme.colorScheme.surface
-                                        Box(
-                                            modifier = Modifier.size(40.dp).background(bgColor, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                getIconForActivity(activitiesOnDay.first()),
-                                                null,
-                                                tint = iconTint,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-                                    } else if (isToday) {
-                                        Box(
-                                            modifier = Modifier.size(40.dp).border(2.dp, primaryColor, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(day.toString(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        }
-                                    } else {
-                                        Text(day.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Box(
+                                modifier = Modifier.weight(1f).aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (activitiesOnDay.isNotEmpty()) {
+                                    val bgColor = if (isToday) primaryColor else MaterialTheme.colorScheme.onSurface
+                                    val iconTint = if (isToday) Color.Black else MaterialTheme.colorScheme.surface
+                                    Box(
+                                        modifier = Modifier.size(40.dp).background(bgColor, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            getIconForActivity(activitiesOnDay.first()),
+                                            null,
+                                            tint = iconTint,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
+                                } else if (isToday) {
+                                    Box(
+                                        modifier = Modifier.size(40.dp).border(2.dp, primaryColor, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(day.toString(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                } else {
+                                    Text(day.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            // ── Week streak indicators ────────────────────────────────────────
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd).width(36.dp).height((rows * 56).dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
-                ) {
-                    repeat(rows) { rowIndex ->
-                        Box(
-                            modifier = Modifier.height(55.dp).width(36.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val weekStartDay = if (rowIndex == 0) 1 else (rowIndex * 7 - firstDayOfMonth + 1)
-                            val weekEndDay = minOf(daysInMonth, (rowIndex + 1) * 7 - firstDayOfMonth)
-                            val isCurrentWeek = isActualCurrentMonth && today.dayOfMonth in weekStartDay..weekEndDay
+                    // ── Week indicator (inline) ──────────────────────────────
+                    Box(
+                        modifier = Modifier.width(36.dp).fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val isCurrentWeek = isActualCurrentMonth && today.dayOfMonth in weekStartDay..weekEndDay
 
-                            if (isCurrentWeek) {
-                                val lastMonday = LocalDate.now()
-                                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                                    .minusWeeks(1)
-                                val hasActivityLastWeek = (0 until 7).any { i ->
-                                    val d = lastMonday.plusDays(i.toLong())
-                                    val dateStr = String.format(Locale.getDefault(), "%04d-%02d-%02d", d.year, d.monthValue, d.dayOfMonth)
-                                    activityData.containsKey(dateStr)
-                                }
+                        if (isCurrentWeek) {
+                            val lastMonday = LocalDate.now()
+                                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                                .minusWeeks(1)
+                            val hasActivityLastWeek = (0 until 7).any { i ->
+                                val d = lastMonday.plusDays(i.toLong())
+                                val dateStr = String.format(Locale.getDefault(), "%04d-%02d-%02d", d.year, d.monthValue, d.dayOfMonth)
+                                activityData.containsKey(dateStr)
+                            }
 
-                                if (hasActivityLastWeek) {
-                                    Box(modifier = Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Bolt, null, tint = primaryColor, modifier = Modifier.size(36.dp))
-                                    }
-                                } else {
-                                    val hasActivityThisWeek = (weekStartDay..weekEndDay).any { d ->
-                                        activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
-                                    }
-                                    if (hasActivityThisWeek) {
-                                        Box(
-                                            modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
-                                    }
-                                }
+                            if (hasActivityLastWeek) {
+                                Icon(Icons.Default.Bolt, null, tint = primaryColor, modifier = Modifier.size(36.dp))
                             } else {
-                                val hasActivity = (weekStartDay..weekEndDay).any { d ->
+                                val hasActivityThisWeek = (weekStartDay..weekEndDay).any { d ->
                                     activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
                                 }
-                                if (hasActivity) {
+                                if (hasActivityThisWeek) {
                                     Box(
                                         modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
+                                } else {
+                                    val refDay = weekStartDay.coerceIn(1, daysInMonth)
+                                    val weekNum = month.atDay(refDay).get(WeekFields.ISO.weekOfWeekBasedYear())
+                                    Text(weekNum.toString(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                                 }
+                            }
+                        } else {
+                            val hasActivity = (weekStartDay..weekEndDay).any { d ->
+                                activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
+                            }
+                            if (hasActivity) {
+                                Box(
+                                    modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
+                            } else {
+                                val refDay = weekStartDay.coerceIn(1, daysInMonth)
+                                val weekNum = month.atDay(refDay).get(WeekFields.ISO.weekOfWeekBasedYear())
+                                Text(weekNum.toString(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                             }
                         }
                     }
