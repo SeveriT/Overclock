@@ -1,21 +1,80 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ── Stack traces ──────────────────────────────────────────────────────────────
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ── Kotlin ────────────────────────────────────────────────────────────────────
+-keep class kotlin.Metadata { *; }
+-keepclassmembers class kotlin.Metadata { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ── Retrofit + Gson ───────────────────────────────────────────────────────────
+-keepattributes Signature
+-keepattributes *Annotation*
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-keep class com.google.gson.** { *; }
+-keep class com.google.gson.stream.** { *; }
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+-keepclasseswithmembers class * {
+    @retrofit2.http.* <methods>;
+}
+-keep,allowobfuscation interface * extends retrofit2.Call
+-dontwarn retrofit2.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# ── OkHttp ────────────────────────────────────────────────────────────────────
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+
+# ── App data models (Gson deserializes these) ─────────────────────────────────
+-keep class com.serkka.tracker.AiWorkoutEntry { *; }
+-keep class com.serkka.tracker.AiWorkoutResponse { *; }
+-keep class com.serkka.tracker.Workout { *; }
+-keep class com.serkka.tracker.BodyWeight { *; }
+-keep class com.serkka.tracker.Note { *; }
+-keep class com.serkka.tracker.WorkoutSession { *; }
+
+# ── Strava API models ────────────────────────────────────────────────────────
+-keep class com.serkka.tracker.StravaApi$* { *; }
+-keep interface com.serkka.tracker.StravaApi { *; }
+-keep class com.serkka.tracker.TokenResponse { *; }
+-keep class com.serkka.tracker.StravaAthlete { *; }
+-keep class com.serkka.tracker.StravaActivity { *; }
+
+# ── Room ──────────────────────────────────────────────────────────────────────
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-dontwarn androidx.room.paging.**
+
+# ── Firebase ──────────────────────────────────────────────────────────────────
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**
+
+# ── Google Play Billing ───────────────────────────────────────────────────────
+-keep class com.android.vending.billing.** { *; }
+-keep class com.android.billingclient.** { *; }
+
+# ── Google Drive / Auth ───────────────────────────────────────────────────────
+-keep class com.google.api.services.drive.** { *; }
+-keep class com.google.api.client.** { *; }
+-dontwarn com.google.api.client.**
+-dontwarn com.google.api.services.**
+
+# ── Encrypted SharedPreferences ───────────────────────────────────────────────
+-keep class androidx.security.crypto.** { *; }
+
+# ── Compose ───────────────────────────────────────────────────────────────────
+-dontwarn androidx.compose.**
+
+# ── Coil ──────────────────────────────────────────────────────────────────────
+-dontwarn coil.**
+
+# ── R8 full mode compatibility ────────────────────────────────────────────────
+-dontwarn java.lang.invoke.StringConcatFactory
+
+# ── Apache HTTP / Google API Client (javax.naming not on Android) ─────────────
+-dontwarn javax.naming.**
+-dontwarn org.ietf.jgss.**

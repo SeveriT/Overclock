@@ -14,6 +14,7 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
     companion object {
         const val PRODUCT_ID = "premium_monthly"
         private const val RC_KEY_PREMIUM_EMAILS = "premium_emails"
+        private const val RC_KEY_GEMINI_API_KEY = "gemini_api_key"
 
         @Volatile
         private var instance: BillingManager? = null
@@ -27,9 +28,15 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
 
     private val appContext = context.applicationContext
     private val remoteConfig = FirebaseRemoteConfig.getInstance().apply {
-        setConfigSettingsAsync(remoteConfigSettings { minimumFetchIntervalInSeconds = 30 })
-        setDefaultsAsync(mapOf(RC_KEY_PREMIUM_EMAILS to ""))
+        setConfigSettingsAsync(remoteConfigSettings { minimumFetchIntervalInSeconds = 1800 })
+        setDefaultsAsync(mapOf(
+            RC_KEY_PREMIUM_EMAILS to "",
+            RC_KEY_GEMINI_API_KEY to BuildConfig.GEMINI_API_KEY
+        ))
     }
+
+    val geminiApiKey: String
+        get() = remoteConfig.getString(RC_KEY_GEMINI_API_KEY).ifBlank { BuildConfig.GEMINI_API_KEY }
 
     private val _isWhitelisted = MutableStateFlow(false)
     val isWhitelisted: StateFlow<Boolean> = _isWhitelisted
