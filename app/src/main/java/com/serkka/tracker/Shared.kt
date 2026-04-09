@@ -50,7 +50,8 @@ enum class Screen(val title: String) {
     Notes("Notes"),
     Sessions("Sessions"),
     Settings("Settings"),
-    WorkoutTimer("Workout Timer")
+    WorkoutTimer("Workout Timer"),
+    AiAssistant("AI Assistant")
 }
 
 // ── Strava ────────────────────────────────────────────────────────────────────

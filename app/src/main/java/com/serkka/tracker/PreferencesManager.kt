@@ -2,6 +2,8 @@ package com.serkka.tracker
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 /**
  * Centralized access to all SharedPreferences used in the app.
@@ -24,6 +26,17 @@ class PreferencesManager private constructor(context: Context) {
 
     val backup: SharedPreferences by lazy {
         appContext.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+    }
+
+    val ai: SharedPreferences by lazy {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        EncryptedSharedPreferences.create(
+            "ai_prefs",
+            masterKeyAlias,
+            appContext,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     companion object {

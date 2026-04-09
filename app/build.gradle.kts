@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties()
@@ -14,6 +15,8 @@ if (localPropertiesFile.exists()) {
 }
 val stravaSecret = localProperties.getProperty("STRAVA_CLIENT_SECRET") ?: "MISSING_SECRET"
 val stravaClientId = localProperties.getProperty("STRAVA_CLIENT_ID") ?: "MISSING_ID"
+val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: "MISSING_KEY"
+val premiumEmails = localProperties.getProperty("PREMIUM_EMAILS") ?: ""
 
 android {
     namespace = "com.serkka.tracker"
@@ -26,11 +29,13 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.3.3"
+        versionCode = 17
+        versionName = "1.4.0"
 
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaSecret\"")
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+        buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -107,6 +112,17 @@ dependencies {
 
     // Palette for extracting colors from album art
     implementation("androidx.palette:palette-ktx:1.0.0")
+
+    // Encrypted SharedPreferences for API key storage
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Google Play Billing
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-config-ktx")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

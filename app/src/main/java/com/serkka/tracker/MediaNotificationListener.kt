@@ -68,7 +68,9 @@ class MediaNotificationListener : NotificationListenerService() {
     }
 
     private fun updateController() {
-        val controllers = mediaSessionManager?.getActiveSessions(ComponentName(this, MediaNotificationListener::class.java))
+        val controllers = try {
+            mediaSessionManager?.getActiveSessions(ComponentName(this, MediaNotificationListener::class.java))
+        } catch (_: SecurityException) { null }
         val newController = controllers?.firstOrNull()
 
         // Always register callback to the latest controller if it exists

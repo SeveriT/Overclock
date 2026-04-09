@@ -9,10 +9,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,7 +25,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,6 +46,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import coil.compose.AsyncImage
 import com.serkka.tracker.TrackerColors.StravaOrange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -59,7 +64,9 @@ fun SettingsPage(
     stravaViewModel: StravaViewModel,
     viewModel: WorkoutViewModel,
     topPadding: Dp,
-    bottomPadding: Dp
+    bottomPadding: Dp,
+    isSubscribed: Boolean = false,
+    onSubscribe: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -82,6 +89,8 @@ fun SettingsPage(
             .build()
     }
     val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
+    var googleAccount by remember { mutableStateOf(GoogleSignIn.getLastSignedInAccount(context)) }
+    val isGoogleSignedIn = googleAccount != null
 
     val googleSignInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -89,7 +98,8 @@ fun SettingsPage(
         if (result.resultCode == Activity.RESULT_OK) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
-                task.getResult(ApiException::class.java)
+                val account = task.getResult(ApiException::class.java)
+                googleAccount = account
                 Toast.makeText(context, "Google Drive linked!", Toast.LENGTH_SHORT).show()
             } catch (e: ApiException) {
                 Log.e("SettingsPage", "Sign-in failed: ${e.statusCode}", e)
@@ -396,30 +406,89 @@ fun SettingsPage(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
 
-                    NextBackupCountdown(primaryColor = primaryColor)
+                    if (isGoogleSignedIn) {
+                        // ── Signed-in profile ────────────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            val photoUrl = googleAccount?.photoUrl
+                            if (photoUrl != null) {
+                                AsyncImage(
+                                    model = photoUrl,
+                                    contentDescription = "Profile picture",
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(primaryColor),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        googleAccount?.displayName?.firstOrNull()?.uppercase() ?: "?",
+                                        color = MaterialTheme.colorScheme.surface,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    googleAccount?.displayName ?: "Google Account",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    googleAccount?.email ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = {
+                                googleSignInClient.signOut().addOnCompleteListener {
+                                    googleAccount = null
+                                    androidx.work.WorkManager.getInstance(context)
+                                        .cancelUniqueWork("AutoBackupWork")
+                                    context.getSharedPreferences("backup_prefs", android.content.Context.MODE_PRIVATE)
+                                        .edit().remove("last_backup_ms").apply()
+                                    Toast.makeText(context, "Google signed out", Toast.LENGTH_SHORT).show()
+                                }
+                            }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = "Sign out",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
 
-                    // Row 1: Drive + Google Sign Out
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                        NextBackupCountdown(primaryColor = primaryColor)
+
+                        // Drive Backup button
                         SettingsButton(
                             label = "Drive Backup",
                             icon = Icons.Default.CloudUpload,
-                            containerColor = primaryColor,
-                            onClick = performDriveBackup,
-                            modifier = Modifier.weight(1f)
+                            containerColor = if (isSubscribed) primaryColor else primaryColor.copy(alpha = 0.4f),
+                            onClick = { if (isSubscribed) performDriveBackup() else onSubscribe() },
+                            modifier = Modifier.fillMaxWidth()
                         )
+                    } else {
+                        // ── Sign-in button ───────────────────────────
                         SettingsButton(
-                            label = "Google Sign Out",
-                            icon = Icons.AutoMirrored.Filled.Logout,
-                            containerColor = primaryColor,
+                            label = "Sign in with Google",
+                            icon = Icons.Default.AccountCircle,
+                            containerColor = if (isSubscribed) primaryColor else primaryColor.copy(alpha = 0.4f),
                             onClick = {
-                                googleSignInClient.signOut().addOnCompleteListener {
-                                    Toast.makeText(context, "Google signed out", Toast.LENGTH_SHORT).show()
-                                }
+                                if (isSubscribed) googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                                else onSubscribe()
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
@@ -453,17 +522,19 @@ fun SettingsPage(
                             SettingsButton(
                                 label = "Login with Strava",
                                 icon = Icons.Default.DirectionsRun,
-                                containerColor = StravaOrange,
+                                containerColor = if (isSubscribed) StravaOrange else StravaOrange.copy(alpha = 0.4f),
                                 onClick = {
-                                    val authUri = "https://www.strava.com/oauth/mobile/authorize".toUri()
-                                        .buildUpon()
-                                        .appendQueryParameter("client_id", STRAVA_CLIENT_ID)
-                                        .appendQueryParameter("redirect_uri", "tracker-app://localhost")
-                                        .appendQueryParameter("response_type", "code")
-                                        .appendQueryParameter("approval_prompt", "force")
-                                        .appendQueryParameter("scope", "activity:read_all,activity:write,profile:read_all")
-                                        .build()
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
+                                    if (isSubscribed) {
+                                        val authUri = "https://www.strava.com/oauth/mobile/authorize".toUri()
+                                            .buildUpon()
+                                            .appendQueryParameter("client_id", STRAVA_CLIENT_ID)
+                                            .appendQueryParameter("redirect_uri", "tracker-app://localhost")
+                                            .appendQueryParameter("response_type", "code")
+                                            .appendQueryParameter("approval_prompt", "force")
+                                            .appendQueryParameter("scope", "activity:read_all,activity:write,profile:read_all")
+                                            .build()
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
+                                    } else onSubscribe()
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -503,6 +574,76 @@ fun SettingsPage(
                 }
             }
         }
+        // ── Subscription ──────────────────────────────────────────────────
+        item {
+            Text(
+                "Subscription",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = primaryColor
+            )
+        }
+        item {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            if (isSubscribed) Icons.Default.CheckCircle else Icons.Default.Star,
+                            null,
+                            tint = if (isSubscribed) Color(0xFF4AC067) else primaryColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            if (isSubscribed) "Premium Active" else "Free Plan",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (isSubscribed) {
+                        val manageInteraction = remember { MutableInteractionSource() }
+                        SettingsButton(
+                            label = "Manage Subscription",
+                            icon = Icons.Default.CreditCard,
+                            containerColor = primaryColor,
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, "https://play.google.com/store/account/subscriptions".toUri())
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(
+                            "Subscribe to unlock Drive backups, Strava, and AI assistant.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val subInteraction = remember { MutableInteractionSource() }
+                        Button(
+                            onClick = onSubscribe,
+                            interactionSource = subInteraction,
+                            modifier = Modifier.fillMaxWidth().bounceClick(subInteraction),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) { Text("Subscribe") }
+                    }
+                }
+            }
+        }
+
         item { Spacer(modifier = Modifier.height(8.dp)) }
     }
 

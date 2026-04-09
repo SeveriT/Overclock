@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import android.app.Activity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -145,14 +147,19 @@ fun WorkoutScreen(
     viewModel: WorkoutViewModel,
     stravaViewModel: StravaViewModel = viewModel(),
     themeViewModel: ThemeViewModel = viewModel(),
-    timerViewModel: WorkoutTimerViewModel = viewModel()
-
+    timerViewModel: WorkoutTimerViewModel = viewModel(),
+    aiViewModel: AiViewModel = viewModel(),
+    subscriptionViewModel: SubscriptionViewModel = viewModel()
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val isSubscribed by subscriptionViewModel.isSubscribed.collectAsState()
+    var showSubscriptionDialog by remember { mutableStateOf(false) }
+    val activity = LocalContext.current as? Activity
 
     LaunchedEffect(Unit) {
         stravaViewModel.checkAndFetchActivities()
+        subscriptionViewModel.refreshStatus()
     }
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -446,7 +453,9 @@ fun WorkoutScreen(
                         stravaViewModel = stravaViewModel,
                         viewModel = viewModel,
                         topPadding = totalTopPadding,
-                        bottomPadding = contentBottomPadding
+                        bottomPadding = contentBottomPadding,
+                        isSubscribed = isSubscribed,
+                        onSubscribe = { showSubscriptionDialog = true }
                     )
                 }
                 composable(Screen.WorkoutTimer.name) {
@@ -460,6 +469,17 @@ fun WorkoutScreen(
                         onSaveLocally = { name, type, startMs, duration ->
                             viewModel.addWorkoutSession(name, type, startMs, duration)
                         }
+                    )
+                }
+                composable(Screen.AiAssistant.name) {
+                    AiAssistantPage(
+                        workoutViewModel = viewModel,
+                        aiViewModel = aiViewModel,
+                        workouts = workouts,
+                        primaryColor = primaryColor,
+                        topPadding = totalTopPadding,
+                        bottomPadding = contentBottomPadding,
+                        dailyLimit = aiViewModel.dailyRequestLimit
                     )
                 }
             }
@@ -531,6 +551,23 @@ fun WorkoutScreen(
                                     .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
                                     .bounceClick(assistInteractionSource)
                             )
+                        }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Workouts.name,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val aiInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = {
+                                    if (isSubscribed) navigate(Screen.AiAssistant.name)
+                                    else showSubscriptionDialog = true
+                                },
+                                interactionSource = aiInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(aiInteractionSource)
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
                         }
                         AnimatedVisibility(
                             visible = currentRoute == Screen.Workouts.name,
@@ -1108,6 +1145,19 @@ fun WorkoutScreen(
                     colors = navBarColors
                 )
                 Spacer(modifier = Modifier.width(4.dp))
+            }
+
+            // ── Subscription dialog ──────────────────────────────────────
+            if (showSubscriptionDialog) {
+                SubscriptionDialog(
+                    onDismiss = { showSubscriptionDialog = false },
+                    onSubscribe = {
+                        showSubscriptionDialog = false
+                        activity?.let { act -> subscriptionViewModel.launchPurchase(act) }
+                    },
+                    formattedPrice = subscriptionViewModel.getFormattedPrice(),
+                    primaryColor = primaryColor
+                )
             }
             }
         }
