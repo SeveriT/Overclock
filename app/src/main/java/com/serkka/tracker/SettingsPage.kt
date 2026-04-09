@@ -30,8 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -219,125 +217,30 @@ fun SettingsPage(
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                SettingsButton(
-                    label = "User Guide",
-                    icon = Icons.AutoMirrored.Filled.HelpOutline,
-                    containerColor = primaryColor,
-                    onClick = { showUserGuide = true },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                )
-            }
-        }
-
-        item {
-            Text(
-                "Profile",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        item {
-            val prefs = remember { PreferencesManager.getInstance(context).tracker }
-            var heightInput by remember {
-                mutableStateOf(
-                    prefs.getFloat("height_cm", 0f).let { h ->
-                        if (h > 0f) h.toInt().toString() else ""
-                    }
-                )
-            }
-            var saved by remember { mutableStateOf(false) }
-
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth().animateContentSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                )
-            ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = heightInput,
-                            onValueChange = { v ->
-                                if (v.length <= 3 && v.all { it.isDigit() }) {
-                                    heightInput = v
-                                    saved = false
-                                }
-                            },
-                            label = { Text("Height (cm)") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            trailingIcon = {
-                                if (heightInput.isNotEmpty()) {
-                                    Text(
-                                        "cm",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(end = 12.dp)
-                                    )
-                                }
+                    SettingsButton(
+                        label = "User Guide",
+                        icon = Icons.AutoMirrored.Filled.HelpOutline,
+                        containerColor = primaryColor,
+                        onClick = { showUserGuide = true },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SettingsButton(
+                        label = "Contact Support",
+                        icon = Icons.Default.Email,
+                        containerColor = primaryColor,
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = "mailto:support@seppo.tech".toUri()
+                                putExtra(Intent.EXTRA_SUBJECT, "Overclock Support")
                             }
-                        )
-                        val startInteractionSource = remember { MutableInteractionSource() }
-                        Button(
-                            onClick = {
-                                val h = heightInput.toIntOrNull()
-                                if (h != null && h in 100..250) {
-                                    prefs.edit().putFloat("height_cm", h.toFloat()).apply()
-                                    saved = true
-                                }
-                            },
-                            interactionSource = startInteractionSource,
-                            enabled = heightInput.toIntOrNull()?.let { it in 100..250 } == true,
-                            modifier = Modifier
-                                .height(56.dp)
-                                .width(100.dp)
-                                .bounceClick(startInteractionSource),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = primaryColor,
-                                contentColor = Color.Black,
-                                disabledContainerColor = primaryColor.copy(alpha = 0.3f),
-                                disabledContentColor = Color.Black.copy(alpha = 0.3f)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    if (saved) Icons.Default.Check else Icons.Default.Save,
-                                    contentDescription = "Save height",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    if (saved) "Saved" else "Save",
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Left
-                                )
-                            }
-                        }
-                    }
-                    if (heightInput.toIntOrNull()?.let { it !in 100..250 } == true) {
-                        Text(
-                            "Enter a value between 100–250 cm",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,6 +77,7 @@ fun WeightTrackingPage(
     val context = LocalContext.current
     val prefs = remember { PreferencesManager.getInstance(context).tracker }
     var heightCm by remember { mutableStateOf(prefs.getFloat("height_cm", 0f)) }
+    var showHeightDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         state = listState,
@@ -112,36 +114,46 @@ fun WeightTrackingPage(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 if (heightCm > 0f) {
-                                    val heightM = heightCm / 100f
-                                    val bmi = sortedWeights.last().weight / (heightM * heightM)
-                                    val bmiCategory = when {
-                                        bmi < 18.5f -> "Underweight"
-                                        bmi < 25f   -> "Normal"
-                                        bmi < 30f   -> "Overweight"
-                                        else        -> "Obese"
+                                    val rpi = heightCm / Math.cbrt(sortedWeights.last().weight.toDouble()).toFloat()
+                                    val rpiCategory = when {
+                                        rpi < 38f  -> "Heavy"
+                                        rpi < 41f  -> "Stocky"
+                                        rpi < 44f  -> "Average"
+                                        rpi < 46f  -> "Lean"
+                                        else       -> "Slender"
                                     }
-                                    val bmiColor = when {
-                                        bmi < 18.5f -> Color(0xFF6693EB)
-                                        bmi < 25f   -> Color(0xFF4AC067)
-                                        bmi < 30f   -> Color(0xFFECFE72)
-                                        else        -> Color(0xFFFF7043)
+                                    val rpiColor = when {
+                                        rpi < 38f  -> Color(0xFFFF7043)
+                                        rpi < 41f  -> Color(0xFFECFE72)
+                                        rpi < 44f  -> Color(0xFF4AC067)
+                                        rpi < 46f  -> Color(0xFF6693EB)
+                                        else       -> Color(0xFF6693EB)
                                     }
                                     Text(
-                                        "BMI ${String.format(Locale.getDefault(), "%.1f", bmi)} · $bmiCategory",
+                                        "RPI ${String.format(Locale.getDefault(), "%.1f", rpi)} · $rpiCategory",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = bmiColor,
-                                        fontWeight = FontWeight.SemiBold
+                                        color = rpiColor,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { showHeightDialog = true }
+                                    )
+                                    val heightM = heightCm / 100f
+                                    val bmi = sortedWeights.last().weight / (heightM * heightM)
+                                    Text(
+                                        "BMI ${String.format(Locale.getDefault(), "%.1f", bmi)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.clickable { showHeightDialog = true }
                                     )
                                 } else {
                                     val bmiInteractionSource = remember { MutableInteractionSource() }
                                     TextButton(
-                                        onClick = { /* handled below via heightCm dialog */ },
+                                        onClick = { showHeightDialog = true },
                                         interactionSource = bmiInteractionSource,
                                         contentPadding = PaddingValues(0.dp),
                                         modifier = Modifier.height(24.dp).bounceClick(bmiInteractionSource)
                                     ) {
                                         Text(
-                                            "Set height for BMI",
+                                            "Set height for RPI",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -295,6 +307,85 @@ fun WeightTrackingPage(
                 )
             }
         }
+    }
+
+    if (showHeightDialog) {
+        var heightInput by remember {
+            mutableStateOf(if (heightCm > 0f) heightCm.toInt().toString() else "")
+        }
+        AlertDialog(
+            onDismissRequest = { showHeightDialog = false },
+            title = { Text("Set Height", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = heightInput,
+                        onValueChange = { v ->
+                            if (v.length <= 3 && v.all { it.isDigit() }) heightInput = v
+                        },
+                        label = { Text("Height (cm)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        supportingText = {
+                            if (heightInput.toIntOrNull()?.let { it !in 100..250 } == true) {
+                                Text("Enter a value between 100–250 cm")
+                            }
+                        }
+                    )
+                    Text(
+                        "RPI (Reciprocal Ponderal Index)",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Height ÷ ³√Weight. More accurate than BMI for muscular builds because it scales weight by cube root instead of squaring height. Typical range: 38–46.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "BMI (Body Mass Index)",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Weight ÷ Height². Widely used but doesn't distinguish muscle from fat. Can overestimate body fat in athletic individuals.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                val saveInteraction = remember { MutableInteractionSource() }
+                Button(
+                    onClick = {
+                        val h = heightInput.toIntOrNull()
+                        if (h != null && h in 100..250) {
+                            prefs.edit().putFloat("height_cm", h.toFloat()).apply()
+                            heightCm = h.toFloat()
+                            showHeightDialog = false
+                        }
+                    },
+                    interactionSource = saveInteraction,
+                    modifier = Modifier.bounceClick(saveInteraction),
+                    enabled = heightInput.toIntOrNull()?.let { it in 100..250 } == true,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = MaterialTheme.colorScheme.surface
+                    )
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                val cancelInteraction = remember { MutableInteractionSource() }
+                TextButton(
+                    onClick = { showHeightDialog = false },
+                    interactionSource = cancelInteraction,
+                    modifier = Modifier.bounceClick(cancelInteraction)
+                ) { Text("Cancel") }
+            }
+        )
     }
 }
 
