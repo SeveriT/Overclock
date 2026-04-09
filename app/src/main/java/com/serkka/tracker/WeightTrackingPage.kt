@@ -321,6 +321,7 @@ fun WeightTrackingPage(
         }
         AlertDialog(
             onDismissRequest = { showHeightDialog = false },
+            modifier = Modifier.fillMaxWidth(),
             title = { Text("Set Height", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
