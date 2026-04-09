@@ -138,8 +138,14 @@ fun WeightTrackingPage(
                                     )
                                     val heightM = heightCm / 100f
                                     val bmi = sortedWeights.last().weight / (heightM * heightM)
+                                    val bmiCategory = when {
+                                        bmi < 18.5f -> "Underweight"
+                                        bmi < 25f   -> "Normal"
+                                        bmi < 30f   -> "Overweight"
+                                        else        -> "Obese"
+                                    }
                                     Text(
-                                        "BMI ${String.format(Locale.getDefault(), "%.1f", bmi)}",
+                                        "BMI ${String.format(Locale.getDefault(), "%.1f", bmi)} · $bmiCategory",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.clickable { showHeightDialog = true }
@@ -340,9 +346,14 @@ fun WeightTrackingPage(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Height ÷ ³√Weight. More accurate than BMI for muscular builds because it scales weight by cube root instead of squaring height. Typical range: 38–46.",
+                        "Height ÷ ³√Weight. More accurate than BMI for muscular builds because it scales weight by cube root instead of squaring height.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "< 38 Heavy · 38–41 Stocky · 41–44 Average · 44–46 Lean · > 46 Slender",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                     Text(
                         "BMI (Body Mass Index)",
@@ -354,6 +365,11 @@ fun WeightTrackingPage(
                         "Weight ÷ Height². Widely used but doesn't distinguish muscle from fat. Can overestimate body fat in athletic individuals.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "< 18.5 Underweight · 18.5–25 Normal · 25–30 Overweight · > 30 Obese",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             },
