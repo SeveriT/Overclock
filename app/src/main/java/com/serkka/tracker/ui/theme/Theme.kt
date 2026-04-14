@@ -7,9 +7,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
 
 
@@ -190,13 +193,21 @@ private val TrackerTypography = Typography(
 @Composable
 fun TrackerTheme(
     primaryColor: Color = TrackerColors.Purple,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = DarkColorScheme.copy(primary = primaryColor),
-        typography  = TrackerTypography,
-        content     = content
+    val currentDensity = LocalDensity.current
+    val scaledDensity = Density(
+        density = currentDensity.density,
+        fontScale = currentDensity.fontScale * fontScale
     )
+    CompositionLocalProvider(LocalDensity provides scaledDensity) {
+        MaterialTheme(
+            colorScheme = DarkColorScheme.copy(primary = primaryColor),
+            typography  = TrackerTypography,
+            content     = content
+        )
+    }
 }
 
 // ── Convenience colour extensions ─────────────────────────────────────────────
