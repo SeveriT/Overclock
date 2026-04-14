@@ -303,6 +303,43 @@ fun SettingsPage(
                             )
                         }
                     }
+
+                    val fontScale by themeViewModel.fontScale.collectAsState()
+                    val fontLabel = when {
+                        fontScale <= 0.8f -> "Tiny"
+                        fontScale <= 0.95f -> "Small"
+                        fontScale <= 1.07f -> "Default"
+                        fontScale <= 1.2f -> "Large"
+                        else -> "Extra Large"
+                    }
+                    Text(
+                        "Font Size · $fontLabel",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        value = fontScale,
+                        onValueChange = { themeViewModel.updateFontScale(it) },
+                        valueRange = 0.7f..1.3f,
+                        steps = 5,
+                        colors = SliderDefaults.colors(
+                            thumbColor = primaryColor,
+                            activeTrackColor = primaryColor
+                        ),
+                        thumb = {
+                            SliderDefaults.Thumb(
+                                interactionSource = remember { MutableInteractionSource() },
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                sliderState = sliderState,
+                                modifier = Modifier.height(4.dp),
+                                thumbTrackGapSize = 4.dp
+                            )
+                        }
+                    )
                 }
             }
         }

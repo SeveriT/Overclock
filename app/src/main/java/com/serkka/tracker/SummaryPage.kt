@@ -1,15 +1,17 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.serkka.tracker
 
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.*
@@ -33,11 +36,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.serkka.tracker.ui.theme.PersonalBestGold
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -77,10 +84,16 @@ fun SummaryPage(
 
     val today = LocalDate.now()
 
-    val todaysWorkouts = remember(workouts) {
+    val weekWorkouts = remember(workouts) {
+        val weekAgo = today.minusDays(6)
         workouts.filter {
-            Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate().isEqual(today)
-        }
+            val d = Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            !d.isBefore(weekAgo) && !d.isAfter(today)
+        }.sortedByDescending { it.date }
+    }
+
+    val weekWorkoutsGrouped = remember(weekWorkouts) {
+        weekWorkouts.groupBy { formatDate(it.date) }
     }
 
     val weeklyStreak = remember(activityData, workoutSessions, today) {
@@ -125,6 +138,14 @@ fun SummaryPage(
         (stravaItems + sessionItems).sortedByDescending { it.date }
     }
 
+    val recentItemsGrouped = remember(recentItems) {
+        recentItems.groupBy { formatDate(it.date) }
+    }
+
+    val expandedDays = remember { mutableStateMapOf<String, Boolean>() }
+    val expandedActivityDays = remember { mutableStateMapOf<String, Boolean>() }
+    val haptic = LocalHapticFeedback.current
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -141,7 +162,7 @@ fun SummaryPage(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // ── Weekly streak dots ────────────────────────────────────────────
             item {
@@ -204,7 +225,9 @@ fun SummaryPage(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
+
 
             // ── Latest weight card ────────────────────────────────────────────
             if (lastWeight != null) {
@@ -229,7 +252,7 @@ fun SummaryPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize()
-                            .padding(top = 8.dp)
+                            .padding(top = 16.dp)
                             .bounceClick(
                                 interactionSource = weightInteractionSource,
                                 onClick = onNavigateToWeightTracking
@@ -247,7 +270,7 @@ fun SummaryPage(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                                 Text(
                                     text = "${formatWeight(lastWeight.weight)} kg",
                                     style = MaterialTheme.typography.headlineMedium,
@@ -399,6 +422,7 @@ fun SummaryPage(
             // ── Recent Activity (combined Strava + local sessions) ──────────
             item {
                 val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -410,12 +434,18 @@ fun SummaryPage(
                         color = primaryColor,
                         fontWeight = FontWeight.Bold
                     )
-                    TextButton(
-                        onClick = onNavigateToSessions,
-                        interactionSource = sessionsTitleInteractionSource,
-                        modifier = Modifier.bounceClick(sessionsTitleInteractionSource)
-                    ) { Text("See all") }
+                    Text(
+                        text = "See all",
+                        modifier = Modifier
+                            .bounceClick(sessionsTitleInteractionSource)
+                            .clickable(
+                                interactionSource = sessionsTitleInteractionSource,
+                                indication = null, // Set to null if your bounceClick handles the visual feedback
+                                onClick = onNavigateToSessions
+                            )
+                    )
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (isLoading && activities.isEmpty() && recentItems.isEmpty()) {
@@ -433,153 +463,215 @@ fun SummaryPage(
                     )
                 }
             } else {
-                items(recentItems.chunked(2)) { pair ->
-                    Row(
+                items(recentItems, key = { "${it.date}_${it.name}" }) { item ->
+                    val accentColor = if (item.isStrava) Color(0xFFFC4C02) else primaryColor
+                    ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
-                        pair.forEach { item ->
-                            val accentColor = if (item.isStrava) Color(0xFFFC4C02) else primaryColor
-                            ElevatedCard(
-                                modifier = Modifier.weight(1f).animateContentSize().height(100.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                                shape = RoundedCornerShape(12.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(12.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(36.dp)) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(modifier = Modifier.size(36.dp)) {
-                                            Box(
-                                                modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(getIconForActivity(item.type), null, tint = accentColor, modifier = Modifier.size(20.dp))
-                                            }
-                                            if (item.isStrava) {
-                                                Icon(
-                                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.strava_logo),
-                                                    contentDescription = "Strava",
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.size(14.dp)
-                                                        .align(Alignment.BottomEnd)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                )
-                                            }
-                                        }
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                item.name,
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                item.type,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        if (item.isStrava && (item.distance != 0f || item.calories != 0f)) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (item.distance == 0f) Icons.Default.LocalFireDepartment
-                                                                  else Icons.Default.Straighten,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(14.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                                )
-                                                Text(
-                                                    text = if (item.distance == 0f)
-                                                               "${item.calories.toInt()} kcal"
-                                                           else
-                                                               "${String.format(Locale.getDefault(), "%.1f", item.distance / 1000f)} km",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Schedule, null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                            )
-                                            Text(
-                                                text = run {
-                                                    val totalMinutes = item.durationSeconds / 60
-                                                    when {
-                                                        totalMinutes < 60      -> "$totalMinutes min"
-                                                        totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
-                                                        else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
-                                                    }
-                                                },
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
+                                    Icon(getIconForActivity(item.type), null, tint = accentColor, modifier = Modifier.size(20.dp))
+                                }
+                                if (item.isStrava) {
+                                    Icon(
+                                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.strava_logo),
+                                        contentDescription = null,
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(14.dp).align(Alignment.BottomEnd).clip(RoundedCornerShape(6.dp))
+                                    )
                                 }
                             }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                val details = buildString {
+                                    append(item.type)
+                                    val totalMinutes = item.durationSeconds / 60
+                                    append(" · ")
+                                    append(when {
+                                        totalMinutes < 60      -> "$totalMinutes min"
+                                        totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
+                                        else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
+                                    })
+                                    if (item.isStrava && item.distance > 0f) {
+                                        append(" · ${String.format(Locale.getDefault(), "%.1f", item.distance / 1000f)} km")
+                                    }
+                                }
+                                Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    formatDate(item.date),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
                         }
-                        if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
 
-            // ── Today's exercises ─────────────────────────────────────────────
+            // ── This week's exercises ─────────────────────────────────────────
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "Today's Exercises",
+                    "This Week's Exercises",
                     style = MaterialTheme.typography.titleMedium,
                     color = primaryColor,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            if (todaysWorkouts.isEmpty()) {
+            if (weekWorkouts.isEmpty()) {
                 item {
                     EmptyState(
                         icon = Icons.Default.FitnessCenter,
-                        message = "No exercises recorded for today yet."
+                        message = "No exercises recorded this week yet."
                     )
                 }
             } else {
-                item {
-                    Column {
-                        todaysWorkouts.chunked(2).forEach { pair ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                pair.forEach { workout ->
-                                    WorkoutCard(
-                                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                                        workout = workout,
-                                        primaryColor = primaryColor,
-                                        onEdit = { onWorkoutEdit(workout) },
-                                        onDelete = { onWorkoutDelete(workout) },
-                                        onCopy = { onWorkoutCopy(workout) }
+
+                weekWorkoutsGrouped.forEach { (date, workoutsInDay) ->
+                    val isExpanded = expandedDays[date] ?: false
+                    val exercises = workoutsInDay.map { it.exerciseName }.distinct()
+                    val totalSets = workoutsInDay.sumOf { it.sets }
+                    val hasPB = workoutsInDay.any { it.isPersonalBest }
+
+                    item(key = "summary_day_$date") {
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { expandedDays[date] = !isExpanded }
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = date,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = primaryColor,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${exercises.size} exercises · $totalSets sets",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (!isExpanded) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = exercises.joinToString(", "),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    if (hasPB) {
+                                        Icon(
+                                            Icons.Default.EmojiEvents,
+                                            contentDescription = "Personal Best",
+                                            tint = PersonalBestGold,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Icon(
+                                        if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+
+                                if (isExpanded) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        modifier = Modifier.padding(horizontal = 14.dp)
+                                    )
+                                    workoutsInDay.forEach { workout ->
+                                        val textColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface
+                                        val subtextColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .combinedClickable(
+                                                    onClick = { onWorkoutEdit(workout) },
+                                                    onLongClick = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        onWorkoutCopy(workout)
+                                                    }
+                                                )
+                                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = workout.exerciseName,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = textColor,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                val details = buildString {
+                                                    if (workout.sets > 0) append("${workout.sets} sets ")
+                                                    if (workout.reps > 0) {
+                                                        if (workout.sets > 0) append("x ")
+                                                        append("${workout.reps} reps ")
+                                                    }
+                                                    if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
+                                                }
+                                                Text(details, style = MaterialTheme.typography.bodySmall, color = subtextColor)
+                                                if (workout.notes.isNotBlank()) {
+                                                    Text(
+                                                        workout.notes,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = subtextColor.copy(alpha = 0.8f),
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        fontStyle = FontStyle.Italic
+                                                    )
+                                                }
+                                            }
+                                            if (workout.isPersonalBest) {
+                                                Icon(
+                                                    Icons.Default.EmojiEvents,
+                                                    contentDescription = "PB",
+                                                    tint = PersonalBestGold,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
