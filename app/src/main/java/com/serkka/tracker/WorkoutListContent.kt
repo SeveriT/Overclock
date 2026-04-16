@@ -58,7 +58,8 @@ fun WorkoutListContent(
     val groupedWorkouts = workouts.groupBy {
         formatDate(it.date)
     }
-    val expandedDays = remember { mutableStateMapOf<String, Boolean>() }
+    val todayKey = remember { formatDate(System.currentTimeMillis()) }
+    val expandedDays = remember { mutableStateMapOf(todayKey to true) }
 
     Column(modifier = Modifier.fillMaxSize().padding(top = topPadding)) {
         searchBar?.invoke()
@@ -103,14 +104,14 @@ fun WorkoutListContent(
                                         color = primaryColor,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "${exercises.size} exercises · $totalSets sets",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (!isExpanded) {
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = exercises.joinToString(", "),
                                             style = MaterialTheme.typography.bodySmall,

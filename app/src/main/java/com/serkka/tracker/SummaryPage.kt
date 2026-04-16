@@ -500,6 +500,7 @@ fun SummaryPage(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
                                 val details = buildString {
                                     append(item.type)
                                     val totalMinutes = item.durationSeconds / 60
@@ -514,6 +515,7 @@ fun SummaryPage(
                                     }
                                 }
                                 Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     formatDate(item.date),
                                     style = MaterialTheme.typography.labelSmall,
