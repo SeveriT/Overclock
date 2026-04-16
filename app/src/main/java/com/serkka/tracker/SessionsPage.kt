@@ -93,7 +93,7 @@ fun SessionsPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding + 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
     ) {
         if (allItems.isNotEmpty()) {
             item {

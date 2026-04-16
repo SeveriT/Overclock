@@ -66,7 +66,7 @@ fun WorkoutListContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = bottomPadding, start = 16.dp, end = 16.dp),
+            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             groupedWorkouts.forEach { (date, workoutsInDay) ->

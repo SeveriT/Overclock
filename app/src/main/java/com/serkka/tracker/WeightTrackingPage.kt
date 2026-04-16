@@ -87,7 +87,7 @@ fun WeightTrackingPage(
         if (sortedWeights.isNotEmpty()) {
             item {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 6.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
@@ -267,8 +267,9 @@ fun WeightTrackingPage(
                             ) {
                                 Text(
                                     formatDate(weightEntry.date),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.labelMedium
+                                    color = primaryColor,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     "${formatWeight(weightEntry.weight)} kg",
