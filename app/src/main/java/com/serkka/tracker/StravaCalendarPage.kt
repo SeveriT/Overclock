@@ -181,7 +181,11 @@ fun StravaCalendarPage(
                 }
             }
 
-            val months = (0..2).map { YearMonth.now().minusMonths(it.toLong()) }
+            val earliestDate = allActivityDates.lastOrNull() ?: LocalDate.now()
+            val earliestMonth = YearMonth.from(earliestDate)
+            val now = YearMonth.now()
+            val monthCount = ((now.year - earliestMonth.year) * 12 + (now.monthValue - earliestMonth.monthValue)).coerceAtLeast(2)
+            val months = (0..monthCount).map { now.minusMonths(it.toLong()) }
             items(months) { month ->
                 StravaCalendar(month, activityData, primaryColor)
                 Spacer(modifier = Modifier.height(32.dp))
