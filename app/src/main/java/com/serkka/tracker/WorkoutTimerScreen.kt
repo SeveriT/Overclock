@@ -156,7 +156,7 @@ fun WorkoutTimerScreen(
         Spacer(modifier = Modifier.weight(0.25f))
 
         Text(
-            text = if (hasStarted) lapTimeString else "",
+            text = if (hasStarted) timeString else "",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.ExtraBold,
             fontSize = if (hasStarted) 50.sp else 50.sp,
@@ -211,7 +211,7 @@ fun WorkoutTimerScreen(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = timeString,
+                    text = if (hasStarted) lapTimeString else timeString,
                     fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp
