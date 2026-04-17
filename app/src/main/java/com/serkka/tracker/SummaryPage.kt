@@ -127,7 +127,8 @@ fun SummaryPage(
         val durationSeconds: Int,
         val distance: Float = 0f,
         val calories: Float = 0f,
-        val isStrava: Boolean = false
+        val isStrava: Boolean = false,
+        val stravaId: Long? = null
     )
 
     val recentItems = remember(activities, workoutSessions) {
@@ -139,7 +140,7 @@ fun SummaryPage(
                 java.time.OffsetDateTime.parse(activity.startDate.replace("Z", "+00:00"))
                     .toInstant().toEpochMilli()
             } catch (_: Exception) { 0L }
-            RecentItem(activity.name, activity.type, epochMs, activity.movingTime, activity.distance, activity.calories, isStrava = true)
+            RecentItem(activity.name, activity.type, epochMs, activity.movingTime, activity.distance, activity.calories, isStrava = true, stravaId = activity.id)
         }
         val sessionItems = workoutSessions.mapNotNull { session ->
             val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -679,8 +680,13 @@ fun SummaryPage(
             } else {
                 items(recentItems, key = { "${it.date}_${it.name}" }) { item ->
                     val accentColor = if (item.isStrava) Color(0xFFFC4C02) else primaryColor
+                    val cardModifier = if (item.isStrava && item.stravaId != null) {
+                        Modifier.fillMaxWidth().clickable { context.openStravaActivity(item.stravaId) }
+                    } else {
+                        Modifier.fillMaxWidth()
+                    }
                     ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = cardModifier,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         shape = RoundedCornerShape(12.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)

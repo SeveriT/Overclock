@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ internal data class SessionDisplayItem(
     val durationSeconds: Int,
     val notes: String = "",
     val isStrava: Boolean = false,
+    val stravaId: Long? = null,
     val localSession: WorkoutSession? = null
 )
 
@@ -69,7 +71,8 @@ private fun StravaActivity.toDisplayItem(): SessionDisplayItem {
         type = type,
         date = epochMs,
         durationSeconds = movingTime,
-        isStrava = true
+        isStrava = true,
+        stravaId = id
     )
 }
 
@@ -169,9 +172,16 @@ private fun SessionDisplayCard(
 ) {
     val cardInteractionSource = remember { MutableInteractionSource() }
     val accentColor = if (item.isStrava) StravaOrange else primaryColor
+    val context = LocalContext.current
 
     ElevatedCard(
-        onClick = { if (!item.isStrava) onEdit() },
+        onClick = {
+            if (item.isStrava) {
+                item.stravaId?.let { context.openStravaActivity(it) }
+            } else {
+                onEdit()
+            }
+        },
         interactionSource = cardInteractionSource,
         modifier = modifier
             .fillMaxWidth()

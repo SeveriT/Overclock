@@ -165,6 +165,7 @@ fun WorkoutScreen(
     val ctx = LocalContext.current
     val trackerPrefs = remember { PreferencesManager.getInstance(ctx).tracker }
     var weightCardVisible by remember { mutableStateOf(trackerPrefs.getBoolean("weight_card_visible", true)) }
+    var pbConfettiTrigger by remember { mutableIntStateOf(0) }
     val setWeightCardVisible: (Boolean) -> Unit = { visible ->
         weightCardVisible = visible
         trackerPrefs.edit().putBoolean("weight_card_visible", visible).apply()
@@ -734,6 +735,10 @@ fun WorkoutScreen(
                     onDismiss = { showAddWorkoutDialog = false },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)
+                        if (isPB) {
+                            pbConfettiTrigger++
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                         showAddWorkoutDialog = false
                     }
                 )
@@ -777,10 +782,15 @@ fun WorkoutScreen(
                     history = workoutHistory,
                     onDismiss = { editingWorkout = null },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
+                        val wasPB = workout.isPersonalBest
                         viewModel.updateWorkout(workout.copy(
                             exerciseName = exercise, sets = sets, reps = reps, weight = weight,
                             date = dateMillis, isPersonalBest = isPB, weightUnit = weightUnit, notes = notes
                         ))
+                        if (isPB && !wasPB) {
+                            pbConfettiTrigger++
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                         editingWorkout = null
                     },
                     onDelete = { workoutToDelete = workout; editingWorkout = null },
@@ -795,6 +805,10 @@ fun WorkoutScreen(
                     onDismiss = { copyingWorkout = null },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)
+                        if (isPB) {
+                            pbConfettiTrigger++
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                         copyingWorkout = null
                     }
                 )
@@ -870,6 +884,8 @@ fun WorkoutScreen(
                     }
                 )
             }
+
+            ConfettiOverlay(trigger = pbConfettiTrigger, modifier = Modifier.fillMaxSize())
 
             // ── Music widget + FAB ────────────────────────────────────────────
             val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
