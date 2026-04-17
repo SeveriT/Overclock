@@ -607,7 +607,7 @@ fun WorkoutScreen(
                             IconButton(
                                 onClick = {
                                     ctx.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                                        .edit().remove("welcome_done").apply()
+                                        .edit().remove("welcome_skip").apply()
                                     val pm = ctx.packageManager
                                     val launchIntent = pm.getLaunchIntentForPackage(ctx.packageName)
                                     launchIntent?.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
