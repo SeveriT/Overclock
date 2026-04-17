@@ -259,11 +259,11 @@ fun WeightTrackingPage(
                         )
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(
-                                modifier = Modifier.weight(1f).padding(start = 8.dp)
+                                modifier = Modifier.weight(1f).padding(start = 4.dp)
                             ) {
                                 Text(
                                     formatDate(weightEntry.date),

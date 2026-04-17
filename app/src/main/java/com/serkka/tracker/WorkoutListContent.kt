@@ -115,7 +115,7 @@ fun WorkoutListContent(
                                         Text(
                                             text = exercises.joinToString(", "),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )

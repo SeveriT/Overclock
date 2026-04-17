@@ -175,7 +175,7 @@ internal fun EmptyState(
     primaryColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

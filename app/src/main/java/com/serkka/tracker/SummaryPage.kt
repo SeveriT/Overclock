@@ -2,7 +2,10 @@
 
 package com.serkka.tracker
 
+import android.Manifest
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.core.Animatable
@@ -31,7 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -40,7 +45,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,15 +64,19 @@ fun SummaryPage(
     bodyWeights: List<BodyWeight>,
     workoutSessions: List<WorkoutSession>,
     stravaViewModel: StravaViewModel,
+    stepsViewModel: StepsViewModel,
     primaryColor: Color,
     onWorkoutEdit: (Workout) -> Unit,
     onWorkoutDelete: (Workout) -> Unit,
     onWorkoutCopy: (Workout) -> Unit,
     onNavigateToWeightTracking: () -> Unit,
     onNavigateToSessions: () -> Unit,
+    onNavigateToReps: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp,
-    bottomPadding: Dp = 16.dp
+    bottomPadding: Dp = 16.dp,
+    weightCardVisible: Boolean = true,
+    onHideWeightCard: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activities by stravaViewModel.activities.collectAsState()
@@ -146,6 +157,17 @@ fun SummaryPage(
     val expandedActivityDays = remember { mutableStateMapOf<String, Boolean>() }
     val haptic = LocalHapticFeedback.current
 
+    // Steps state
+    val hasStepsPermission by stepsViewModel.hasPermission.collectAsState()
+    val todaySteps by stepsViewModel.todaySteps.collectAsState()
+    val weeklySteps by stepsViewModel.weeklySteps.collectAsState()
+    val stepGoal by stepsViewModel.stepGoal.collectAsState()
+    val isStepsCardVisible by stepsViewModel.isCardVisible.collectAsState()
+    val stepsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> stepsViewModel.onPermissionResult(granted) }
+    var showStepGoalDialog by remember { mutableStateOf(false) }
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -225,19 +247,210 @@ fun SummaryPage(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
 
-            // ── Latest weight card ────────────────────────────────────────────
-            if (lastWeight != null) {
+            // ── Steps card ───────────────────────────────────────────────────
+            if (stepsViewModel.isAvailable && isStepsCardVisible) {
                 item {
-                    Text(
-                        "Latest Weight",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Steps",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (hasStepsPermission) {
+                                IconButton(
+                                    onClick = { showStepGoalDialog = true },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit step goal",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            IconButton(
+                                onClick = { stepsViewModel.setCardVisible(false) },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.VisibilityOff,
+                                    contentDescription = "Hide steps card",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth().animateContentSize().padding(top = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                    ) {
+                        if (!hasStepsPermission) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Step Counter", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("Allow activity access to track steps", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                val connectInteractionSource = remember { MutableInteractionSource() }
+                                Button(
+                                    onClick = { stepsPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION) },
+                                    interactionSource = connectInteractionSource,
+                                    modifier = Modifier.bounceClick(connectInteractionSource),
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = MaterialTheme.colorScheme.surface)
+                                ) { Text("Allow") }
+                            }
+                        } else {
+                            val goalSteps = stepGoal
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                    Row(verticalAlignment = Alignment.Bottom) {
+                                        Text(
+                                            text = String.format(Locale.getDefault(), "%,d", todaySteps),
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            "steps today",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    val progress = (todaySteps.toFloat() / goalSteps).coerceIn(0f, 1f)
+                                    LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier.fillMaxWidth(0.75f).height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                        color = primaryColor,
+                                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                        drawStopIndicator = {},
+                                        gapSize = 0.dp
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "${String.format(Locale.getDefault(), "%,d", todaySteps)} / ${String.format(Locale.getDefault(), "%,d", goalSteps)} goal",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (weeklySteps.isNotEmpty()) {
+                                    val stepsBarAnim = remember { Animatable(0f) }
+                                    LaunchedEffect(weeklySteps) {
+                                        stepsBarAnim.animateTo(1f, animationSpec = tween(500, easing = FastOutSlowInEasing))
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .width(150.dp)
+                                            .height(75.dp)
+                                            .background(primaryColor.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                            .padding(8.dp)
+                                    ) {
+                                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                                            val goalF = goalSteps.toFloat()
+                                            val todayDate = LocalDate.now()
+                                            val barSlot = size.width / weeklySteps.size
+                                            val barW = barSlot * 0.6f
+                                            val barOffset = (barSlot - barW) / 2f
+                                            weeklySteps.forEachIndexed { i, (date, steps) ->
+                                                val normalizedH = (steps / goalF * stepsBarAnim.value).coerceIn(0f, 1f)
+                                                val barH = (size.height * normalizedH).coerceAtLeast(if (steps > 0) 3.dp.toPx() else 0f)
+                                                if (barH > 0f) {
+                                                    drawRoundRect(
+                                                        color = if (date == todayDate) primaryColor else primaryColor.copy(alpha = 0.35f),
+                                                        topLeft = Offset(i * barSlot + barOffset, size.height - barH),
+                                                        size = Size(barW, barH),
+                                                        cornerRadius = CornerRadius(3.dp.toPx())
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (showStepGoalDialog) {
+                item {
+                    var goalInput by remember { mutableStateOf(stepGoal.toString()) }
+                    AlertDialog(
+                        onDismissRequest = { showStepGoalDialog = false },
+                        title = { Text("Edit step goal") },
+                        text = {
+                            OutlinedTextField(
+                                value = goalInput,
+                                onValueChange = { input -> goalInput = input.filter { it.isDigit() }.take(6) },
+                                label = { Text("Daily step goal") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val parsed = goalInput.toLongOrNull()?.coerceAtLeast(100L) ?: 10_000L
+                                stepsViewModel.setStepGoal(parsed)
+                                showStepGoalDialog = false
+                            }) { Text("Save", color = primaryColor) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showStepGoalDialog = false }) { Text("Cancel") }
+                        }
                     )
+                }
+            }
+
+            // ── Latest weight card ────────────────────────────────────────────
+            if (lastWeight != null && weightCardVisible) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Latest Weight",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(
+                            onClick = onHideWeightCard,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.VisibilityOff,
+                                contentDescription = "Hide weight card",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
 
                     val weekWeights = remember(bodyWeights) {
                         val twoDaysAgo = today.minusDays(13)
@@ -252,7 +465,7 @@ fun SummaryPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize()
-                            .padding(top = 16.dp)
+                            .padding(top = 8.dp)
                             .bounceClick(
                                 interactionSource = weightInteractionSource,
                                 onClick = onNavigateToWeightTracking
@@ -277,7 +490,7 @@ fun SummaryPage(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = formatDate(lastWeight.date),
                                     style = MaterialTheme.typography.bodyMedium,
@@ -291,7 +504,7 @@ fun SummaryPage(
                                 Box(
                                     modifier = Modifier
                                         .width(150.dp)
-                                        .height(85.dp)
+                                        .height(75.dp)
                                         .background(
                                             color = primaryColor.copy(alpha = 0.05f),
                                             shape = RoundedCornerShape(12.dp)
@@ -384,9 +597,9 @@ fun SummaryPage(
                                             .align(Alignment.TopStart)
                                             .background(
                                                 color = when {
-                                                    trend > 0.1f  -> Color(0xFFEE3E3E).copy(alpha = 0.8f)
-                                                    trend < -0.1f -> Color(0xFF46CE46).copy(alpha = 0.8f)
-                                                    else          -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                                    trend > 0.1f  -> Color(0xFFEE3E3E).copy(alpha = 0.7f)
+                                                    trend < -0.1f -> Color(0xFF46CE46).copy(alpha = 0.7f)
+                                                    else          -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                                 },
                                                 shape = RoundedCornerShape(6.dp)
                                             )
@@ -422,7 +635,6 @@ fun SummaryPage(
             // ── Recent Activity (combined Strava + local sessions) ──────────
             item {
                 val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
-                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -434,18 +646,20 @@ fun SummaryPage(
                         color = primaryColor,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "See all",
+                    Box(
                         modifier = Modifier
+                            .height(36.dp)
                             .bounceClick(sessionsTitleInteractionSource)
                             .clickable(
                                 interactionSource = sessionsTitleInteractionSource,
-                                indication = null, // Set to null if your bounceClick handles the visual feedback
+                                indication = null,
                                 onClick = onNavigateToSessions
-                            )
-                    )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "See all")
+                    }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (isLoading && activities.isEmpty() && recentItems.isEmpty()) {
@@ -472,7 +686,7 @@ fun SummaryPage(
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(modifier = Modifier.size(36.dp)) {
@@ -529,14 +743,32 @@ fun SummaryPage(
 
             // ── This week's exercises ─────────────────────────────────────────
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "This Week's Exercises",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = primaryColor,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                val repsTitleInteractionSource = remember { MutableInteractionSource() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "This Week's Exercises",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Box(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .bounceClick(repsTitleInteractionSource)
+                            .clickable(
+                                interactionSource = repsTitleInteractionSource,
+                                indication = null,
+                                onClick = onNavigateToReps
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "See all")
+                    }
+                }
             }
 
             if (weekWorkouts.isEmpty()) {
@@ -580,14 +812,14 @@ fun SummaryPage(
                                             color = primaryColor,
                                             fontWeight = FontWeight.Bold
                                         )
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = "${exercises.size} exercises · $totalSets sets",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         if (!isExpanded) {
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(
                                                 text = exercises.joinToString(", "),
                                                 style = MaterialTheme.typography.labelSmall,
@@ -679,7 +911,6 @@ fun SummaryPage(
                     }
                 }
             }
-            item { Spacer(modifier = Modifier.height(10.dp)) }
         }
     }
 }

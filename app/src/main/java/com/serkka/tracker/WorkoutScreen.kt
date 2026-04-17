@@ -153,13 +153,22 @@ fun WorkoutScreen(
     themeViewModel: ThemeViewModel = viewModel(),
     timerViewModel: WorkoutTimerViewModel = viewModel(),
     aiViewModel: AiViewModel = viewModel(),
-    subscriptionViewModel: SubscriptionViewModel = viewModel()
+    subscriptionViewModel: SubscriptionViewModel = viewModel(),
+    stepsViewModel: StepsViewModel = viewModel()
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val isSubscribed by subscriptionViewModel.isSubscribed.collectAsState()
     var showSubscriptionDialog by remember { mutableStateOf(false) }
     val activity = LocalContext.current as? Activity
+
+    val ctx = LocalContext.current
+    val trackerPrefs = remember { PreferencesManager.getInstance(ctx).tracker }
+    var weightCardVisible by remember { mutableStateOf(trackerPrefs.getBoolean("weight_card_visible", true)) }
+    val setWeightCardVisible: (Boolean) -> Unit = { visible ->
+        weightCardVisible = visible
+        trackerPrefs.edit().putBoolean("weight_card_visible", visible).apply()
+    }
 
     LaunchedEffect(Unit) {
         stravaViewModel.checkAndFetchActivities()
@@ -344,15 +353,19 @@ fun WorkoutScreen(
                             bodyWeights = bodyWeights,
                             workoutSessions = workoutSessions,
                             stravaViewModel = stravaViewModel,
+                            stepsViewModel = stepsViewModel,
                             primaryColor = primaryColor,
                             onWorkoutEdit   = { editingWorkout = it },
                             onWorkoutDelete = { workoutToDelete = it },
                             onWorkoutCopy   = { copyingWorkout = it },
                             onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
                             onNavigateToSessions = { navigate(Screen.Sessions.name) },
+                            onNavigateToReps = { navigate(Screen.Workouts.name) },
                             listState = summaryListState,
                             topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding
+                            bottomPadding = contentBottomPadding,
+                            weightCardVisible = weightCardVisible,
+                            onHideWeightCard = { setWeightCardVisible(false) }
                         )
                     }
                 }
@@ -584,6 +597,35 @@ fun WorkoutScreen(
                                     .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
                                     .bounceClick(assistInteractionSource)
                             )
+                        }
+                        val stepsCardVisible by stepsViewModel.isCardVisible.collectAsState()
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Summary.name && stepsViewModel.isAvailable && !stepsCardVisible,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val showStepsInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { stepsViewModel.setCardVisible(true) },
+                                interactionSource = showStepsInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(showStepsInteractionSource)
+                            ) {
+                                Icon(Icons.Default.DirectionsWalk, contentDescription = "Show steps", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Summary.name && !weightCardVisible,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val showWeightInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { setWeightCardVisible(true) },
+                                interactionSource = showWeightInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(showWeightInteractionSource)
+                            ) {
+                                Icon(Icons.Default.MonitorWeight, contentDescription = "Show weight", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
                         }
                         AnimatedVisibility(
                             visible = currentRoute == Screen.Workouts.name && !searchExpanded,

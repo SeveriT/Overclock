@@ -20,7 +20,7 @@ val premiumEmails = localProperties.getProperty("PREMIUM_EMAILS") ?: ""
 
 android {
     namespace = "com.serkka.tracker"
-    compileSdk = 35
+    compileSdk = 36
     buildFeatures {
         buildConfig = true
     }
@@ -29,8 +29,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.5.1"
+        versionCode = 23
+        versionName = "1.6.0"
 
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaSecret\"")
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
