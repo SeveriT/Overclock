@@ -75,13 +75,12 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val welcomePrefs = remember { getSharedPreferences("app_prefs", MODE_PRIVATE) }
-                var showWelcome by remember { mutableStateOf(!welcomePrefs.getBoolean("welcome_done", false)) }
+                var showWelcome by remember { mutableStateOf(!welcomePrefs.getBoolean("welcome_skip", false)) }
                 var showExitDialog by remember { mutableStateOf(false) }
 
                 BackHandler {
                     if (showWelcome) {
                         showWelcome = false
-                        welcomePrefs.edit().putBoolean("welcome_done", true).apply()
                     } else {
                         showExitDialog = true
                     }
@@ -124,9 +123,11 @@ class MainActivity : ComponentActivity() {
                 if (showWelcome) {
                     WelcomeScreen(
                         primaryColor = primaryColor,
-                        onGetStarted = {
+                        onGetStarted = { dontShowAgain ->
                             showWelcome = false
-                            welcomePrefs.edit().putBoolean("welcome_done", true).apply()
+                            if (dontShowAgain) {
+                                welcomePrefs.edit().putBoolean("welcome_skip", true).apply()
+                            }
                         }
                     )
                 } else {

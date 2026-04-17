@@ -35,7 +35,7 @@ import androidx.core.app.NotificationManagerCompat
 @Composable
 fun WelcomeScreen(
     primaryColor: Color,
-    onGetStarted: () -> Unit
+    onGetStarted: (dontShowAgain: Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val fadeIn = remember { Animatable(0f) }
@@ -47,6 +47,8 @@ fun WelcomeScreen(
     if (showUserGuide) {
         UserGuideDialog(onDismiss = { showUserGuide = false })
     }
+
+    var dontShowAgain by remember { mutableStateOf(false) }
 
     // Notification permission
     var notificationGranted by remember {
@@ -207,8 +209,26 @@ fun WelcomeScreen(
 
         Spacer(modifier = Modifier.weight(0.15f))
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = dontShowAgain,
+                onCheckedChange = { dontShowAgain = it },
+                colors = CheckboxDefaults.colors(checkedColor = primaryColor)
+            )
+            Text(
+                "Don't show this again",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
         Button(
-            onClick = onGetStarted,
+            onClick = { onGetStarted(dontShowAgain) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
