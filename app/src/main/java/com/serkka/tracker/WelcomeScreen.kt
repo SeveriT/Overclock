@@ -4,15 +4,18 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +43,11 @@ fun WelcomeScreen(
         fadeIn.animateTo(1f, animationSpec = tween(600))
     }
 
+    var showUserGuide by remember { mutableStateOf(false) }
+    if (showUserGuide) {
+        UserGuideDialog(onDismiss = { showUserGuide = false })
+    }
+
     // Notification permission
     var notificationGranted by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
@@ -56,6 +64,21 @@ fun WelcomeScreen(
         ActivityResultContracts.StartActivityForResult()
     ) {
         listenerEnabled = isNotificationListenerEnabled(context)
+    }
+
+    // Activity recognition permission (for step counter)
+    var activityRecognitionGranted by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.ACTIVITY_RECOGNITION
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val activityRecognitionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        activityRecognitionGranted = granted
     }
 
     Surface(
@@ -101,6 +124,7 @@ fun WelcomeScreen(
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
         FeatureItem(Icons.Default.AutoAwesome, "AI Assistant", "Generate personalized workouts with Gemini AI", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)
+        FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -137,6 +161,19 @@ fun WelcomeScreen(
                 listenerSettingsLauncher.launch(
                     Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                 )
+            }
+        )
+
+        PermissionRow(
+            icon = Icons.Default.DirectionsWalk,
+            label = "Activity Recognition",
+            description = "Required for step counter",
+            granted = activityRecognitionGranted,
+            primaryColor = primaryColor,
+            onEnable = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                }
             }
         )
 
@@ -184,7 +221,21 @@ fun WelcomeScreen(
             Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        TextButton(
+            onClick = { showUserGuide = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.HelpOutline,
+                contentDescription = null,
+                tint = primaryColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("View User Guide", color = primaryColor, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
     }
 }

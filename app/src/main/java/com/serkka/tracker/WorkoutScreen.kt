@@ -598,6 +598,28 @@ fun WorkoutScreen(
                                     .bounceClick(assistInteractionSource)
                             )
                         }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Settings.name,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val showWelcomeInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = {
+                                    ctx.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                        .edit().remove("welcome_done").apply()
+                                    val pm = ctx.packageManager
+                                    val launchIntent = pm.getLaunchIntentForPackage(ctx.packageName)
+                                    launchIntent?.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    ctx.startActivity(launchIntent)
+                                    (ctx as? Activity)?.finish()
+                                },
+                                interactionSource = showWelcomeInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(showWelcomeInteractionSource)
+                            ) {
+                                Icon(Icons.Default.RestartAlt, contentDescription = "Show welcome screen", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
                         val stepsCardVisible by stepsViewModel.isCardVisible.collectAsState()
                         AnimatedVisibility(
                             visible = currentRoute == Screen.Summary.name && stepsViewModel.isAvailable && !stepsCardVisible,

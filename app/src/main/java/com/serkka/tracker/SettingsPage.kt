@@ -699,20 +699,21 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                     .fillMaxWidth()
                     .heightIn(max = 500.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                GuideSection("1. Navigation", "Swipe horizontally to glide between screens.")
+                GuideSection("1. Navigation", "Swipe horizontally to glide between screens. The bottom navbar hides when scrolling down and reappears when scrolling up.")
                 GuideSection("2. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. Use the status bar notification to track time outside the app. Completed sessions are saved locally.")
-                GuideSection("3. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history will appear as you type. Use the search icon to filter exercises by name.")
-                GuideSection("4. AI Assistant", "Generate personalized workouts and full programs with AI. Use quick prompts or type your own. Save selected exercises directly to your workout log. Premium feature.")
-                GuideSection("5. Home", "Weekly summary with activity count and streaks combining both local sessions and Strava activities.")
-                GuideSection("6. Weight Tracking", "Log body weight entries with optional notes. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height.")
-                GuideSection("7. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak.")
-                GuideSection("8. Calendar", "View your activity history with daily dot indicators combining both Strava activities and local sessions. Week numbers are shown for weeks without activity.")
-                GuideSection("9. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify. Swipe left or right to skip tracks.")
-                GuideSection("10. Strava", "Link your Strava account in Settings to sync activities. Your Strava workouts will appear in Sessions, Calendar, and count toward streaks. Premium feature.")
-                GuideSection("11. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. You can also create local backups manually. Premium feature.")
-                GuideSection("12. Customization", "Change your primary accent color using the RGB sliders in Settings. The entire UI will adapt to your choice.")
+                GuideSection("3. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history will appear as you type. Use the search icon to filter exercises by name. Workouts are grouped by day with expandable cards — today's card is open by default.")
+                GuideSection("4. AI Assistant", "Generate personalized workouts and full programs with AI. Use quick prompts or type your own. Save selected exercises directly to your workout log. The AI reads your last 50 exercises to suggest realistic weights. Premium feature.")
+                GuideSection("5. Home", "Weekly summary with activity count and streaks combining local sessions and Strava activities. Shows steps, latest weight, recent activity, and this week's exercises. Tap the eye-off icon on any card to hide it — a matching icon appears in the top bar to bring it back.")
+                GuideSection("6. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress.")
+                GuideSection("7. Weight Tracking", "Log body weight entries with optional notes. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height.")
+                GuideSection("8. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Tap 'See all' on the Home screen to jump here.")
+                GuideSection("9. Calendar", "View your activity history with daily dot indicators combining Strava activities and local sessions. The calendar dynamically extends back to cover all your Strava history. Week numbers are shown for weeks without activity.")
+                GuideSection("10. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
+                GuideSection("11. Strava", "Link your Strava account in Settings to sync activities. Your Strava workouts will appear in Sessions, Calendar, and count toward streaks. Premium feature.")
+                GuideSection("12. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. You can also create local backups manually. Premium feature.")
+                GuideSection("13. Customization", "Change your primary accent color using the RGB sliders in Settings. Adjust the font size slider (0.7–1.3) to scale the whole UI. The entire app adapts to your choices.")
             }
         },
         confirmButton = {
