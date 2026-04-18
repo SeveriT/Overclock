@@ -13,7 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Hiking
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Waves
@@ -91,15 +91,20 @@ internal fun String.toLeadFloat(): Float? = this.replace(',', '.').toFloatOrNull
 
 // ── Activity icons ────────────────────────────────────────────────────────────
 
-internal fun getIconForActivity(type: String): ImageVector = when (type) {
-    "WeightTraining" -> Icons.Default.FitnessCenter
-    "Run"            -> Icons.AutoMirrored.Filled.DirectionsRun
-    "Ride"           -> Icons.AutoMirrored.Filled.DirectionsBike
-    "Swim"           -> Icons.Default.Waves
-    "Walk"           -> Icons.AutoMirrored.Filled.DirectionsWalk
-    "Yoga"           -> Icons.Default.SelfImprovement
-    "Hike"           -> Icons.Default.Terrain
-    else             -> Icons.Default.Star
+internal fun getIconForActivity(type: String, name: String? = null): ImageVector {
+    if (type == "Run" && name?.contains("trail run", ignoreCase = true) == true) {
+        return Icons.Default.Terrain
+    }
+    return when (type) {
+        "WeightTraining" -> Icons.Default.FitnessCenter
+        "Run"            -> Icons.AutoMirrored.Filled.DirectionsRun
+        "TrailRun"       -> Icons.Default.Terrain
+        "Ride"           -> Icons.AutoMirrored.Filled.DirectionsBike
+        "Swim"           -> Icons.Default.Waves
+        "Walk"           -> Icons.AutoMirrored.Filled.DirectionsWalk
+        "Hike"           -> Icons.Default.Hiking
+        else             -> Icons.Default.Star
+    }
 }
 
 // ── Animations ────────────────────────────────────────────────────────────────

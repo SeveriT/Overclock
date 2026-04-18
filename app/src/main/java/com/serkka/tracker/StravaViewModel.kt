@@ -362,9 +362,9 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
         _error.value = null
     }
 
-    fun getActivityData(): Map<String, List<String>> {
+    fun getActivityData(): Map<String, List<Pair<String, String>>> {
         return _activities.value.groupBy { it.startDate.substringBefore("T") }
-            .mapValues { entry -> entry.value.map { it.type } }
+            .mapValues { entry -> entry.value.map { it.type to it.name } }
     }
 
     fun getWeeklyStreak(): Int {

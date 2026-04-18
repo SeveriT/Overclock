@@ -13,7 +13,9 @@ import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.*
@@ -96,15 +98,20 @@ fun WelcomeScreen(
             .alpha(fadeIn.value),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.weight(0.1f))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+        Spacer(modifier = Modifier.height(32.dp))
 
         Image(
             painter = painterResource(id = R.mipmap.app_logo_foreground),
             contentDescription = "Overclock logo",
             modifier = Modifier.size(120.dp)
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             "Overclock",
@@ -207,7 +214,8 @@ fun WelcomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(0.15f))
+        Spacer(modifier = Modifier.height(16.dp))
+        }
 
         Row(
             modifier = Modifier

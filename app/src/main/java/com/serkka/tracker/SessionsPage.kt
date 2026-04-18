@@ -1,9 +1,11 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.serkka.tracker
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,6 +26,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
@@ -203,7 +207,7 @@ private fun SessionDisplayCard(
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(
-                            getIconForActivity(item.type),
+                            getIconForActivity(item.type, item.name),
                             contentDescription = null,
                             tint = accentColor,
                             modifier = Modifier.size(24.dp)
@@ -288,10 +292,7 @@ internal fun AddSessionDialog(
     onDismiss: () -> Unit,
     onSave: (name: String, type: String, dateEpochMs: Long, durationSeconds: Int) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(workoutActivityTypes.first()) }
-    var hours by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf("") }
     var datePickerOpen by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
     val selectedDateText = remember(datePickerState.selectedDateMillis) {
@@ -299,6 +300,20 @@ internal fun AddSessionDialog(
             val date = Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate()
             date.format(DateTimeFormatter.ofPattern("EEEE d.M.yyyy"))
         } ?: "Select date"
+    }
+    fun autoName(type: WorkoutActivityType, dateMs: Long?): String {
+        val date = (dateMs?.let { Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate() }
+            ?: java.time.LocalDate.now())
+        return "${type.label} – ${date.format(DateTimeFormatter.ofPattern("MMM d"))}"
+    }
+    var name by remember { mutableStateOf(autoName(selectedType, datePickerState.selectedDateMillis)) }
+    var hours by remember { mutableStateOf("") }
+    var minutes by remember { mutableStateOf("") }
+    LaunchedEffect(selectedType, datePickerState.selectedDateMillis) {
+        val autoForAny = workoutActivityTypes.any { name.startsWith("${it.label} – ") }
+        if (name.isBlank() || autoForAny) {
+            name = autoName(selectedType, datePickerState.selectedDateMillis)
+        }
     }
 
     if (datePickerOpen) {
@@ -335,9 +350,31 @@ internal fun AddSessionDialog(
                     onValueChange = { name = it },
                     label = { Text("Session Name") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    workoutActivityTypes.forEach { type ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { selectedType = type },
+                            label = { Text(type.label) },
+                            leadingIcon = {
+                                Icon(type.icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                                selectedLabelColor = primaryColor,
+                                selectedLeadingIconColor = primaryColor
+                            )
+                        )
+                    }
+                }
 
                 val dateInteraction = remember { MutableInteractionSource() }
                 OutlinedButton(
@@ -402,6 +439,11 @@ internal fun EditSessionDialog(
     onSave: (WorkoutSession) -> Unit
 ) {
     var name by remember { mutableStateOf(session.name) }
+    var selectedType by remember {
+        mutableStateOf(
+            workoutActivityTypes.firstOrNull { it.stravaType == session.type } ?: workoutActivityTypes.first()
+        )
+    }
     var hours by remember {
         mutableStateOf(if (session.durationSeconds / 3600 > 0) (session.durationSeconds / 3600).toString() else "")
     }
@@ -452,8 +494,31 @@ internal fun EditSessionDialog(
                     onValueChange = { name = it },
                     label = { Text("Session Name") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    workoutActivityTypes.forEach { type ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { selectedType = type },
+                            label = { Text(type.label) },
+                            leadingIcon = {
+                                Icon(type.icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                                selectedLabelColor = primaryColor,
+                                selectedLeadingIconColor = primaryColor
+                            )
+                        )
+                    }
+                }
 
                 val dateInteraction = remember { MutableInteractionSource() }
                 OutlinedButton(
@@ -499,6 +564,7 @@ internal fun EditSessionDialog(
                     onSave(
                         session.copy(
                             name = name,
+                            type = selectedType.stravaType,
                             date = datePickerState.selectedDateMillis ?: session.date,
                             durationSeconds = totalSeconds,
                             notes = notes

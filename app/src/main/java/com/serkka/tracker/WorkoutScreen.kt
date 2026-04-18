@@ -344,8 +344,34 @@ fun WorkoutScreen(
                             onHorizontalDrag = { _, delta -> dragTotal += delta }
                         )
                     },
-                enterTransition = { fadeIn(animationSpec = tween(300)) },
-                exitTransition  = { fadeOut(animationSpec = tween(300)) }
+                enterTransition = {
+                    val from = swipeScreens.indexOf(initialState.destination.route)
+                    val to = swipeScreens.indexOf(targetState.destination.route)
+                    when {
+                        from == -1 || to == -1 ->
+                            fadeIn(animationSpec = tween(260))
+                        to > from ->
+                            slideInHorizontally(animationSpec = tween(260)) { it / 6 } +
+                                fadeIn(animationSpec = tween(260))
+                        else ->
+                            slideInHorizontally(animationSpec = tween(260)) { -it / 6 } +
+                                fadeIn(animationSpec = tween(260))
+                    }
+                },
+                exitTransition = {
+                    val from = swipeScreens.indexOf(initialState.destination.route)
+                    val to = swipeScreens.indexOf(targetState.destination.route)
+                    when {
+                        from == -1 || to == -1 ->
+                            fadeOut(animationSpec = tween(200))
+                        to > from ->
+                            slideOutHorizontally(animationSpec = tween(260)) { -it / 6 } +
+                                fadeOut(animationSpec = tween(200))
+                        else ->
+                            slideOutHorizontally(animationSpec = tween(260)) { it / 6 } +
+                                fadeOut(animationSpec = tween(200))
+                    }
+                }
             ) {
                 composable(Screen.Summary.name) {
                     ElasticColumnWrapper {
