@@ -2,7 +2,9 @@
 
 package com.serkka.tracker
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.InteractionSource
@@ -32,7 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.composed
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -169,6 +173,28 @@ internal fun ConfirmDeleteDialog(
             ) { Text("Cancel") }
         }
     )
+}
+
+// ── Shimmer ──────────────────────────────────────────────────────────────────
+
+fun Modifier.shimmer(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp)): Modifier = composed {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "shimmer")
+    val translate by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)
+        ),
+        label = "shimmerTranslate"
+    )
+    val base = MaterialTheme.colorScheme.surfaceVariant
+    val highlight = MaterialTheme.colorScheme.surface
+    val brush = androidx.compose.ui.graphics.Brush.linearGradient(
+        colors = listOf(base, highlight, base),
+        start = androidx.compose.ui.geometry.Offset(translate - 400f, 0f),
+        end = androidx.compose.ui.geometry.Offset(translate, 0f)
+    )
+    this.background(brush = brush, shape = shape)
 }
 
 // ── Empty state ──────────────────────────────────────────────────────────────

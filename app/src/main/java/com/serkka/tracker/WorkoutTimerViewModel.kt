@@ -56,11 +56,11 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
 
     // Start (or resume) the timer
     fun start() {
-        if (!_hasStarted.value) {
+        val firstStart = !_hasStarted.value
+        if (firstStart) {
             _startDateTime.value = LocalDateTime.now()
             _hasStarted.value = true
             _currentLapSeconds.value = 0L
-            lapWallClockBase = System.currentTimeMillis()
             lapElapsedAtBase = 0L
             startTimerService()
         } else {
@@ -69,10 +69,10 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         if (_isRunning.value) return          // already ticking
         _isRunning.value = true
 
-        // Anchor wall clock
+        // Anchor wall clock (shared by both total and lap so second boundaries align)
         wallClockBase = System.currentTimeMillis()
         elapsedAtBase = _elapsedSeconds.value
-        if (lapWallClockBase == 0L) {
+        if (firstStart || lapWallClockBase == 0L) {
             lapWallClockBase = wallClockBase
             lapElapsedAtBase = _currentLapSeconds.value
         }
@@ -109,7 +109,10 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     fun lap() {
         if (_isRunning.value) {
             _currentLapSeconds.value = 0L
-            lapWallClockBase = System.currentTimeMillis()
+            // Align sub-second offset with total-time anchor so both tick in lockstep
+            val now = System.currentTimeMillis()
+            val offset = (now - wallClockBase) % 1000L
+            lapWallClockBase = now - offset
             lapElapsedAtBase = 0L
         }
     }

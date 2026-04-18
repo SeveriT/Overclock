@@ -71,6 +71,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun restoreWorkout(workout: Workout) {
+        viewModelScope.launch {
+            repository.addWorkout(workout)
+        }
+    }
+
     // Body Weight operations
 
     var weightInput by mutableStateOf("") // The state tied to your TextField
@@ -103,6 +109,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun restoreBodyWeight(bodyWeight: BodyWeight) {
+        viewModelScope.launch {
+            repository.addBodyWeight(bodyWeight)
+        }
+    }
+
     // Note operations
     fun addNote(title: String, content: String, dateMillis: Long) {
         viewModelScope.launch {
@@ -122,6 +134,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun restoreNote(note: Note) {
+        viewModelScope.launch {
+            repository.addNote(note)
+        }
+    }
+
     // WorkoutSession operations
     fun addWorkoutSession(name: String, type: String, startEpochMs: Long, durationSeconds: Int) {
         viewModelScope.launch {
@@ -138,6 +156,12 @@ class WorkoutViewModel(
     fun deleteWorkoutSession(session: WorkoutSession) {
         viewModelScope.launch {
             repository.deleteSession(session)
+        }
+    }
+
+    fun restoreWorkoutSession(session: WorkoutSession) {
+        viewModelScope.launch {
+            repository.addSession(session)
         }
     }
 
