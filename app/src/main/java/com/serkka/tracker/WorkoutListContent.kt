@@ -6,7 +6,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -56,6 +55,8 @@ fun WorkoutListContent(
     onDelete: (Workout) -> Unit,
     onEdit: (Workout) -> Unit,
     onCopy: (Workout) -> Unit,
+    onDuplicate: (Workout) -> Unit = {},
+    onTogglePB: (Workout) -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp,
     bottomPadding: Dp = 170.dp,
@@ -155,7 +156,9 @@ fun WorkoutListContent(
                                         primaryColor = primaryColor,
                                         onEdit = { onEdit(workout) },
                                         onCopy = { onCopy(workout) },
-                                        onDelete = { onDelete(workout) }
+                                        onDuplicate = { onDuplicate(workout) },
+                                        onDelete = { onDelete(workout) },
+                                        onTogglePB = { onTogglePB(workout) }
                                     )
                                 }
                             }
@@ -252,25 +255,57 @@ private fun WorkoutMovementRow(
     primaryColor: androidx.compose.ui.graphics.Color,
     onEdit: () -> Unit,
     onCopy: () -> Unit,
-    onDelete: () -> Unit
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+    onTogglePB: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val textColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface
     val subtextColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant
+    var menuOpen by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = { onEdit() },
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onCopy()
-                }
-            )
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                menuOpen = true
+            }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Duplicate") },
+                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                onClick = { menuOpen = false; onDuplicate() }
+            )
+            DropdownMenuItem(
+                text = { Text("Copy") },
+                leadingIcon = { Icon(Icons.Default.Edit, null) },
+                onClick = { menuOpen = false; onCopy() }
+            )
+            DropdownMenuItem(
+                text = { Text(if (workout.isPersonalBest) "Unmark PB" else "Mark PB") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.EmojiEvents,
+                        null,
+                        tint = if (workout.isPersonalBest) PersonalBestGold else LocalContentColor.current
+                    )
+                },
+                onClick = { menuOpen = false; onTogglePB() }
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                onClick = { menuOpen = false; onDelete() }
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = workout.exerciseName,
@@ -317,29 +352,16 @@ private fun WorkoutMovementRow(
                 modifier = Modifier.size(18.dp)
             )
         }
-        val copyInteractionSource = remember { MutableInteractionSource() }
+        val editInteractionSource = remember { MutableInteractionSource() }
         IconButton(
-            onClick = onCopy,
-            interactionSource = copyInteractionSource,
-            modifier = Modifier.bounceClick(copyInteractionSource)
+            onClick = onEdit,
+            interactionSource = editInteractionSource,
+            modifier = Modifier.bounceClick(editInteractionSource)
         ) {
             Icon(
-                Icons.Default.ContentCopy,
-                contentDescription = "Copy",
+                Icons.Default.Edit,
+                contentDescription = "Edit",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        val deleteInteractionSource = remember { MutableInteractionSource() }
-        IconButton(
-            onClick = onDelete,
-            interactionSource = deleteInteractionSource,
-            modifier = Modifier.bounceClick(deleteInteractionSource)
-        ) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp)
             )
         }

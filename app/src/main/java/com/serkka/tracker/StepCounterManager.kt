@@ -45,6 +45,15 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
+    /** Re-register the listener to force the sensor to deliver a fresh cumulative count.
+     *  Call on app resume so any steps taken while the app was killed/backgrounded are
+     *  picked up — TYPE_STEP_COUNTER is cumulative since boot, so one event catches up. */
+    fun refresh() {
+        if (stepSensor == null) return
+        sensorManager.unregisterListener(this)
+        sensorManager.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
     fun setStepGoal(goal: Long) {
         _stepGoal.value = goal
         prefs.edit().putLong("step_goal", goal).apply()

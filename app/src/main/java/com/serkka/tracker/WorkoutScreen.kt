@@ -158,6 +158,20 @@ fun WorkoutScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun showUndoSnackbar(message: String, onUndo: () -> Unit) {
+        coroutineScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short,
+                withDismissAction = true
+            )
+            if (result == SnackbarResult.ActionPerformed) onUndo()
+        }
+    }
     val isSubscribed by subscriptionViewModel.isSubscribed.collectAsState()
     var showSubscriptionDialog by remember { mutableStateOf(false) }
     val activity = LocalContext.current as? Activity
@@ -295,6 +309,12 @@ fun WorkoutScreen(
         Scaffold(
             topBar = {},
             bottomBar = {},
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(bottom = 100.dp)
+                )
+            },
             contentWindowInsets = WindowInsets(0)
         ) { innerPadding ->
             val topBarBaseHeight = 55.dp
@@ -410,6 +430,13 @@ fun WorkoutScreen(
                             onDelete  = { workoutToDelete = it },
                             onEdit    = { editingWorkout = it },
                             onCopy    = { copyingWorkout = it },
+                            onDuplicate = { w ->
+                                viewModel.addWorkout(
+                                    w.exerciseName, w.sets, w.reps, w.weight,
+                                    System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes
+                                )
+                            },
+                            onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
                             listState = workoutsListState,
                             topPadding = totalTopPadding,
                             bottomPadding = contentBottomPadding
@@ -863,40 +890,40 @@ fun WorkoutScreen(
                 )
             }
 
-            workoutToDelete?.let { workout ->
-                ConfirmDeleteDialog(
-                    title   = "Delete Workout",
-                    message = "Are you sure you want to delete this ${workout.exerciseName} workout?",
-                    onConfirm = { viewModel.deleteWorkout(workout); workoutToDelete = null },
-                    onDismiss = { workoutToDelete = null }
-                )
+            LaunchedEffect(workoutToDelete) {
+                val workout = workoutToDelete ?: return@LaunchedEffect
+                viewModel.deleteWorkout(workout)
+                workoutToDelete = null
+                showUndoSnackbar("${workout.exerciseName} workout deleted") {
+                    viewModel.restoreWorkout(workout)
+                }
             }
 
-            weightToDelete?.let { bodyWeight ->
-                ConfirmDeleteDialog(
-                    title   = "Delete Weight Entry",
-                    message = "Are you sure you want to delete this weight entry?",
-                    onConfirm = { viewModel.deleteBodyWeight(bodyWeight); weightToDelete = null },
-                    onDismiss = { weightToDelete = null }
-                )
+            LaunchedEffect(weightToDelete) {
+                val bodyWeight = weightToDelete ?: return@LaunchedEffect
+                viewModel.deleteBodyWeight(bodyWeight)
+                weightToDelete = null
+                showUndoSnackbar("Weight entry deleted") {
+                    viewModel.restoreBodyWeight(bodyWeight)
+                }
             }
 
-            noteToDelete?.let { note ->
-                ConfirmDeleteDialog(
-                    title   = "Delete Note",
-                    message = "Are you sure you want to delete this note?",
-                    onConfirm = { viewModel.deleteNote(note); noteToDelete = null },
-                    onDismiss = { noteToDelete = null }
-                )
+            LaunchedEffect(noteToDelete) {
+                val note = noteToDelete ?: return@LaunchedEffect
+                viewModel.deleteNote(note)
+                noteToDelete = null
+                showUndoSnackbar("Note deleted") {
+                    viewModel.restoreNote(note)
+                }
             }
 
-            sessionToDelete?.let { session ->
-                ConfirmDeleteDialog(
-                    title   = "Delete Session",
-                    message = "Are you sure you want to delete \"${session.name}\"?",
-                    onConfirm = { viewModel.deleteWorkoutSession(session); sessionToDelete = null },
-                    onDismiss = { sessionToDelete = null }
-                )
+            LaunchedEffect(sessionToDelete) {
+                val session = sessionToDelete ?: return@LaunchedEffect
+                viewModel.deleteWorkoutSession(session)
+                sessionToDelete = null
+                showUndoSnackbar("\"${session.name}\" deleted") {
+                    viewModel.restoreWorkoutSession(session)
+                }
             }
 
             sessionToEdit?.let { session ->

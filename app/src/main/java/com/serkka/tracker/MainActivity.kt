@@ -36,6 +36,7 @@ import androidx.core.app.ActivityCompat
 
 class MainActivity : ComponentActivity() {
     private lateinit var stravaViewModel: StravaViewModel
+    private lateinit var stepsViewModel: StepsViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
 
         // 2. Initialize StravaViewModel immediately to handle intents
         stravaViewModel = ViewModelProvider(this)[StravaViewModel::class.java]
+        stepsViewModel = ViewModelProvider(this)[StepsViewModel::class.java]
         
         // Initialize ThemeViewModel
         val themeViewModel = ViewModelProvider(this)[ThemeViewModel::class.java]
@@ -148,6 +150,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent) // Always update the intent
         handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::stepsViewModel.isInitialized) stepsViewModel.refresh()
     }
 
     private fun handleIntent(intent: Intent?) {

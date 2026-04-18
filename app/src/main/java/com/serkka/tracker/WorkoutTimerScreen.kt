@@ -4,6 +4,8 @@ package com.serkka.tracker
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -67,9 +69,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
@@ -86,6 +92,7 @@ import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 data class WorkoutActivityType(
     val label: String,
@@ -131,11 +138,72 @@ fun WorkoutTimerScreen(
     val timeString = formatElapsed(elapsedSeconds)
     val lapTimeString = formatElapsed(currentLapSeconds)
 
-    val rawProgress = (elapsedSeconds % 60) / 60f
-    val animatedProgress by animateFloatAsState(
-        targetValue = rawProgress,
-        animationSpec = tween(durationMillis = 900, easing = LinearEasing),
-        label = "timerRing"
+    val rawProgress = (currentLapSeconds % 60) / 60f
+    val headAnim = remember { Animatable(rawProgress) }
+    val tailAnim = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    var prevLapSeconds by remember { mutableStateOf(currentLapSeconds) }
+    var animatingOverride by remember { mutableStateOf(false) }
+
+    // Normal per-second tick: smoothly tween head to rawProgress, but only when no
+    // override animation is running. This prevents the override from fighting the tween.
+    LaunchedEffect(rawProgress, animatingOverride) {
+        if (!animatingOverride) {
+            headAnim.animateTo(
+                rawProgress,
+                animationSpec = tween(durationMillis = 1000, easing = LinearEasing)
+            )
+        }
+    }
+
+    LaunchedEffect(currentLapSeconds) {
+        val prev = prevLapSeconds
+        val now = currentLapSeconds
+        val lapReset = prev > 0L && now == 0L
+        val minuteRolled = now > 0L && now / 60 > prev / 60
+
+        when {
+            lapReset -> {
+                animatingOverride = true
+                scope.launch {
+                    // Head is already at ~prev/60 from the continuous tween; just ease it to 0.
+                    headAnim.animateTo(
+                        0f,
+                        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                    )
+                    animatingOverride = false
+                }
+            }
+            minuteRolled -> {
+                animatingOverride = true
+                scope.launch {
+                    // Fill up to full, then sweep the tail to collapse the arc.
+                    headAnim.animateTo(
+                        1f,
+                        animationSpec = tween(durationMillis = 200, easing = LinearEasing)
+                    )
+                    tailAnim.snapTo(0f)
+                    tailAnim.animateTo(
+                        1f,
+                        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                    )
+                    // Reset for next cycle: head to the new rawProgress (≈0), tail back to 0.
+                    headAnim.snapTo(rawProgress)
+                    tailAnim.snapTo(0f)
+                    animatingOverride = false
+                }
+            }
+        }
+        prevLapSeconds = now
+    }
+
+    val animatedProgress = (headAnim.value - tailAnim.value).coerceAtLeast(0f)
+    val startAngle = -90f + tailAnim.value * 360f
+    val ringScale = 1f
+    val ringAppearance by animateFloatAsState(
+        targetValue = if (hasStarted) 1f else 0f,
+        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        label = "timerRingAppearance"
     )
     val primaryColor = MaterialTheme.colorScheme.primary
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -194,6 +262,7 @@ fun WorkoutTimerScreen(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(ringSize)
+                .scale(ringScale)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false, radius = ringSize / 2),
@@ -221,16 +290,30 @@ fun WorkoutTimerScreen(
                     style = Stroke(width = stroke, cap = StrokeCap.Round)
                 )
 
-                if (hasStarted && animatedProgress > 0f) {
+                if (ringAppearance > 0f) {
+                    // Always-visible dot at the 12 o'clock start so the ring never
+                    // feels empty. Rounded stroke cap makes a tiny arc read as a dot.
                     drawArc(
                         color = primaryColor,
                         startAngle = -90f,
-                        sweepAngle = animatedProgress * 360f,
+                        sweepAngle = 0.1f * ringAppearance,
                         useCenter = false,
                         topLeft = topLeft,
                         size = arcSize,
                         style = Stroke(width = stroke, cap = StrokeCap.Round)
                     )
+
+                    if (animatedProgress > 0f) {
+                        drawArc(
+                            color = primaryColor,
+                            startAngle = startAngle,
+                            sweepAngle = animatedProgress * 360f * ringAppearance,
+                            useCenter = false,
+                            topLeft = topLeft,
+                            size = arcSize,
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
                 }
             }
 

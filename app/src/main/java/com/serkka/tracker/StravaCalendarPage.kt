@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -199,14 +200,21 @@ fun StravaCalendarPage(
                 }
             }
 
-            val earliestDate = allActivityDates.lastOrNull() ?: LocalDate.now()
-            val earliestMonth = YearMonth.from(earliestDate)
-            val now = YearMonth.now()
-            val monthCount = ((now.year - earliestMonth.year) * 12 + (now.monthValue - earliestMonth.monthValue)).coerceAtLeast(2)
-            val months = (0..monthCount).map { now.minusMonths(it.toLong()) }
-            items(months) { month ->
-                StravaCalendar(month, activityData, primaryColor, streakStartMonday, streakEndMonday)
-                Spacer(modifier = Modifier.height(32.dp))
+            if (isLoading && activities.isEmpty() && workoutSessions.isEmpty()) {
+                items(2) {
+                    CalendarShimmerSkeleton()
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            } else {
+                val earliestDate = allActivityDates.lastOrNull() ?: LocalDate.now()
+                val earliestMonth = YearMonth.from(earliestDate)
+                val now = YearMonth.now()
+                val monthCount = ((now.year - earliestMonth.year) * 12 + (now.monthValue - earliestMonth.monthValue)).coerceAtLeast(2)
+                val months = (0..monthCount).map { now.minusMonths(it.toLong()) }
+                items(months) { month ->
+                    StravaCalendar(month, activityData, primaryColor, streakStartMonday, streakEndMonday)
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
             }
 
 
@@ -410,6 +418,33 @@ fun StravaCalendar(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarShimmerSkeleton() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .padding(bottom = 16.dp)
+                .size(width = 160.dp, height = 24.dp)
+                .shimmer()
+        )
+        repeat(5) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                repeat(7) {
+                    Box(
+                        modifier = Modifier.size(36.dp).shimmer(CircleShape)
+                    )
+                }
+                Box(
+                    modifier = Modifier.size(28.dp).shimmer(CircleShape)
+                )
             }
         }
     }
