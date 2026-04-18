@@ -700,7 +700,7 @@ fun SummaryPage(
                                     modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(getIconForActivity(item.type), null, tint = accentColor, modifier = Modifier.size(20.dp))
+                                    Icon(getIconForActivity(item.type, item.name), null, tint = accentColor, modifier = Modifier.size(20.dp))
                                 }
                                 if (item.isStrava) {
                                     Icon(

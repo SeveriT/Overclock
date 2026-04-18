@@ -5,6 +5,8 @@ package com.serkka.tracker
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -75,7 +78,7 @@ fun StravaCalendarPage(
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate()
                 .toString()
-            combined[dateKey] = (combined[dateKey] ?: emptyList()) + session.type
+            combined[dateKey] = (combined[dateKey] ?: emptyList()) + (session.type to session.name)
         }
         combined
     }
@@ -87,19 +90,24 @@ fun StravaCalendarPage(
         (stravaDates + localDates).distinct().sortedDescending()
     }
 
-    val streak = remember(allActivityDates) {
-        if (allActivityDates.isEmpty()) 0
+    val streakInfo = remember(allActivityDates) {
+        if (allActivityDates.isEmpty()) Triple(0, null as LocalDate?, null as LocalDate?)
         else {
             var count = 0
             var weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             if (allActivityDates.none { !it.isBefore(weekStart) }) weekStart = weekStart.minusWeeks(1)
+            val streakEndMonday = weekStart
             while (allActivityDates.any { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }) {
                 count++
                 weekStart = weekStart.minusWeeks(1)
             }
-            count
+            val streakStartMonday = if (count > 0) weekStart.plusWeeks(1) else null
+            Triple(count, streakStartMonday, if (count > 0) streakEndMonday else null)
         }
     }
+    val streak = streakInfo.first
+    val streakStartMonday = streakInfo.second
+    val streakEndMonday = streakInfo.third
 
     val totalStreakActivities = remember(allActivityDates, activities, workoutSessions) {
         if (allActivityDates.isEmpty()) 0
@@ -155,14 +163,24 @@ fun StravaCalendarPage(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val animatedStreak by animateIntAsState(
+                                targetValue = streak,
+                                animationSpec = tween(durationMillis = 700),
+                                label = "streak"
+                            )
+                            val animatedTotal by animateIntAsState(
+                                targetValue = totalStreakActivities,
+                                animationSpec = tween(durationMillis = 700),
+                                label = "totalActivities"
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                                 Column(horizontalAlignment = Alignment.Start) {
                                     Text("Streak", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                    Text("$streak Weeks", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("$animatedStreak Weeks", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
                                 Column(horizontalAlignment = Alignment.Start) {
                                     Text("Total activities", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                    Text("$totalStreakActivities", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("$animatedTotal", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                             if (profilePicUrl.isNotEmpty()) {
@@ -187,7 +205,7 @@ fun StravaCalendarPage(
             val monthCount = ((now.year - earliestMonth.year) * 12 + (now.monthValue - earliestMonth.monthValue)).coerceAtLeast(2)
             val months = (0..monthCount).map { now.minusMonths(it.toLong()) }
             items(months) { month ->
-                StravaCalendar(month, activityData, primaryColor)
+                StravaCalendar(month, activityData, primaryColor, streakStartMonday, streakEndMonday)
                 Spacer(modifier = Modifier.height(32.dp))
             }
 
@@ -200,13 +218,29 @@ fun StravaCalendarPage(
 // ── Strava calendar grid ──────────────────────────────────────────────────────
 
 @Composable
-fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, primaryColor: Color) {
+fun StravaCalendar(
+    month: YearMonth,
+    activityData: Map<String, List<Pair<String, String>>>,
+    primaryColor: Color,
+    streakStartMonday: LocalDate? = null,
+    streakEndMonday: LocalDate? = null
+) {
     val daysInMonth = month.lengthOfMonth()
     val firstDayOfMonth = month.atDay(1).dayOfWeek.value - 1
     val year = month.year
     val monthValue = month.monthValue
     val today = LocalDate.now()
     val isActualCurrentMonth = month == YearMonth.now()
+
+    val scale = LocalDensity.current.fontScale.coerceIn(0.85f, 1.6f)
+    val rowHeight = (56.dp.value * scale).dp
+    val circleSize = (40.dp.value * scale).dp
+    val iconSize = (24.dp.value * scale).dp
+    val iconSizeSmall = (16.dp.value * scale).dp
+    val weekColWidth = (36.dp.value * scale).dp
+    val weekBadgeSize = (24.dp.value * scale).dp
+    val weekCheckSize = (16.dp.value * scale).dp
+    val weekBoltSize = (36.dp.value * scale).dp
 
     Column {
         Text(
@@ -227,7 +261,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.width(36.dp))
+            Spacer(modifier = Modifier.width(weekColWidth))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -242,7 +276,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                 val weekEndDay = minOf(daysInMonth, (row + 1) * 7 - firstDayOfMonth)
 
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(rowHeight),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     for (col in 0 until 7) {
@@ -278,19 +312,36 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                                     val bgColor = if (isToday) primaryColor else MaterialTheme.colorScheme.onSurface
                                     val iconTint = if (isToday) Color.Black else MaterialTheme.colorScheme.surface
                                     Box(
-                                        modifier = Modifier.size(40.dp).background(bgColor, CircleShape),
+                                        modifier = Modifier.size(circleSize).background(bgColor, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            getIconForActivity(activitiesOnDay.first()),
-                                            null,
-                                            tint = iconTint,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        if (activitiesOnDay.size == 1) {
+                                            val (firstType, firstName) = activitiesOnDay.first()
+                                            Icon(
+                                                getIconForActivity(firstType, firstName),
+                                                null,
+                                                tint = iconTint,
+                                                modifier = Modifier.size(iconSize)
+                                            )
+                                        } else {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(1.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                activitiesOnDay.take(2).forEach { (type, name) ->
+                                                    Icon(
+                                                        getIconForActivity(type, name),
+                                                        null,
+                                                        tint = iconTint,
+                                                        modifier = Modifier.size(iconSizeSmall)
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 } else if (isToday) {
                                     Box(
-                                        modifier = Modifier.size(40.dp).border(2.dp, primaryColor, CircleShape),
+                                        modifier = Modifier.size(circleSize).border(2.dp, primaryColor, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(day.toString(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -304,7 +355,7 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
 
                     // ── Week indicator (inline) ──────────────────────────────
                     Box(
-                        modifier = Modifier.width(36.dp).fillMaxHeight(),
+                        modifier = Modifier.width(weekColWidth).fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
                         val isCurrentWeek = isActualCurrentMonth && today.dayOfMonth in weekStartDay..weekEndDay
@@ -319,17 +370,17 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                                 activityData.containsKey(dateStr)
                             }
 
-                            if (hasActivityLastWeek) {
-                                Icon(Icons.Default.Bolt, null, tint = primaryColor, modifier = Modifier.size(36.dp))
+                            if (hasActivityLastWeek && streakStartMonday != null) {
+                                Icon(Icons.Default.Bolt, null, tint = primaryColor, modifier = Modifier.size(weekBoltSize))
                             } else {
-                                val hasActivityThisWeek = (weekStartDay..weekEndDay).any { d ->
+                                val hasActivityThisWeek = streakStartMonday != null && (weekStartDay..weekEndDay).any { d ->
                                     activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
                                 }
                                 if (hasActivityThisWeek) {
                                     Box(
-                                        modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
+                                        modifier = Modifier.size(weekBadgeSize).background(primaryColor, CircleShape),
                                         contentAlignment = Alignment.Center
-                                    ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
+                                    ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(weekCheckSize)) }
                                 } else {
                                     val refDay = weekStartDay.coerceIn(1, daysInMonth)
                                     val weekNum = month.atDay(refDay).get(WeekFields.ISO.weekOfWeekBasedYear())
@@ -337,14 +388,20 @@ fun StravaCalendar(month: YearMonth, activityData: Map<String, List<String>>, pr
                                 }
                             }
                         } else {
-                            val hasActivity = (weekStartDay..weekEndDay).any { d ->
+                            val refDayForWeek = weekStartDay.coerceIn(1, daysInMonth)
+                            val weekMonday = month.atDay(refDayForWeek)
+                                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                            val inStreak = streakStartMonday != null && streakEndMonday != null &&
+                                !weekMonday.isBefore(streakStartMonday) &&
+                                !weekMonday.isAfter(streakEndMonday)
+                            val hasActivity = inStreak && (weekStartDay..weekEndDay).any { d ->
                                 activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
                             }
                             if (hasActivity) {
                                 Box(
-                                    modifier = Modifier.size(24.dp).background(primaryColor, CircleShape),
+                                    modifier = Modifier.size(weekBadgeSize).background(primaryColor, CircleShape),
                                     contentAlignment = Alignment.Center
-                                ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
+                                ) { Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(weekCheckSize)) }
                             } else {
                                 val refDay = weekStartDay.coerceIn(1, daysInMonth)
                                 val weekNum = month.atDay(refDay).get(WeekFields.ISO.weekOfWeekBasedYear())

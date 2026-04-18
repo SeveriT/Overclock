@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.serkka.tracker
 
@@ -13,11 +13,15 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,14 +32,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Hiking
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,6 +53,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -65,7 +76,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,7 +95,13 @@ data class WorkoutActivityType(
 
 val workoutActivityTypes = listOf(
     WorkoutActivityType("Weight Training", "WeightTraining", Icons.Default.FitnessCenter),
-    WorkoutActivityType("Other",   "Workout", Icons.Default.MoreHoriz),
+    WorkoutActivityType("Run",              "Run",           Icons.AutoMirrored.Filled.DirectionsRun),
+    WorkoutActivityType("Trail Run",        "TrailRun",      Icons.Default.Terrain),
+    WorkoutActivityType("Walk",             "Walk",          Icons.AutoMirrored.Filled.DirectionsWalk),
+    WorkoutActivityType("Ride",             "Ride",          Icons.AutoMirrored.Filled.DirectionsBike),
+    WorkoutActivityType("Swim",             "Swim",          Icons.Default.Waves),
+    WorkoutActivityType("Hike",             "Hike",          Icons.Default.Hiking),
+    WorkoutActivityType("Other",            "Workout",       Icons.Default.MoreHoriz),
 )
 
 @Composable
@@ -94,6 +113,7 @@ fun WorkoutTimerScreen(
     onSaveLocally: (name: String, type: String, startEpochMs: Long, durationSeconds: Int) -> Unit = { _, _, _, _ -> }
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     val elapsedSeconds by timerViewModel.elapsedSeconds.collectAsState()
     val currentLapSeconds by timerViewModel.currentLapSeconds.collectAsState()
@@ -177,7 +197,12 @@ fun WorkoutTimerScreen(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false, radius = ringSize / 2),
-                    onClick = { timerViewModel.lap() }
+                    onClick = {
+                        if (timerViewModel.isRunning.value) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        timerViewModel.lap()
+                    }
                 )
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -235,7 +260,10 @@ fun WorkoutTimerScreen(
             ) {
                 val stopInteractionSource = remember { MutableInteractionSource() }
                 FilledTonalIconButton(
-                    onClick = { timerViewModel.requestStop() },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        timerViewModel.requestStop()
+                    },
                     interactionSource = stopInteractionSource,
                     modifier = Modifier.size(80.dp).bounceClick(stopInteractionSource),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
@@ -254,7 +282,10 @@ fun WorkoutTimerScreen(
             // Start / Pause — always visible once hasStarted, or as the initial start button
             val startInteractionSource = remember { MutableInteractionSource() }
             FloatingActionButton(
-                onClick = { timerViewModel.toggleRunning() },
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    timerViewModel.toggleRunning()
+                },
                 interactionSource = startInteractionSource,
                 modifier = Modifier.size(80.dp).bounceClick(startInteractionSource),
                 containerColor = if (isRunning) MaterialTheme.colorScheme.secondary
@@ -343,10 +374,31 @@ private fun UploadWorkoutDialog(
                     onValueChange = onNameChange,
                     label = { Text("Activity Name") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    workoutActivityTypes.forEach { type ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { onTypeChange(type) },
+                            label = { Text(type.label) },
+                            leadingIcon = {
+                                Icon(type.icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+                }
             }
         },
         confirmButton = {

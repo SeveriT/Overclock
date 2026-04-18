@@ -50,10 +50,10 @@ fun NumericInput(
                 onValueChange(newValue)
             }
         },
-        placeholder = {  // <-- replace label with placeholder
+        placeholder = {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -70,9 +70,8 @@ fun NumericInput(
             onDone = { onNext?.invoke() }
         ),
         singleLine = true,
-        textStyle = LocalTextStyle.current.copy(
-            textAlign = TextAlign.Center,
-            fontSize = 14.sp
+        textStyle = MaterialTheme.typography.titleMedium.copy(
+            textAlign = TextAlign.Center
         ),
         leadingIcon = {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
@@ -87,12 +86,12 @@ fun NumericInput(
                         }
                     },
                     interactionSource = subInteractionSource,
-                    modifier = Modifier.size(28.dp).bounceClick(subInteractionSource)
+                    modifier = Modifier.size(32.dp).bounceClick(subInteractionSource)
                 ) {
                     Icon(
                         Icons.Default.Remove,
                         contentDescription = "Decrease",
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -108,12 +107,12 @@ fun NumericInput(
                         onValueChange(formatWeight(next))
                     },
                     interactionSource = addInteractionSource,
-                    modifier = Modifier.size(28.dp).bounceClick(addInteractionSource)
+                    modifier = Modifier.size(32.dp).bounceClick(addInteractionSource)
                 ) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = "Increase",
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
