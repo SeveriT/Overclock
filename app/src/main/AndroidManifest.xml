@@ -53,6 +53,13 @@
             android:name=".TimerForegroundService"
             android:foregroundServiceType="specialUse"
             android:exported="false" />
+        <receiver
+            android:name=".DemoDataReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.serkka.tracker.SEED_DEMO" />
+            </intent-filter>
+        </receiver>
         <property
             android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
             android:value="Workout timer for tracking exercise duration." />

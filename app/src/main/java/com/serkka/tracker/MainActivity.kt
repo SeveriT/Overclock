@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -78,6 +80,13 @@ class MainActivity : ComponentActivity() {
 
                 val welcomePrefs = remember { getSharedPreferences("app_prefs", MODE_PRIVATE) }
                 var showWelcome by remember { mutableStateOf(!welcomePrefs.getBoolean("welcome_skip", false)) }
+                val allWorkouts by workoutViewModel.allWorkouts.collectAsState()
+                val allSessions by workoutViewModel.allSessions.collectAsState()
+                val hasAnyData = allWorkouts.isNotEmpty() || allSessions.isNotEmpty()
+                var demoUsedThisSession by remember { mutableStateOf(false) }
+                val demoAvailable = !demoUsedThisSession &&
+                    !welcomePrefs.getBoolean("demo_seeded", false) &&
+                    !hasAnyData
                 var showExitDialog by remember { mutableStateOf(false) }
 
                 BackHandler {
@@ -130,7 +139,21 @@ class MainActivity : ComponentActivity() {
                             if (dontShowAgain) {
                                 welcomePrefs.edit().putBoolean("welcome_skip", true).apply()
                             }
-                        }
+                        },
+                        onTryDemo = { dontShowAgain ->
+                            if (demoAvailable) {
+                                demoUsedThisSession = true
+                                lifecycleScope.launch {
+                                    DemoData.seed(applicationContext, repository)
+                                    stepsViewModel.reloadFromPrefs()
+                                }
+                            }
+                            showWelcome = false
+                            if (dontShowAgain) {
+                                welcomePrefs.edit().putBoolean("welcome_skip", true).apply()
+                            }
+                        },
+                        demoAvailable = demoAvailable
                     )
                 } else {
                     WorkoutScreen(

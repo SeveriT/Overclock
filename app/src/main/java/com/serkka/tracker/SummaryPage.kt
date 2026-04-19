@@ -252,7 +252,8 @@ fun SummaryPage(
 
 
             // ── Steps card ───────────────────────────────────────────────────
-            if (stepsViewModel.isAvailable && isStepsCardVisible) {
+            val hasStepData = todaySteps > 0 || weeklySteps.any { it.second > 0 }
+            if ((stepsViewModel.isAvailable || hasStepData) && isStepsCardVisible) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -262,7 +263,7 @@ fun SummaryPage(
                         Text(
                             "Steps",
                             style = MaterialTheme.typography.titleMedium,
-                            color = primaryColor,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -299,7 +300,7 @@ fun SummaryPage(
                         shape = RoundedCornerShape(12.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
                     ) {
-                        if (!hasStepsPermission) {
+                        if (!hasStepsPermission && !hasStepData) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -427,7 +428,7 @@ fun SummaryPage(
             }
 
             // ── Latest weight card ────────────────────────────────────────────
-            if (lastWeight != null && weightCardVisible) {
+            if (weightCardVisible) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -437,7 +438,7 @@ fun SummaryPage(
                         Text(
                             "Latest Weight",
                             style = MaterialTheme.typography.titleMedium,
-                            color = primaryColor,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         IconButton(
@@ -479,6 +480,13 @@ fun SummaryPage(
                             defaultElevation = 10.dp
                         )
                     ) {
+                        if (lastWeight == null) {
+                            EmptyState(
+                                icon = Icons.Default.MonitorWeight,
+                                message = "No weight entries yet.\nTap to add your first.",
+                                primaryColor = primaryColor
+                            )
+                        } else {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -629,6 +637,7 @@ fun SummaryPage(
                                 }
                             }
                         }
+                        }
                     }
                 }
             }
@@ -644,7 +653,7 @@ fun SummaryPage(
                     Text(
                         "Recent Activity (Last 7 Days)",
                         style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                     Box(
@@ -758,7 +767,7 @@ fun SummaryPage(
                     Text(
                         "This Week's Exercises",
                         style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                     Box(

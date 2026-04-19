@@ -232,7 +232,7 @@ fun WeightTrackingPage(
                             text = month,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(vertical = 12.dp),
-                            color = primaryColor,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -307,10 +307,10 @@ fun WeightTrackingPage(
             }
         } else {
             item {
-                Text(
-                    "Add your first weight entry to see progress!",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                EmptyState(
+                    icon = Icons.Default.MonitorWeight,
+                    message = "No weight entries yet.\nAdd your first to see progress.",
+                    primaryColor = primaryColor
                 )
             }
         }
