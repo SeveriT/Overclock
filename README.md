@@ -27,7 +27,7 @@ Overclock is an Android app built for athletes who want full control over their 
 - **Step counter** — daily step tracking with a dashboard integrated into the Summary page
 - **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed
 - **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes
-- **Music widget** — integrated Spotify controller with wavy progress bar, album art, and swipe gesture playback controls
+- **Music widget** — integrated Spotify controller with progress bar, album art, and swipe gesture playback controls
 - **Volume stats** — total volume lifted broken down per exercise with animated progress bars and volume tracking
 - **Notes** — dedicated training journal for freeform notes with date-based organization
 - **Weekly summary** — overview of recent workouts, weight trends, step counts, and activity streaks from both Strava and local sessions
@@ -35,7 +35,6 @@ Overclock is an Android app built for athletes who want full control over their 
 - **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors and edge-to-edge display
 - **Cloud sync & backup** — automated Google Drive backups via WorkManager and manual local backup/restore options
 - **Premium subscription** — Google Play Billing with monthly subscription gating Drive backups, Strava sync, and AI assistant
-- **Onboarding** — welcome screen with step counter permission prompts, user guide, and a "Don't show again" option
 
 ## Built with
 
