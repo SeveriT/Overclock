@@ -51,6 +51,10 @@ class StepsViewModel(application: Application) : AndroidViewModel(application) {
         if (_hasPermission.value) manager.refresh()
     }
 
+    fun reloadFromPrefs() {
+        manager.reloadFromPrefs()
+    }
+
     fun setStepGoal(goal: Long) {
         manager.setStepGoal(goal)
     }

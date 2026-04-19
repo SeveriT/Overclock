@@ -54,6 +54,13 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         sensorManager.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
     }
 
+    /** Reloads step values from shared preferences. Used after demo-data seeding
+     *  so the UI reflects the written values without needing a sensor event. */
+    fun reloadFromPrefs() {
+        _todaySteps.value = loadTodaySteps()
+        _weeklySteps.value = loadWeeklySteps()
+    }
+
     fun setStepGoal(goal: Long) {
         _stepGoal.value = goal
         prefs.edit().putLong("step_goal", goal).apply()

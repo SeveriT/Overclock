@@ -77,6 +77,16 @@ fun WorkoutListContent(
             contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            if (groupedWorkouts.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Default.FitnessCenter,
+                        message = "No workouts yet.\nTap + to log your first set.",
+                        primaryColor = primaryColor
+                    )
+                }
+            }
+
             groupedWorkouts.forEach { (date, workoutsInDay) ->
                 val isExpanded = expandedDays[date] ?: false
                 val exercises = workoutsInDay.map { it.exerciseName }.distinct()

@@ -37,7 +37,9 @@ import androidx.core.app.NotificationManagerCompat
 @Composable
 fun WelcomeScreen(
     primaryColor: Color,
-    onGetStarted: (dontShowAgain: Boolean) -> Unit
+    onGetStarted: (dontShowAgain: Boolean) -> Unit,
+    onTryDemo: (dontShowAgain: Boolean) -> Unit = {},
+    demoAvailable: Boolean = true
 ) {
     val context = LocalContext.current
     val fadeIn = remember { Animatable(0f) }
@@ -51,6 +53,30 @@ fun WelcomeScreen(
     }
 
     var dontShowAgain by remember { mutableStateOf(false) }
+    var showDemoConfirm by remember { mutableStateOf(false) }
+
+    if (showDemoConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDemoConfirm = false },
+            title = { Text("Load demo data?") },
+            text = { Text("This will add ~4 weeks of sample workouts, body weight entries, and sessions so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDemoConfirm = false
+                        onTryDemo(dontShowAgain)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = MaterialTheme.colorScheme.surface
+                    )
+                ) { Text("Load demo") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDemoConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     // Notification permission
     var notificationGranted by remember {
@@ -247,6 +273,22 @@ fun WelcomeScreen(
             shape = RoundedCornerShape(14.dp)
         ) {
             Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+
+        if (demoAvailable) {
+            TextButton(
+                onClick = { showDemoConfirm = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = primaryColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Try with demo data", color = primaryColor, fontWeight = FontWeight.Bold)
+            }
         }
 
         TextButton(

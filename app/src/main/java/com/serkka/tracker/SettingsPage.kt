@@ -2,10 +2,23 @@
 
 package com.serkka.tracker
 
+import android.Manifest
 import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -346,6 +359,19 @@ fun SettingsPage(
 
 
 
+        // ── Permissions ─────────────────────────────────────────────────
+        item {
+            Text(
+                "Permissions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        item {
+            PermissionsCard(primaryColor = primaryColor)
+        }
+
         item {
             Text(
                 "Backup & Restore",
@@ -544,7 +570,7 @@ fun SettingsPage(
                 "Subscription",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = primaryColor
+                color = Color.White
             )
         }
         item {
@@ -647,7 +673,7 @@ fun SettingsPage(
             },
             text = {
                 Text(
-                    "This will permanently delete:\n\n• All workouts\n• All body weight entries\n• All notes\n\nThis action cannot be undone!",
+                    "This will permanently delete:\n\n• All workouts\n• All body weight entries\n• All notes\n• Step counter history\n\nThis action cannot be undone!",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -660,8 +686,15 @@ fun SettingsPage(
                                 bodyWeights.forEach { viewModel.deleteBodyWeight(it) }
                                 notesList.forEach { viewModel.deleteNote(it) }
                                 sessions.forEach { viewModel.deleteWorkoutSession(it) }
+                                context.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
+                                    .edit().clear().apply()
+                                context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                    .edit().remove("demo_seeded").apply()
                                 showDeleteConfirmDialog = false
-                                Toast.makeText(context, "All data deleted successfully", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "All data deleted. Restarting...", Toast.LENGTH_LONG).show()
+                                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                                context.startActivity(Intent.makeRestartActivityTask(launchIntent?.component))
+                                Runtime.getRuntime().exit(0)
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error deleting data: ${e.message}", Toast.LENGTH_LONG).show()
                             }
@@ -831,4 +864,164 @@ private fun NextBackupCountdown(primaryColor: Color) {
             }
         }
     }
+}
+
+@Composable
+private fun PermissionsCard(primaryColor: Color) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var notificationGranted by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    var listenerEnabled by remember { mutableStateOf(isNotificationListenerEnabledInSettings(context)) }
+    var activityRecognitionGranted by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.ACTIVITY_RECOGNITION
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Re-check on resume (user may have toggled in system settings)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationGranted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                listenerEnabled = isNotificationListenerEnabledInSettings(context)
+                activityRecognitionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                    ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.ACTIVITY_RECOGNITION
+                    ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notificationGranted = granted }
+
+    val activityRecognitionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> activityRecognitionGranted = granted }
+
+    val listenerSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { listenerEnabled = isNotificationListenerEnabledInSettings(context) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().animateContentSize(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            SettingsPermissionRow(
+                icon = Icons.Default.Notifications,
+                label = "Notifications",
+                description = "Timer alerts and backup status",
+                granted = notificationGranted,
+                primaryColor = primaryColor,
+                onGrant = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        openAppInfo(context)
+                    }
+                },
+                onRevoke = { openAppInfo(context) }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SettingsPermissionRow(
+                icon = Icons.Default.MusicNote,
+                label = "Notification Listener",
+                description = "Music widget controls",
+                granted = listenerEnabled,
+                primaryColor = primaryColor,
+                onGrant = {
+                    listenerSettingsLauncher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                },
+                onRevoke = {
+                    listenerSettingsLauncher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SettingsPermissionRow(
+                icon = Icons.Default.DirectionsWalk,
+                label = "Activity Recognition",
+                description = "Step counter",
+                granted = activityRecognitionGranted,
+                primaryColor = primaryColor,
+                onGrant = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                    } else {
+                        openAppInfo(context)
+                    }
+                },
+                onRevoke = { openAppInfo(context) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsPermissionRow(
+    icon: ImageVector,
+    label: String,
+    description: String,
+    granted: Boolean,
+    primaryColor: Color,
+    onGrant: () -> Unit,
+    onRevoke: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (granted) Color(0xFF4AC067) else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (granted) {
+            TextButton(onClick = onRevoke) {
+                Text("Manage", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            TextButton(onClick = onGrant) {
+                Text("Enable", color = primaryColor, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+private fun isNotificationListenerEnabledInSettings(context: Context): Boolean {
+    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: return false
+    val component = ComponentName(context, MediaNotificationListener::class.java)
+    return flat.contains(component.flattenToString())
+}
+
+private fun openAppInfo(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+    context.startActivity(intent)
 }
