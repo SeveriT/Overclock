@@ -145,7 +145,7 @@ fun SettingsPage(
 
     // ── Backup launchers ──────────────────────────────────────────────────────
     val backupLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
+        ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let {
             coroutineScope.launch {
@@ -189,12 +189,11 @@ fun SettingsPage(
                         ).setApplicationName("Tracker").build()
 
                         val driveHelper = GoogleDriveHelper(driveService)
-                        val db = WorkoutDatabase.getDatabase(context)
-                        db.query(androidx.sqlite.db.SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)"))
-                            .use { cursor -> cursor.moveToFirst() }
-
-                        val dbFile = context.getDatabasePath("workout_db")
-                        val fileId = driveHelper.uploadFile(dbFile, "application/x-sqlite3", "workout_backup_auto.db")
+                        val bundle = backupManager.buildBackupFile()
+                        val fileId = bundle?.let {
+                            driveHelper.uploadFile(it, "application/zip", "workout_backup_auto.zip")
+                        }
+                        bundle?.delete()
 
                         withContext(Dispatchers.Main) {
                             if (fileId != null) {
@@ -491,7 +490,7 @@ fun SettingsPage(
                             label = "Local Backup",
                             icon = Icons.Default.Save,
                             containerColor = primaryColor,
-                            onClick = { backupLauncher.launch("workout_backup.db") },
+                            onClick = { backupLauncher.launch("workout_backup.zip") },
                             modifier = Modifier.weight(1f)
                         )
                         SettingsButton(
@@ -682,14 +681,19 @@ fun SettingsPage(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                workouts.forEach { viewModel.deleteWorkout(it) }
-                                bodyWeights.forEach { viewModel.deleteBodyWeight(it) }
-                                notesList.forEach { viewModel.deleteNote(it) }
-                                sessions.forEach { viewModel.deleteWorkoutSession(it) }
-                                context.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
-                                    .edit().clear().apply()
-                                context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                    .edit().remove("demo_seeded").apply()
+                                withContext(Dispatchers.IO) {
+                                    WorkoutDatabase.getDatabase(context).close()
+                                    WorkoutDatabase.resetInstance()
+                                    val dbPath = context.getDatabasePath("workout_db")
+                                    java.io.File(dbPath.path).delete()
+                                    java.io.File(dbPath.path + "-wal").delete()
+                                    java.io.File(dbPath.path + "-shm").delete()
+                                    java.io.File(dbPath.path + "-journal").delete()
+                                    context.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
+                                        .edit().clear().commit()
+                                    context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                        .edit().remove("demo_seeded").commit()
+                                }
                                 showDeleteConfirmDialog = false
                                 Toast.makeText(context, "All data deleted. Restarting...", Toast.LENGTH_LONG).show()
                                 val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
