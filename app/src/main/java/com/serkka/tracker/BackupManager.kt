@@ -179,7 +179,7 @@ class BackupManager(private val context: Context) {
                 "string" -> editor.putString(key, entry.getString("value"))
             }
         }
-        editor.apply()
+        editor.commit()
     }
 
     private fun getFileName(uri: Uri): String? {
