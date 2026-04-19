@@ -44,19 +44,14 @@ class BackupWorker(
 
             val driveHelper = GoogleDriveHelper(driveService)
 
-            // Force a checkpoint to ensure data is in the .db file
-            val db = WorkoutDatabase.getDatabase(applicationContext)
-            db.query(androidx.sqlite.db.SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)")).use { cursor ->
-                cursor.moveToFirst()
-            }
-
-            val dbFile = applicationContext.getDatabasePath("workout_db")
-            if (dbFile.exists()) {
+            val bundle = BackupManager(applicationContext).buildBackupFile()
+            if (bundle != null) {
                 val fileId = driveHelper.uploadFile(
-                    localFile = dbFile,
-                    mimeType = "application/x-sqlite3",
-                    driveFileName = "workout_backup_auto.db"
+                    localFile = bundle,
+                    mimeType = "application/zip",
+                    driveFileName = "workout_backup_auto.zip"
                 )
+                bundle.delete()
                 if (fileId != null) {
                     Log.d("BackupWorker", "Auto-backup successful: $fileId")
                     PreferencesManager.getInstance(applicationContext).backup
