@@ -33,9 +33,11 @@ Overclock is an Android app built for athletes who want full control over their 
 - **Weekly summary** — overview of recent workouts, weight trends, step counts, and activity streaks from both Strava and local sessions
 - **Calendar** — activity history with dot indicators combining Strava activities and local sessions, works without Strava
 - **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors and edge-to-edge display
-- **Cloud sync & backup** — automated Google Drive backups via WorkManager and manual local backup/restore options
+- **Cloud sync & backup** — automated Google Drive backups via WorkManager and manual local backup/restore; backups are self-contained zip bundles that include both the workout database and step history
+- **Demo mode** — one-tap "Try with demo data" on the welcome screen seeds ~4 weeks of realistic workouts, body weight, sessions, and step history so new users can see the app populated
+- **Permissions manager** — dedicated Settings section for toggling Notifications, Notification Listener, and Activity Recognition, mirroring the welcome-screen permission prompts with live status updates
+- **Clear all data** — atomic wipe of workouts, weights, notes, sessions, and step history with automatic app restart, re-enabling demo mode afterwards
 - **Premium subscription** — Google Play Billing with monthly subscription gating Drive backups, Strava sync, and AI assistant
-- **Onboarding** — welcome screen with step counter permission prompts, user guide, and a "Don't show again" option
 
 ## Built with
 

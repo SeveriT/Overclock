@@ -161,6 +161,7 @@ fun WelcomeScreen(
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
+        FeatureItem(Icons.Default.CloudUpload, "Backup & Restore", "Zip bundle with workouts and step history, local or Drive", primaryColor)
 
         Spacer(modifier = Modifier.height(24.dp))
 
