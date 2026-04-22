@@ -160,7 +160,7 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         val notification = NotificationCompat.Builder(context, channelId)
             .setContentTitle("Step goal reached!")
             .setContentText("$formattedSteps / $formattedGoal steps today")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_steps)
             .setAutoCancel(true)
             .setContentIntent(openIntent)
             .build()
