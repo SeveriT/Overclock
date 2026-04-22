@@ -35,20 +35,41 @@ class StepsViewModel(application: Application) : AndroidViewModel(application) {
                 getApplication(), Manifest.permission.ACTIVITY_RECOGNITION
             ) == PackageManager.PERMISSION_GRANTED
             _hasPermission.value = granted
-            if (granted) manager.start()
+            if (granted) {
+                manager.start()
+                StepCounterForegroundService.start(getApplication())
+            }
         } else {
             _hasPermission.value = true
             manager.start()
+            StepCounterForegroundService.start(getApplication())
         }
     }
 
     fun onPermissionResult(granted: Boolean) {
         _hasPermission.value = granted
-        if (granted) manager.start()
+        if (granted) {
+            manager.start()
+            StepCounterForegroundService.start(getApplication())
+        } else {
+            StepCounterForegroundService.stop(getApplication())
+        }
     }
 
     fun refresh() {
-        if (_hasPermission.value) manager.refresh()
+        if (!isAvailable) return
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                getApplication(), Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else true
+        _hasPermission.value = granted
+        if (granted) {
+            manager.refresh()
+            StepCounterForegroundService.start(getApplication())
+        } else {
+            StepCounterForegroundService.stop(getApplication())
+        }
     }
 
     fun reloadFromPrefs() {

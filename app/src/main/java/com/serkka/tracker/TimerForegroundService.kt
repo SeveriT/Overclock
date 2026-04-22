@@ -134,7 +134,7 @@ class TimerForegroundService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Workout: $timeString")
             .setContentText(if (isRunning) "Workout in progress" else "Paused")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_timer)
             .setTicker("Workout")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
