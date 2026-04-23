@@ -14,7 +14,7 @@ import androidx.core.app.NotificationCompat
 class TimerForegroundService : Service() {
 
     private val handler   = Handler(Looper.getMainLooper())
-    private val channelId = "timer_channel"
+    private val channelId = "timer_channel_v2"
     private val notifId   = 42
 
     private var elapsedSeconds = 0L
@@ -132,7 +132,7 @@ class TimerForegroundService : Service() {
         val baseTime = System.currentTimeMillis() - (elapsedSeconds * 1000)
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Workout: $timeString")
+            .setContentTitle("Time elapsed: $timeString")
             .setContentText(if (isRunning) "Workout in progress" else "Paused")
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setTicker("Workout")
@@ -142,7 +142,7 @@ class TimerForegroundService : Service() {
             .setShowWhen(isRunning)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_LOW) // Use LOW to stay silent but visible
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setContentIntent(openIntent)
             .build()
     }
@@ -153,15 +153,20 @@ class TimerForegroundService : Service() {
     }
 
     private fun createChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
+        // Remove the legacy LOW-importance channel from older installs
+        manager.deleteNotificationChannel("timer_channel")
         val channel = NotificationChannel(
             channelId,
             "Workout Timer",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply { 
+            NotificationManager.IMPORTANCE_MIN
+        ).apply {
             description = "Shows elapsed workout time"
             setShowBadge(false)
+            enableVibration(false)
+            setSound(null, null)
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        manager.createNotificationChannel(channel)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

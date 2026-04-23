@@ -27,7 +27,21 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     private val _hasStarted = MutableStateFlow(false)
     val hasStarted: StateFlow<Boolean> = _hasStarted
 
+    private val lapPrefs by lazy {
+        app.getSharedPreferences("timer_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    private val _lapDurationSeconds = MutableStateFlow(
+        lapPrefs.getLong("lap_duration_seconds", 60L).coerceAtLeast(30L)
+    )
+    val lapDurationSeconds: StateFlow<Long> = _lapDurationSeconds
+
     init { recoverTimerState() }
+
+    fun adjustLapDuration(deltaSeconds: Long) {
+        val next = (_lapDurationSeconds.value + deltaSeconds).coerceAtLeast(30L)
+        _lapDurationSeconds.value = next
+        lapPrefs.edit().putLong("lap_duration_seconds", next).apply()
+    }
 
     private val _startDateTime = MutableStateFlow<LocalDateTime?>(null)
     val startDateTime: StateFlow<LocalDateTime?> = _startDateTime

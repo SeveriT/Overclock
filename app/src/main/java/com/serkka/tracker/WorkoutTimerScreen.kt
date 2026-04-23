@@ -40,9 +40,11 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Hiking
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Timer
@@ -124,6 +126,7 @@ fun WorkoutTimerScreen(
 
     val elapsedSeconds by timerViewModel.elapsedSeconds.collectAsState()
     val currentLapSeconds by timerViewModel.currentLapSeconds.collectAsState()
+    val lapDurationSeconds by timerViewModel.lapDurationSeconds.collectAsState()
     val isRunning by timerViewModel.isRunning.collectAsState()
     val hasStarted by timerViewModel.hasStarted.collectAsState()
     val selectedType by timerViewModel.selectedType.collectAsState()
@@ -138,7 +141,20 @@ fun WorkoutTimerScreen(
     val timeString = formatElapsed(elapsedSeconds)
     val lapTimeString = formatElapsed(currentLapSeconds)
 
-    val rawProgress = (currentLapSeconds % 60) / 60f
+    val rawProgress = (currentLapSeconds % lapDurationSeconds) / lapDurationSeconds.toFloat()
+
+    // Briefly show the new lap duration when the user adjusts it
+    var showDurationHint by remember { mutableStateOf(false) }
+    var firstDurationEmit by remember { mutableStateOf(true) }
+    LaunchedEffect(lapDurationSeconds) {
+        if (firstDurationEmit) {
+            firstDurationEmit = false
+            return@LaunchedEffect
+        }
+        showDurationHint = true
+        kotlinx.coroutines.delay(1200L)
+        showDurationHint = false
+    }
     val headAnim = remember { Animatable(rawProgress) }
     val tailAnim = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -160,7 +176,7 @@ fun WorkoutTimerScreen(
         val prev = prevLapSeconds
         val now = currentLapSeconds
         val lapReset = prev > 0L && now == 0L
-        val minuteRolled = now > 0L && now / 60 > prev / 60
+        val minuteRolled = now > 0L && now / lapDurationSeconds > prev / lapDurationSeconds
 
         when {
             lapReset -> {
@@ -318,6 +334,19 @@ fun WorkoutTimerScreen(
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AnimatedVisibility(
+                    visible = showDurationHint,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Text(
+                        text = "Ring: ${formatElapsed(lapDurationSeconds)}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+                }
                 Text(
                     text = if (hasStarted) lapTimeString else timeString,
                     fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
@@ -332,7 +361,7 @@ fun WorkoutTimerScreen(
         // ── Controls ──────────────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Stop button — only when paused (so user can discard/upload)
@@ -361,6 +390,29 @@ fun WorkoutTimerScreen(
                 }
             }
 
+            // -30s ring duration — only while running
+            AnimatedVisibility(
+                visible = isRunning,
+                enter = fadeIn() + slideInHorizontally { -it },
+                exit = fadeOut() + slideOutHorizontally { -it }
+            ) {
+                val decreaseInteractionSource = remember { MutableInteractionSource() }
+                FilledTonalIconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        timerViewModel.adjustLapDuration(-30L)
+                    },
+                    enabled = lapDurationSeconds > 30L,
+                    interactionSource = decreaseInteractionSource,
+                    modifier = Modifier.size(56.dp).bounceClick(decreaseInteractionSource)
+                ) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Decrease ring duration by 30 seconds",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
 
             // Start / Pause — always visible once hasStarted, or as the initial start button
             val startInteractionSource = remember { MutableInteractionSource() }
@@ -382,6 +434,29 @@ fun WorkoutTimerScreen(
                     tint = MaterialTheme.colorScheme.surface
 
                 )
+            }
+
+            // +30s ring duration — only while running
+            AnimatedVisibility(
+                visible = isRunning,
+                enter = fadeIn() + slideInHorizontally { it },
+                exit = fadeOut() + slideOutHorizontally { it }
+            ) {
+                val increaseInteractionSource = remember { MutableInteractionSource() }
+                FilledTonalIconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        timerViewModel.adjustLapDuration(30L)
+                    },
+                    interactionSource = increaseInteractionSource,
+                    modifier = Modifier.size(56.dp).bounceClick(increaseInteractionSource)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Increase ring duration by 30 seconds",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 

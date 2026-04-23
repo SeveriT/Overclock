@@ -87,8 +87,8 @@ class StepCounterForegroundService : Service(), SensorEventListener {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Step tracking active")
-            .setContentText("Counting your steps throughout the day")
+            .setContentTitle("Step tracking running in the background")
+            .setContentText("This notification can be hidden in system settings.")
             .setSmallIcon(R.drawable.ic_stat_steps)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
