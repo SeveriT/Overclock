@@ -11,8 +11,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -29,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,6 +76,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -333,25 +333,28 @@ fun WorkoutTimerScreen(
                 }
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AnimatedVisibility(
-                    visible = showDurationHint,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    Text(
-                        text = "Ring: ${formatElapsed(lapDurationSeconds)}",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
-                    )
-                }
+            Text(
+                text = if (hasStarted) lapTimeString else timeString,
+                fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            // Floating hint — overlays above the lap time without shifting layout
+            val hintAlpha by animateFloatAsState(
+                targetValue = if (showDurationHint) 1f else 0f,
+                animationSpec = tween(durationMillis = 220),
+                label = "durationHintAlpha"
+            )
+            if (hintAlpha > 0f) {
                 Text(
-                    text = if (hasStarted) lapTimeString else timeString,
-                    fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
+                    text = "Ring: ${formatElapsed(lapDurationSeconds)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier
+                        .offset(y = (-58).dp)
+                        .alpha(hintAlpha)
                 )
             }
         }
@@ -359,62 +362,78 @@ fun WorkoutTimerScreen(
         Spacer(modifier = Modifier.weight(0.25f))
 
         // ── Controls ──────────────────────────────────────────────────────────
+        val leftSlot = when {
+            !hasStarted -> "none"
+            isRunning -> "minus"
+            else -> "stop"
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Stop button — only when paused (so user can discard/upload)
-            AnimatedVisibility(
-                visible = hasStarted && !isRunning,
-                enter = fadeIn() + slideInHorizontally { -it },
-                exit = fadeOut() + slideOutHorizontally { -it }
+            // Fixed-width left slot — Stop (paused) / -30 (running) / empty. Pure alpha fade.
+            val stopAlpha by animateFloatAsState(
+                targetValue = if (hasStarted && !isRunning) 1f else 0f,
+                animationSpec = tween(200),
+                label = "stopAlpha"
+            )
+            val minusAlpha by animateFloatAsState(
+                targetValue = if (isRunning) 1f else 0f,
+                animationSpec = tween(200),
+                label = "minusAlpha"
+            )
+            Box(
+                modifier = Modifier.size(80.dp),
+                contentAlignment = Alignment.Center
             ) {
-                val stopInteractionSource = remember { MutableInteractionSource() }
-                FilledTonalIconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        timerViewModel.requestStop()
-                    },
-                    interactionSource = stopInteractionSource,
-                    modifier = Modifier.size(80.dp).bounceClick(stopInteractionSource),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Stop,
-                        contentDescription = "Stop",
-                        modifier = Modifier.size(40.dp)
-                    )
+                if (stopAlpha > 0f) {
+                    val stopInteractionSource = remember { MutableInteractionSource() }
+                    FilledTonalIconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            timerViewModel.requestStop()
+                        },
+                        interactionSource = stopInteractionSource,
+                        modifier = Modifier
+                            .size(65.dp)
+                            .alpha(stopAlpha)
+                            .bounceClick(stopInteractionSource),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Stop,
+                            contentDescription = "Stop",
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+                if (minusAlpha > 0f) {
+                    val decreaseInteractionSource = remember { MutableInteractionSource() }
+                    FilledTonalIconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            timerViewModel.adjustLapDuration(-30L)
+                        },
+                        enabled = lapDurationSeconds > 30L,
+                        interactionSource = decreaseInteractionSource,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .alpha(minusAlpha)
+                            .bounceClick(decreaseInteractionSource)
+                    ) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Decrease ring duration by 30 seconds",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
-            // -30s ring duration — only while running
-            AnimatedVisibility(
-                visible = isRunning,
-                enter = fadeIn() + slideInHorizontally { -it },
-                exit = fadeOut() + slideOutHorizontally { -it }
-            ) {
-                val decreaseInteractionSource = remember { MutableInteractionSource() }
-                FilledTonalIconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        timerViewModel.adjustLapDuration(-30L)
-                    },
-                    enabled = lapDurationSeconds > 30L,
-                    interactionSource = decreaseInteractionSource,
-                    modifier = Modifier.size(56.dp).bounceClick(decreaseInteractionSource)
-                ) {
-                    Icon(
-                        Icons.Default.Remove,
-                        contentDescription = "Decrease ring duration by 30 seconds",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            // Start / Pause — always visible once hasStarted, or as the initial start button
+            // Start / Pause — anchored at center, never shifts
             val startInteractionSource = remember { MutableInteractionSource() }
             FloatingActionButton(
                 onClick = {
@@ -432,30 +451,38 @@ fun WorkoutTimerScreen(
                     contentDescription = if (isRunning) "Pause" else "Start",
                     modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.surface
-
                 )
             }
 
-            // +30s ring duration — only while running
-            AnimatedVisibility(
-                visible = isRunning,
-                enter = fadeIn() + slideInHorizontally { it },
-                exit = fadeOut() + slideOutHorizontally { it }
+            // Fixed-width right slot — +30 when running, empty otherwise
+            val plusAlpha by animateFloatAsState(
+                targetValue = if (isRunning) 1f else 0f,
+                animationSpec = tween(200),
+                label = "plusAlpha"
+            )
+            Box(
+                modifier = Modifier.size(80.dp),
+                contentAlignment = Alignment.Center
             ) {
-                val increaseInteractionSource = remember { MutableInteractionSource() }
-                FilledTonalIconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        timerViewModel.adjustLapDuration(30L)
-                    },
-                    interactionSource = increaseInteractionSource,
-                    modifier = Modifier.size(56.dp).bounceClick(increaseInteractionSource)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Increase ring duration by 30 seconds",
-                        modifier = Modifier.size(24.dp)
-                    )
+                if (plusAlpha > 0f) {
+                    val increaseInteractionSource = remember { MutableInteractionSource() }
+                    FilledTonalIconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            timerViewModel.adjustLapDuration(30L)
+                        },
+                        interactionSource = increaseInteractionSource,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .alpha(plusAlpha)
+                            .bounceClick(increaseInteractionSource)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Increase ring duration by 30 seconds",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }
@@ -634,7 +661,7 @@ private fun UploadWorkoutDialog(
                         enabled = !isUploading,
                         modifier = Modifier.weight(1f).bounceClick(cancelInteractionSource)
                     ) {
-                        Text("Cancel")
+                        Text("Resume")
                     }
                 }
             }
