@@ -62,9 +62,12 @@ fun WorkoutListContent(
     bottomPadding: Dp = 170.dp,
     searchBar: (@Composable () -> Unit)? = null
 ) {
-    val groupedWorkouts = workouts.groupBy {
-        formatDate(it.date)
-    }
+    // Group by day, then sort each day's workouts by id DESC so the latest
+    // insertion is always on top — regardless of whether `date` came from the
+    // picker (midnight UTC) or System.currentTimeMillis() (exact timestamp).
+    val groupedWorkouts = workouts
+        .groupBy { formatDate(it.date) }
+        .mapValues { (_, list) -> list.sortedByDescending { it.id } }
     val todayKey = remember { formatDate(System.currentTimeMillis()) }
     val expandedDays = remember { mutableStateMapOf(todayKey to true) }
 
