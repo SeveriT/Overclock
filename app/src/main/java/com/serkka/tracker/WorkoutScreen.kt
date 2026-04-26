@@ -21,6 +21,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -193,7 +195,30 @@ fun WorkoutScreen(
     }
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = currentBackStackEntry?.destination?.route ?: Screen.Summary.name
+
+    // Swipeable screens are hosted in a HorizontalPager under a single NavHost
+    // destination ("swipe_host"). Non-swipe routes (Settings, AiAssistant, etc.)
+    // remain as individual NavHost composables.
+    val swipeScreens = remember {
+        listOf(
+            Screen.WorkoutTimer.name,
+            Screen.Workouts.name,
+            Screen.Summary.name,
+            Screen.WeightTracking.name,
+            Screen.StravaCalendar.name,
+            Screen.Sessions.name
+        )
+    }
+    val pagerHostRoute = "swipe_host"
+    val pagerState = rememberPagerState(
+        initialPage = swipeScreens.indexOf(Screen.Summary.name),
+        pageCount = { swipeScreens.size }
+    )
+
+    val currentRoute = when (val r = currentBackStackEntry?.destination?.route) {
+        pagerHostRoute, null -> swipeScreens[pagerState.currentPage]
+        else -> r
+    }
 
     val workoutsListState = rememberLazyListState()
     val summaryListState  = rememberLazyListState()
@@ -205,7 +230,6 @@ fun WorkoutScreen(
     // ── Navbar collapse on scroll down ───────────────────────────────────────
     val activeListState = when (currentRoute) {
         Screen.Workouts.name       -> workoutsListState
-        Screen.Summary.name        -> summaryListState
         Screen.WeightTracking.name -> weightListState
         Screen.Notes.name          -> notesListState
         Screen.Sessions.name       -> sessionsListState
@@ -303,9 +327,22 @@ fun WorkoutScreen(
         if (currentSong.isPlaying) musicDismissed = false
     }
 
-    fun navigate(route: String) = navController.navigate(route) {
-        popUpTo(navController.graph.startDestinationId) { inclusive = false }
-        launchSingleTop = true
+    fun navigate(route: String) {
+        if (route in swipeScreens) {
+            val targetPage = swipeScreens.indexOf(route)
+            if (navController.currentDestination?.route != pagerHostRoute) {
+                navController.navigate(pagerHostRoute) {
+                    popUpTo(pagerHostRoute) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+            coroutineScope.launch { pagerState.animateScrollToPage(targetPage) }
+        } else {
+            navController.navigate(route) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
     }
 
     val navBarColors = NavigationBarItemDefaults.colors(
@@ -336,43 +373,22 @@ fun WorkoutScreen(
             )
 
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            val swipeScreens = listOf(
-                Screen.WorkoutTimer.name,
-                Screen.Workouts.name,
-                Screen.Summary.name,
-                Screen.WeightTracking.name,
-                Screen.StravaCalendar.name,
-                Screen.Sessions.name
-            )
+
+            // Haptic when the pager settles on a new page (matches the old swipe-to-navigate feel)
+            var lastSettledPage by remember { mutableIntStateOf(pagerState.currentPage) }
+            LaunchedEffect(pagerState) {
+                snapshotFlow { pagerState.settledPage }.collect { page ->
+                    if (page != lastSettledPage) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        lastSettledPage = page
+                    }
+                }
+            }
 
             NavHost(
                 navController = navController,
-                startDestination = Screen.Summary.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(currentRoute) {
-                        var dragTotal = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart  = { dragTotal = 0f },
-                            onDragEnd    = {
-                                val idx = swipeScreens.indexOf(currentRoute)
-                                if (idx >= 0) {
-                                    val target = when {
-                                        dragTotal < -80f && idx < swipeScreens.lastIndex ->
-                                            swipeScreens[idx + 1]
-                                        dragTotal >  80f && idx > 0 ->
-                                            swipeScreens[idx - 1]
-                                        else -> null
-                                    }
-                                    target?.let {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        navigate(it)
-                                    }
-                                }
-                            },
-                            onHorizontalDrag = { _, delta -> dragTotal += delta }
-                        )
-                    },
+                startDestination = pagerHostRoute,
+                modifier = Modifier.fillMaxSize(),
                 enterTransition = {
                     val from = swipeScreens.indexOf(initialState.destination.route)
                     val to = swipeScreens.indexOf(targetState.destination.route)
@@ -402,77 +418,115 @@ fun WorkoutScreen(
                     }
                 }
             ) {
-                composable(Screen.Summary.name) {
-                    ElasticColumnWrapper {
-                        SummaryPage(
-                            workouts = workouts,
-                            bodyWeights = bodyWeights,
-                            workoutSessions = workoutSessions,
-                            stravaViewModel = stravaViewModel,
-                            stepsViewModel = stepsViewModel,
-                            primaryColor = primaryColor,
-                            onWorkoutEdit   = { editingWorkout = it },
-                            onWorkoutDelete = { workoutToDelete = it },
-                            onWorkoutCopy   = { copyingWorkout = it },
-                            onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
-                            onNavigateToSessions = { navigate(Screen.Sessions.name) },
-                            onNavigateToReps = { navigate(Screen.Workouts.name) },
-                            listState = summaryListState,
-                            topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding,
-                            weightCardVisible = weightCardVisible,
-                            onHideWeightCard = { setWeightCardVisible(false) }
-                        )
-                    }
-                }
-                composable(Screen.Workouts.name) {
-                    ElasticColumnWrapper {
-                        val filteredWorkouts = remember(workouts, searchQuery) {
-                            if (searchQuery.isBlank()) workouts
-                            else workouts.filter {
-                                it.exerciseName.contains(searchQuery, ignoreCase = true)
+                composable(pagerHostRoute) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 1
+                    ) { page ->
+                        when (swipeScreens[page]) {
+                            Screen.WorkoutTimer.name -> {
+                                val musicVisible = currentSong.title != null &&
+                                    currentSong.packageName == "com.spotify.music" &&
+                                    !musicDismissed
+                                WorkoutTimerScreen(
+                                    timerViewModel  = timerViewModel,
+                                    stravaViewModel = stravaViewModel,
+                                    bottomPadding   = if (musicVisible) 88.dp else 0.dp,
+                                    topPadding = totalTopPadding,
+                                    onSaveLocally = { name, type, startMs, duration ->
+                                        viewModel.addWorkoutSession(name, type, startMs, duration)
+                                    }
+                                )
+                            }
+                            Screen.Workouts.name -> {
+                                ElasticColumnWrapper {
+                                    val filteredWorkouts = remember(workouts, searchQuery) {
+                                        if (searchQuery.isBlank()) workouts
+                                        else workouts.filter {
+                                            it.exerciseName.contains(searchQuery, ignoreCase = true)
+                                        }
+                                    }
+                                    WorkoutListContent(
+                                        workouts = filteredWorkouts,
+                                        primaryColor = primaryColor,
+                                        onDelete  = { workoutToDelete = it },
+                                        onEdit    = { editingWorkout = it },
+                                        onCopy    = { copyingWorkout = it },
+                                        onDuplicate = { w ->
+                                            viewModel.addWorkout(
+                                                w.exerciseName, w.sets, w.reps, w.weight,
+                                                System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes
+                                            )
+                                        },
+                                        onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
+                                        listState = workoutsListState,
+                                        topPadding = totalTopPadding,
+                                        bottomPadding = contentBottomPadding
+                                    )
+                                }
+                            }
+                            Screen.Summary.name -> {
+                                ElasticColumnWrapper {
+                                    SummaryPage(
+                                        workouts = workouts,
+                                        bodyWeights = bodyWeights,
+                                        workoutSessions = workoutSessions,
+                                        stravaViewModel = stravaViewModel,
+                                        stepsViewModel = stepsViewModel,
+                                        primaryColor = primaryColor,
+                                        onWorkoutEdit   = { editingWorkout = it },
+                                        onWorkoutDelete = { workoutToDelete = it },
+                                        onWorkoutCopy   = { copyingWorkout = it },
+                                        onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
+                                        onNavigateToSessions = { navigate(Screen.Sessions.name) },
+                                        onNavigateToReps = { navigate(Screen.Workouts.name) },
+                                        listState = summaryListState,
+                                        topPadding = totalTopPadding,
+                                        bottomPadding = contentBottomPadding,
+                                        weightCardVisible = weightCardVisible,
+                                        onHideWeightCard = { setWeightCardVisible(false) }
+                                    )
+                                }
+                            }
+                            Screen.WeightTracking.name -> {
+                                ElasticColumnWrapper {
+                                    WeightTrackingPage(
+                                        bodyWeights = bodyWeights,
+                                        primaryColor = primaryColor,
+                                        onWeightClick  = { editingWeight = it },
+                                        onWeightDelete = { weightToDelete = it },
+                                        listState = weightListState,
+                                        topPadding = totalTopPadding,
+                                        bottomPadding = contentBottomPadding
+                                    )
+                                }
+                            }
+                            Screen.StravaCalendar.name -> {
+                                StravaCalendarPage(
+                                    stravaViewModel = stravaViewModel,
+                                    workoutSessions = workoutSessions,
+                                    primaryColor = primaryColor,
+                                    topPadding = totalTopPadding,
+                                    bottomPadding = contentBottomPadding,
+                                    listState = calendarListState
+                                )
+                            }
+                            Screen.Sessions.name -> {
+                                ElasticColumnWrapper {
+                                    SessionsPage(
+                                        sessions = workoutSessions,
+                                        stravaActivities = stravaActivities,
+                                        primaryColor = primaryColor,
+                                        onDelete = { sessionToDelete = it },
+                                        onEdit = { sessionToEdit = it },
+                                        listState = sessionsListState,
+                                        topPadding = totalTopPadding,
+                                        bottomPadding = contentBottomPadding
+                                    )
+                                }
                             }
                         }
-                        WorkoutListContent(
-                            workouts = filteredWorkouts,
-                            primaryColor = primaryColor,
-                            onDelete  = { workoutToDelete = it },
-                            onEdit    = { editingWorkout = it },
-                            onCopy    = { copyingWorkout = it },
-                            onDuplicate = { w ->
-                                viewModel.addWorkout(
-                                    w.exerciseName, w.sets, w.reps, w.weight,
-                                    System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes
-                                )
-                            },
-                            onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
-                            listState = workoutsListState,
-                            topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding
-                        )
-                    }
-                }
-                composable(Screen.StravaCalendar.name) {
-                    StravaCalendarPage(
-                        stravaViewModel = stravaViewModel,
-                        workoutSessions = workoutSessions,
-                        primaryColor = primaryColor,
-                        topPadding = totalTopPadding,
-                        bottomPadding = contentBottomPadding,
-                        listState = calendarListState
-                    )
-                }
-                composable(Screen.WeightTracking.name) {
-                    ElasticColumnWrapper {
-                        WeightTrackingPage(
-                            bodyWeights = bodyWeights,
-                            primaryColor = primaryColor,
-                            onWeightClick  = { editingWeight = it },
-                            onWeightDelete = { weightToDelete = it },
-                            listState = weightListState,
-                            topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding
-                        )
                     }
                 }
                 composable(Screen.WorkoutStats.name) {
@@ -491,20 +545,6 @@ fun WorkoutScreen(
                         )
                     }
                 }
-                composable(Screen.Sessions.name) {
-                    ElasticColumnWrapper {
-                        SessionsPage(
-                            sessions = workoutSessions,
-                            stravaActivities = stravaActivities,
-                            primaryColor = primaryColor,
-                            onDelete = { sessionToDelete = it },
-                            onEdit = { sessionToEdit = it },
-                            listState = sessionsListState,
-                            topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding
-                        )
-                    }
-                }
                 composable(Screen.Settings.name) {
                     SettingsPage(
                         primaryColor = primaryColor,
@@ -516,20 +556,6 @@ fun WorkoutScreen(
                         isSubscribed = isSubscribed,
                         onSubscribe = { showSubscriptionDialog = true },
                         onRecheckWhitelist = { subscriptionViewModel.recheckWhitelist() }
-                    )
-                }
-                composable(Screen.WorkoutTimer.name) {
-                    val musicVisible = currentSong.title != null &&
-                        currentSong.packageName == "com.spotify.music" &&
-                        !musicDismissed
-                    WorkoutTimerScreen(
-                        timerViewModel  = timerViewModel,
-                        stravaViewModel = stravaViewModel,
-                        bottomPadding   = if (musicVisible) 88.dp else 0.dp,
-                        topPadding = totalTopPadding,
-                        onSaveLocally = { name, type, startMs, duration ->
-                            viewModel.addWorkoutSession(name, type, startMs, duration)
-                        }
                     )
                 }
                 composable(Screen.AiAssistant.name) {
