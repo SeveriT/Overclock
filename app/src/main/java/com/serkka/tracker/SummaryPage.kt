@@ -926,7 +926,6 @@ fun SummaryPage(
                     }
                 }
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
