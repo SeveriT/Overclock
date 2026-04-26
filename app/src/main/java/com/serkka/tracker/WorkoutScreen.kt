@@ -294,6 +294,13 @@ fun WorkoutScreen(
     val timerElapsed   by timerViewModel.elapsedSeconds.collectAsState()
     val primaryColor   by themeViewModel.primaryColor.collectAsState()
 
+    // User-dismissed flag for the music widget — auto-resets when a song starts playing.
+    // Declared here so both the NavHost (timer screen padding) and the widget gate use it.
+    var musicDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(currentSong.isPlaying) {
+        if (currentSong.isPlaying) musicDismissed = false
+    }
+
     fun navigate(route: String) = navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) { inclusive = false }
         launchSingleTop = true
@@ -321,7 +328,7 @@ fun WorkoutScreen(
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
             val contentBottomPadding by animateDpAsState(
-                targetValue = if (isNavBarVisible) 170.dp else 120.dp,
+                targetValue = if (isNavBarVisible) 190.dp else 140.dp,
                 animationSpec = tween(300),
                 label = "contentBottom"
             )
@@ -511,7 +518,8 @@ fun WorkoutScreen(
                 }
                 composable(Screen.WorkoutTimer.name) {
                     val musicVisible = currentSong.title != null &&
-                        currentSong.packageName == "com.spotify.music"
+                        currentSong.packageName == "com.spotify.music" &&
+                        !musicDismissed
                     WorkoutTimerScreen(
                         timerViewModel  = timerViewModel,
                         stravaViewModel = stravaViewModel,
@@ -942,7 +950,9 @@ fun WorkoutScreen(
 
             // ── Music widget + FAB ────────────────────────────────────────────
             val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
-            val hasMusicWidget = currentSong.title != null && currentSong.packageName == "com.spotify.music"
+            val hasMusicWidget = currentSong.title != null &&
+                currentSong.packageName == "com.spotify.music" &&
+                !musicDismissed
 
             val widgetBottomPadding by animateDpAsState(
                 targetValue = if (isNavBarVisible) 80.dp else 16.dp,
@@ -957,6 +967,53 @@ fun WorkoutScreen(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = widgetBottomPadding)
             ) {
+                // Floating Spotify launch button — shown when the widget is hidden
+                if (!hasMusicWidget) {
+                    val launchInteractionSource = remember { MutableInteractionSource() }
+                    val playInteractionSource = remember { MutableInteractionSource() }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 8.dp, bottom = 11.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1DB954))
+                            .clickable(
+                                interactionSource = playInteractionSource,
+                                indication = ripple(bounded = false, radius = 26.dp),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    MediaRepository.getInstance().togglePlayPause()
+                                }
+//                                interactionSource = launchInteractionSource,
+//                                indication = ripple(bounded = true),
+//                                onClick = {
+//                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+//                                    val intent = ctx.packageManager
+//                                        .getLaunchIntentForPackage("com.spotify.music")
+//                                    if (intent != null) {
+//                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+//                                        ctx.startActivity(intent)
+//                                        musicDismissed = false
+//                                    } else {
+//                                        android.widget.Toast.makeText(
+//                                            ctx,
+//                                            "Spotify is not installed",
+//                                            android.widget.Toast.LENGTH_SHORT
+//                                        ).show()
+//                                    }
+//                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MusicNote,
+                            contentDescription = "Open Spotify",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color(0xFF191414)
+                        )
+                    }
+                }
                 if (hasMusicWidget) {
                     val musicInteractionSource = remember { MutableInteractionSource() }
                     val dragX = remember { Animatable(0f) }
@@ -1018,10 +1075,10 @@ fun WorkoutScreen(
                             modifier = Modifier
                                 .matchParentSize()
                                 .clip(MaterialTheme.shapes.large)
-                                .background(Color.Black.copy(alpha = 0.95f))
+                                .background(Color.Black.copy(alpha = 0.97f))
                         )
                         Surface(
-                            color = musicAccent.copy(alpha = 0.25f),
+                            color = musicAccent.copy(alpha = 0.3f),
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxWidth()
                                 .clip(MaterialTheme.shapes.large)
@@ -1079,7 +1136,6 @@ fun WorkoutScreen(
                                                 )
                                             }
                                         }
-                                        Spacer(Modifier.width(4.dp))
                                     }
 
                                     val outOffset = remember { Animatable(0f) }
@@ -1205,6 +1261,36 @@ fun WorkoutScreen(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     trackColor = DarkSurfaceColor,
                                     isPlaying = currentSong.isPlaying
+                                )
+                            }
+                        }
+
+                        // Hide button — overlays the album art (matches its 44dp size and
+                        // 8dp rounded shape), only while paused.
+                        if (!currentSong.isPlaying) {
+                            val closeInteractionSource = remember { MutableInteractionSource() }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(start = 10.dp, top = 10.dp)
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.7f))
+                                    .clickable(
+                                        interactionSource = closeInteractionSource,
+                                        indication = ripple(bounded = true),
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            musicDismissed = true
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Hide music widget",
+                                    modifier = Modifier.size(32.dp),
+                                    tint = Color.White
                                 )
                             }
                         }

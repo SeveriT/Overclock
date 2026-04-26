@@ -131,7 +131,5 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
                 }
             }
         }
-
-        item { Spacer(modifier = Modifier.height(155.dp)) }
     }
 }

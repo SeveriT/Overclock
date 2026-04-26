@@ -252,7 +252,7 @@ fun WorkoutTimerScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
-            .padding(top = topPadding, bottom = 60.dp + bottomPadding),
+            .padding(top = topPadding, bottom = 80.dp + bottomPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -487,7 +487,7 @@ fun WorkoutTimerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.5f))
 
         // ── Upload dialog ─────────────────────────────────────────────────────────
         if (showUploadDialog) {
