@@ -1007,10 +1007,22 @@ fun WorkoutScreen(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = if (!musicDismissed) widgetBottomPadding else widgetBottomPadding + 10.dp)
             ) {
-                // Floating Spotify launch button — shown when the widget is hidden
+                // Floating Spotify launch button — shown when the widget is hidden.
+                // Tap behavior: try toggling playback first; if Spotify is killed (or
+                // playback doesn't actually start within ~700ms) launch the app instead.
                 if (!hasMusicWidget) {
-                    val launchInteractionSource = remember { MutableInteractionSource() }
-                    val playInteractionSource = remember { MutableInteractionSource() }
+                    val noteInteractionSource = remember { MutableInteractionSource() }
+                    fun launchSpotify() {
+                        ctx.packageManager.getLaunchIntentForPackage("com.spotify.music")
+                            ?.apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                ctx.startActivity(this)
+                                musicDismissed = false
+                            } ?: android.widget.Toast.makeText(
+                                ctx, "Spotify is not installed",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                    }
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -1019,30 +1031,25 @@ fun WorkoutScreen(
                             .clip(CircleShape)
                             .background(Color(0xFF1DB954))
                             .clickable(
-                                interactionSource = playInteractionSource,
-                                indication = ripple(bounded = false, radius = 26.dp),
+                                interactionSource = noteInteractionSource,
+                                indication = ripple(bounded = true),
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    MediaRepository.getInstance().togglePlayPause()
+                                    if (currentSong.packageName == null) {
+                                        // No active media session — Spotify is killed
+                                        launchSpotify()
+                                    } else {
+                                        // Session alive — try to resume; if play silently
+                                        // no-ops (process dead), fall back to launching.
+                                        MediaRepository.getInstance().togglePlayPause()
+                                        coroutineScope.launch {
+                                            delay(500)
+                                            if (!MediaRepository.getInstance()
+                                                    .currentSong.value.isPlaying
+                                            ) launchSpotify()
+                                        }
+                                    }
                                 }
-//                                interactionSource = launchInteractionSource,
-//                                indication = ripple(bounded = true),
-//                                onClick = {
-//                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-//                                    val intent = ctx.packageManager
-//                                        .getLaunchIntentForPackage("com.spotify.music")
-//                                    if (intent != null) {
-//                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-//                                        ctx.startActivity(intent)
-//                                        musicDismissed = false
-//                                    } else {
-//                                        android.widget.Toast.makeText(
-//                                            ctx,
-//                                            "Spotify is not installed",
-//                                            android.widget.Toast.LENGTH_SHORT
-//                                        ).show()
-//                                    }
-//                                }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
