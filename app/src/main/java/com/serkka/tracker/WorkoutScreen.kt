@@ -2,6 +2,7 @@
 
 package com.serkka.tracker
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -65,6 +65,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.Alignment
 
 
 @Composable
@@ -146,6 +147,7 @@ private fun ElasticColumnWrapper(
 }
 
 
+@SuppressLint("UseKtx")
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
@@ -339,8 +341,8 @@ fun WorkoutScreen(
                 Screen.Workouts.name,
                 Screen.Summary.name,
                 Screen.WeightTracking.name,
-                Screen.Sessions.name,
-                Screen.StravaCalendar.name
+                Screen.StravaCalendar.name,
+                Screen.Sessions.name
             )
 
             NavHost(
@@ -756,6 +758,20 @@ fun WorkoutScreen(
                                 Icon(Icons.Default.Search, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.StravaCalendar.name,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val sessionsInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { navigate(Screen.Sessions.name) },
+                                interactionSource = sessionsInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(sessionsInteractionSource)
+                            ) {
+                                Icon(Icons.Default.History, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
 
                         val notesInteractionSource = remember { MutableInteractionSource() }
                         IconButton(
@@ -765,8 +781,6 @@ fun WorkoutScreen(
                         ) {
                             Icon(Icons.Default.Create, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                         }
-
-                        Spacer(modifier = Modifier.width(4.dp))
 
                         val settingsInteractionSource = remember { MutableInteractionSource() }
                         IconButton(
@@ -965,7 +979,7 @@ fun WorkoutScreen(
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = widgetBottomPadding)
+                    .padding(bottom = if (!musicDismissed) widgetBottomPadding else widgetBottomPadding + 10.dp)
             ) {
                 // Floating Spotify launch button — shown when the widget is hidden
                 if (!hasMusicWidget) {
@@ -973,8 +987,8 @@ fun WorkoutScreen(
                     val playInteractionSource = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = 8.dp, bottom = 11.dp)
+                            .align(Alignment.CenterStart)
+                            .padding(start = 8.dp, bottom = 11.dp, top = 6.dp)
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF1DB954))
@@ -1023,7 +1037,7 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = if (isNavBarVisible && currentRoute in fabScreens) 80.dp else 0.dp)
+                            .padding(top = if (isNavBarVisible && currentRoute in fabScreens) 70.dp else 0.dp)
                             .pointerInput(Unit) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { coroutineScope.launch { dragX.snapTo(0f) } },
@@ -1301,23 +1315,24 @@ fun WorkoutScreen(
                     visible = isNavBarVisible && currentRoute in fabScreens,
                     enter = fadeIn() + scaleIn(),
                     exit  = fadeOut() + scaleOut(),
-                    modifier = Modifier.align(if (hasMusicWidget) Alignment.TopEnd else Alignment.BottomEnd)
+                    modifier = Modifier.align(if (hasMusicWidget) Alignment.TopEnd else Alignment.TopEnd)
                 ) {
                     val fabInteractionSource = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
-                            .size(70.dp)
+                            .size(60.dp)
                             .bounceClick(fabInteractionSource)
                             .clip(MaterialTheme.shapes.large)
-                            .background(Color.Black.copy(alpha = 0.95f))
                     ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            color = primaryColor,
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxSize()
                         ) {
                             Box(
-                                modifier = Modifier.fillMaxSize().combinedClickable(
+                                modifier = Modifier
+                                        .fillMaxSize()
+                                        .combinedClickable(
                                     interactionSource = fabInteractionSource,
                                     indication = ripple(),
                                     onClick = {
@@ -1336,7 +1351,7 @@ fun WorkoutScreen(
                                     imageVector = if (currentRoute == Screen.WeightTracking.name)
                                         Icons.Default.MonitorWeight else Icons.Default.Add,
                                     contentDescription = "Add",
-                                    tint = primaryColor,
+                                    tint = MaterialTheme.colorScheme.surface,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }
@@ -1377,7 +1392,7 @@ fun WorkoutScreen(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.FitnessCenter, null) },
-                    label = { Text("Reps") },
+                    label = { Text("Workouts") },
                     selected = currentRoute == Screen.Workouts.name,
                     onClick  = { navigate(Screen.Workouts.name) },
                     colors = navBarColors
@@ -1397,15 +1412,8 @@ fun WorkoutScreen(
                     colors = navBarColors
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.History, null) },
-                    label = { Text("Log") },
-                    selected = currentRoute == Screen.Sessions.name,
-                    onClick  = { navigate(Screen.Sessions.name) },
-                    colors = navBarColors
-                )
-                NavigationBarItem(
                     icon = { Icon(Icons.Default.CalendarMonth, null) },
-                    label = { Text("Cal") },
+                    label = { Text("Calendar") },
                     selected = currentRoute == Screen.StravaCalendar.name,
                     onClick  = { navigate(Screen.StravaCalendar.name) },
                     colors = navBarColors
