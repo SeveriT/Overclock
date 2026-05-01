@@ -168,6 +168,7 @@ fun SummaryPage(
         ActivityResultContracts.RequestPermission()
     ) { granted -> stepsViewModel.onPermissionResult(granted) }
     var showStepGoalDialog by remember { mutableStateOf(false) }
+    var showAddStepsDialog by remember { mutableStateOf(false) }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -364,11 +365,22 @@ fun SummaryPage(
                                     LaunchedEffect(weeklySteps) {
                                         stepsBarAnim.animateTo(1f, animationSpec = tween(500, easing = FastOutSlowInEasing))
                                     }
+                                    val canvasInteractionSource = remember { MutableInteractionSource() }
                                     Box(
                                         modifier = Modifier
                                             .width(150.dp)
                                             .height(75.dp)
+                                            .clip(RoundedCornerShape(12.dp))
                                             .background(primaryColor.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                            .combinedClickable(
+                                                interactionSource = canvasInteractionSource,
+                                                indication = null,
+                                                onClick = {},
+                                                onLongClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    showAddStepsDialog = true
+                                                }
+                                            )
                                             .padding(8.dp)
                                     ) {
                                         androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
@@ -422,6 +434,36 @@ fun SummaryPage(
                         },
                         dismissButton = {
                             TextButton(onClick = { showStepGoalDialog = false }) { Text("Cancel") }
+                        }
+                    )
+                }
+            }
+
+            if (showAddStepsDialog) {
+                item {
+                    var addInput by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { showAddStepsDialog = false },
+                        title = { Text("Add steps") },
+                        text = {
+                            OutlinedTextField(
+                                value = addInput,
+                                onValueChange = { input -> addInput = input.filter { it.isDigit() }.take(5) },
+                                label = { Text("Steps to add to today") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                addInput.toLongOrNull()
+                                    ?.takeIf { it > 0 }
+                                    ?.let { stepsViewModel.addStepsManually(it) }
+                                showAddStepsDialog = false
+                            }) { Text("Add", color = primaryColor) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAddStepsDialog = false }) { Text("Cancel") }
                         }
                     )
                 }
