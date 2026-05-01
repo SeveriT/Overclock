@@ -68,6 +68,31 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         prefs.edit().putBoolean("goal_notified_${LocalDate.now()}", false).apply()
     }
 
+    /** Manually bumps today's step count by [amount]. Adjusts baseline downward
+     *  so subsequent sensor events keep counting forward correctly. */
+    fun addStepsManually(amount: Long) {
+        if (amount <= 0) return
+        val today = LocalDate.now().toString()
+        val current = prefs.getLong("today_steps", 0L)
+        val newTotal = current + amount
+        prefs.edit().putLong("today_steps", newTotal).apply()
+        _todaySteps.value = newTotal
+        _weeklySteps.value = loadWeeklySteps()
+        // Shift baseline so steps = sensor - baseline keeps incrementing from the new total
+        val baselineDate = prefs.getString("baseline_date", null)
+        val baseline = prefs.getLong("baseline", -1L)
+        if (baselineDate == today && baseline >= 0) {
+            prefs.edit().putLong("baseline", baseline - amount).apply()
+        }
+        // If we just crossed the goal, fire the notification
+        val goal = _stepGoal.value
+        val notifiedKey = "goal_notified_$today"
+        if (newTotal >= goal && !prefs.getBoolean(notifiedKey, false)) {
+            prefs.edit().putBoolean(notifiedKey, true).apply()
+            showGoalReachedNotification(newTotal, goal)
+        }
+    }
+
     fun setCardVisible(visible: Boolean) {
         _isCardVisible.value = visible
         prefs.edit().putBoolean("card_visible", visible).apply()
