@@ -442,23 +442,60 @@ fun SummaryPage(
             if (showAddStepsDialog) {
                 item {
                     var addInput by remember { mutableStateOf("") }
+                    var addToYesterday by remember { mutableStateOf(false) }
                     AlertDialog(
                         onDismissRequest = { showAddStepsDialog = false },
                         title = { Text("Add steps") },
                         text = {
-                            OutlinedTextField(
-                                value = addInput,
-                                onValueChange = { input -> addInput = input.filter { it.isDigit() }.take(5) },
-                                label = { Text("Steps to add to today") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
+                            Column {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val todayChip = remember { MutableInteractionSource() }
+                                    val yChip = remember { MutableInteractionSource() }
+                                    FilterChip(
+                                        selected = !addToYesterday,
+                                        onClick = { addToYesterday = false },
+                                        label = { Text("Today") },
+                                        modifier = Modifier.weight(1f).bounceClick(todayChip),
+                                        interactionSource = todayChip,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                                            selectedLabelColor = primaryColor
+                                        )
+                                    )
+                                    FilterChip(
+                                        selected = addToYesterday,
+                                        onClick = { addToYesterday = true },
+                                        label = { Text("Yesterday") },
+                                        modifier = Modifier.weight(1f).bounceClick(yChip),
+                                        interactionSource = yChip,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                                            selectedLabelColor = primaryColor
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedTextField(
+                                    value = addInput,
+                                    onValueChange = { input -> addInput = input.filter { it.isDigit() }.take(5) },
+                                    label = { Text("Steps to add") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
                         },
                         confirmButton = {
                             TextButton(onClick = {
                                 addInput.toLongOrNull()
                                     ?.takeIf { it > 0 }
-                                    ?.let { stepsViewModel.addStepsManually(it) }
+                                    ?.let {
+                                        val date = if (addToYesterday) LocalDate.now().minusDays(1)
+                                                   else LocalDate.now()
+                                        stepsViewModel.addStepsManually(it, date)
+                                    }
                                 showAddStepsDialog = false
                             }) { Text("Add", color = primaryColor) }
                         },

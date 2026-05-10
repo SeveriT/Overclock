@@ -68,29 +68,35 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         prefs.edit().putBoolean("goal_notified_${LocalDate.now()}", false).apply()
     }
 
-    /** Manually bumps today's step count by [amount]. Adjusts baseline downward
-     *  so subsequent sensor events keep counting forward correctly. */
-    fun addStepsManually(amount: Long) {
+    /** Manually bumps step count for [date] by [amount]. */
+    fun addStepsManually(amount: Long, date: LocalDate = LocalDate.now()) {
         if (amount <= 0) return
-        val today = LocalDate.now().toString()
-        val current = prefs.getLong("today_steps", 0L)
-        val newTotal = current + amount
-        prefs.edit().putLong("today_steps", newTotal).apply()
-        _todaySteps.value = newTotal
+        val today = LocalDate.now()
+        if (date == today) {
+            // Update today's count and shift baseline so live sensor events keep counting
+            val todayStr = today.toString()
+            val current = prefs.getLong("today_steps", 0L)
+            val newTotal = current + amount
+            prefs.edit().putLong("today_steps", newTotal).apply()
+            _todaySteps.value = newTotal
+            val baselineDate = prefs.getString("baseline_date", null)
+            val baseline = prefs.getLong("baseline", -1L)
+            if (baselineDate == todayStr && baseline >= 0) {
+                prefs.edit().putLong("baseline", baseline - amount).apply()
+            }
+            val goal = _stepGoal.value
+            val notifiedKey = "goal_notified_$todayStr"
+            if (newTotal >= goal && !prefs.getBoolean(notifiedKey, false)) {
+                prefs.edit().putBoolean(notifiedKey, true).apply()
+                showGoalReachedNotification(newTotal, goal)
+            }
+        } else {
+            // Historical day — bump the stored day total directly
+            val key = "steps_$date"
+            val current = prefs.getLong(key, 0L)
+            prefs.edit().putLong(key, current + amount).apply()
+        }
         _weeklySteps.value = loadWeeklySteps()
-        // Shift baseline so steps = sensor - baseline keeps incrementing from the new total
-        val baselineDate = prefs.getString("baseline_date", null)
-        val baseline = prefs.getLong("baseline", -1L)
-        if (baselineDate == today && baseline >= 0) {
-            prefs.edit().putLong("baseline", baseline - amount).apply()
-        }
-        // If we just crossed the goal, fire the notification
-        val goal = _stepGoal.value
-        val notifiedKey = "goal_notified_$today"
-        if (newTotal >= goal && !prefs.getBoolean(notifiedKey, false)) {
-            prefs.edit().putBoolean(notifiedKey, true).apply()
-            showGoalReachedNotification(newTotal, goal)
-        }
     }
 
     fun setCardVisible(visible: Boolean) {
@@ -119,9 +125,12 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
                 .apply()
         }
 
-        // Handle device reboot (sensor resets to 0)
+        // Handle device reboot (sensor resets to 0). Preserve today's count so a
+        // reboot mid-day doesn't wipe the daily total: shift baseline so the existing
+        // today_steps carries forward and subsequent sensor deltas keep accumulating.
         if (sensorSteps < baseline) {
-            baseline = sensorSteps
+            val carried = prefs.getLong("today_steps", 0L)
+            baseline = sensorSteps - carried
             prefs.edit().putLong("baseline", baseline).apply()
         }
 
