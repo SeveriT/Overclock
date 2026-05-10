@@ -3,6 +3,7 @@
 package com.serkka.tracker
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
@@ -890,6 +891,9 @@ private fun PermissionsCard(primaryColor: Color) {
                 ) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var batteryOptIgnored by remember {
+        mutableStateOf(isIgnoringBatteryOptimizations(context))
+    }
 
     // Re-check on resume (user may have toggled in system settings)
     DisposableEffect(lifecycleOwner) {
@@ -901,6 +905,7 @@ private fun PermissionsCard(primaryColor: Color) {
                     ContextCompat.checkSelfPermission(
                         context, Manifest.permission.ACTIVITY_RECOGNITION
                     ) == PackageManager.PERMISSION_GRANTED
+                batteryOptIgnored = isIgnoringBatteryOptimizations(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -972,7 +977,42 @@ private fun PermissionsCard(primaryColor: Color) {
                 },
                 onRevoke = { openAppInfo(context) }
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SettingsPermissionRow(
+                icon = Icons.Default.BatteryFull,
+                label = "Unrestricted Battery",
+                description = "Keep step tracking running in the background",
+                granted = batteryOptIgnored,
+                primaryColor = primaryColor,
+                onGrant = { requestIgnoreBatteryOptimizations(context) },
+                onRevoke = { openAppInfo(context) }
+            )
         }
+    }
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        pm.isIgnoringBatteryOptimizations(context.packageName)
+    } else true
+}
+
+@SuppressLint("BatteryLife")
+private fun requestIgnoreBatteryOptimizations(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        // Some OEMs reject the targeted intent — fall back to the generic battery settings page
+        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(fallback)
     }
 }
 

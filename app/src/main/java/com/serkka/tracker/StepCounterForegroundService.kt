@@ -69,8 +69,11 @@ class StepCounterForegroundService : Service(), SensorEventListener {
                 .apply()
         }
 
+        // Reboot detection — preserve today's count by shifting baseline (negative if
+        // needed) so the daily total survives a mid-day reboot.
         if (sensorSteps < baseline) {
-            baseline = sensorSteps
+            val carried = prefs.getLong("today_steps", 0L)
+            baseline = sensorSteps - carried
             prefs.edit().putLong("baseline", baseline).apply()
         }
 
