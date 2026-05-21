@@ -119,6 +119,28 @@ fun SummaryPage(
         }
     }
 
+    // Consecutive week-streak: how many weeks back (including current) have at least one active day.
+    val weekStreak = remember(activityData, workoutSessions, workouts, today) {
+        val sessionDates = workoutSessions.map { s ->
+            Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.toHashSet()
+        val workoutDates = workouts.map { w ->
+            Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.toHashSet()
+        val stravaDates = activityData.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }.toHashSet()
+        val allActiveDates = sessionDates + workoutDates + stravaDates
+        var weekStart = today.with(java.time.DayOfWeek.MONDAY)
+        var count = 0
+        while (count < 520) {
+            val weekEnd = weekStart.plusDays(6)
+            val any = allActiveDates.any { !it.isBefore(weekStart) && !it.isAfter(weekEnd) }
+            if (!any) break
+            count++
+            weekStart = weekStart.minusDays(7)
+        }
+        count
+    }
+
     // Combine Strava activities and local sessions into one sorted list
     data class RecentItem(
         val name: String,
@@ -185,7 +207,7 @@ fun SummaryPage(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
+            contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, bottomPadding),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // ── Weekly streak dots ────────────────────────────────────────────
@@ -200,18 +222,54 @@ fun SummaryPage(
                         defaultElevation = 8.dp
                     )
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Flame + week-streak counter
+                        val flameColor = Color(0xFFFF6D24)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(end = 20.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
+                                    contentDescription = null,
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(width = 32.dp, height = 45.dp)
+                                )
+                                Text(
+                                    text = weekStreak.toString(),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(top = 12.dp)
+                                )
+                            }
+                            Text(
+                                text = "Weeks",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = primaryColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        // Mon-Sun row
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.weight(1f),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            weeklyStreak.forEach { (date, active) ->
+                            weeklyStreak.forEach { (date, hadActivity) ->
+                                val isToday = date == today
+                                val isFuture = date.isAfter(today)
+                                val stepsForDay = weeklySteps.firstOrNull { it.first == date }?.second ?: 0L
+                                val hitStepGoal = stepGoal > 0 && stepsForDay >= stepGoal && !isFuture
+                                val isPastActive = !isFuture && !isToday && (hadActivity || hitStepGoal)
+
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
                                         text = date.dayOfWeek.getDisplayName(
@@ -222,25 +280,50 @@ fun SummaryPage(
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
+                                            .size(30.dp)
                                             .background(
-                                                color = if (active) primaryColor
-                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                                                color = if (isPastActive) Color.White
+                                                        else Color.Transparent,
                                                 shape = CircleShape
                                             )
                                             .border(
-                                                width = 2.dp,
-                                                color = if (date == today) Color.White else Color.Transparent,
+                                                width = if (isToday) 1.5.dp else 1.dp,
+                                                color = when {
+                                                    isToday -> Color.White
+                                                    isPastActive -> Color.Transparent
+                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                },
                                                 shape = CircleShape
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (active) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
+                                        when {
+                                            isPastActive && hadActivity -> Icon(
+                                                imageVector = Icons.Default.FitnessCenter,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = Color.Black
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            isPastActive && hitStepGoal -> Box(contentAlignment = Alignment.TopEnd) {
+                                                Icon(
+                                                    imageVector = Icons.Default.TouchApp,
+                                                    contentDescription = null,
+                                                    tint = Color.Black,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .background(flameColor, CircleShape)
+                                                        .offset(x = 2.dp, y = (-2).dp)
+                                                )
+                                            }
+                                            else -> Text(
+                                                text = date.dayOfMonth.toString(),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = if (isFuture) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                        else Color.White,
+                                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
                                             )
                                         }
                                     }
@@ -767,7 +850,7 @@ fun SummaryPage(
                 }
             } else {
                 items(recentItems, key = { "${it.date}_${it.name}" }) { item ->
-                    val accentColor = if (item.isStrava) Color(0xFFFC4C02) else primaryColor
+                    val accentColor = primaryColor
                     val cardModifier = if (item.isStrava && item.stravaId != null) {
                         Modifier.fillMaxWidth().clickable { context.openStravaActivity(item.stravaId) }
                     } else {
