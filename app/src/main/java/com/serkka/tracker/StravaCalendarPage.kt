@@ -379,7 +379,12 @@ fun StravaCalendar(
                             }
 
                             if (hasActivityLastWeek && streakStartMonday != null) {
-                                Icon(Icons.Default.Bolt, null, tint = primaryColor, modifier = Modifier.size(weekBoltSize))
+                                Icon(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
+                                    contentDescription = null,
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(weekBoltSize)
+                                )
                             } else {
                                 val hasActivityThisWeek = streakStartMonday != null && (weekStartDay..weekEndDay).any { d ->
                                     activityData.containsKey(String.format(Locale.getDefault(), "%04d-%02d-%02d", year, monthValue, d))
