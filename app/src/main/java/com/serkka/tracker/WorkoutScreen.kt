@@ -31,6 +31,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -1424,7 +1426,7 @@ fun WorkoutScreen(
                     colors = navBarColors
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.FitnessCenter, null) },
+                    icon = { Icon(ImageVector.vectorResource(R.drawable.ic_weight_training), null) },
                     label = { Text("Workouts") },
                     selected = currentRoute == Screen.Workouts.name,
                     onClick  = { navigate(Screen.Workouts.name) },
