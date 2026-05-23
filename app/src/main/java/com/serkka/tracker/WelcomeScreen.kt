@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -155,7 +156,7 @@ fun WelcomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Features
-        FeatureItem(Icons.Default.FitnessCenter, "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
+        FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
         FeatureItem(Icons.Default.AutoAwesome, "AI Assistant", "Generate personalized workouts with Gemini AI", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)

@@ -48,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -237,7 +239,7 @@ fun SummaryPage(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
                                     contentDescription = null,
                                     tint = primaryColor,
-                                    modifier = Modifier.size(width = 32.dp, height = 45.dp)
+                                    modifier = Modifier.size(width = 34.dp, height = 45.dp)
                                 )
                                 Text(
                                     text = weekStreak.toString(),
@@ -299,7 +301,7 @@ fun SummaryPage(
                                     ) {
                                         when {
                                             isPastActive && hadActivity -> Icon(
-                                                imageVector = Icons.Default.FitnessCenter,
+                                                imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
                                                 contentDescription = null,
                                                 tint = Color.Black,
                                                 modifier = Modifier.size(14.dp)
@@ -951,7 +953,7 @@ fun SummaryPage(
             if (weekWorkouts.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = Icons.Default.FitnessCenter,
+                        icon = ImageVector.vectorResource(R.drawable.ic_weight_training),
                         message = "No exercises recorded this week yet."
                     )
                 }

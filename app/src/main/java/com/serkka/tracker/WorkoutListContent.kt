@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
@@ -83,7 +85,7 @@ fun WorkoutListContent(
             if (groupedWorkouts.isEmpty()) {
                 item {
                     EmptyState(
-                        icon = Icons.Default.FitnessCenter,
+                        icon = ImageVector.vectorResource(R.drawable.ic_weight_training),
                         message = "No workouts yet.\nTap + to log your first set.",
                         primaryColor = primaryColor
                     )

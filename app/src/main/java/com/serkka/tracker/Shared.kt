@@ -40,6 +40,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -95,15 +96,16 @@ internal fun String.toLeadFloat(): Float? = this.replace(',', '.').toFloatOrNull
 
 // ── Activity icons ────────────────────────────────────────────────────────────
 
+@Composable
 internal fun getIconForActivity(type: String, name: String? = null): ImageVector {
     if (type == "Run" && name?.contains("trail run", ignoreCase = true) == true) {
         return Icons.Default.Terrain
     }
     return when (type) {
-        "WeightTraining" -> Icons.Default.FitnessCenter
-        "Run"            -> Icons.AutoMirrored.Filled.DirectionsRun
+        "WeightTraining" -> ImageVector.vectorResource(R.drawable.ic_weight_training)
+        "Run"            -> ImageVector.vectorResource(R.drawable.ic_activity_run)
         "TrailRun"       -> Icons.Default.Terrain
-        "Ride"           -> Icons.AutoMirrored.Filled.DirectionsBike
+        "Ride"           -> ImageVector.vectorResource(R.drawable.ic_activity_ride)
         "Swim"           -> Icons.Default.Waves
         "Walk"           -> Icons.AutoMirrored.Filled.DirectionsWalk
         "Hike"           -> Icons.Default.Hiking
