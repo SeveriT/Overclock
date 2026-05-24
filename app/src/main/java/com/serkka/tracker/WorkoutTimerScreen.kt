@@ -574,7 +574,7 @@ private fun UploadWorkoutDialog(
                             onClick = { onTypeChange(type) },
                             label = { Text(type.label) },
                             leadingIcon = {
-                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
