@@ -22,6 +22,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -338,7 +339,9 @@ fun WorkoutScreen(
                     launchSingleTop = true
                 }
             }
-            coroutineScope.launch { pagerState.animateScrollToPage(targetPage) }
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(targetPage, animationSpec = tween(300))
+            }
         } else {
             navController.navigate(route) {
                 popUpTo(navController.graph.startDestinationId) { inclusive = false }
@@ -424,7 +427,11 @@ fun WorkoutScreen(
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 1
+                        beyondViewportPageCount = 1,
+                        flingBehavior = PagerDefaults.flingBehavior(
+                            state = pagerState,
+                            snapAnimationSpec = tween(225)
+                        )
                     ) { page ->
                         when (swipeScreens[page]) {
                             Screen.WorkoutTimer.name -> {

@@ -242,13 +242,13 @@ fun StravaCalendar(
 
     val scale = LocalDensity.current.fontScale.coerceIn(0.85f, 1.6f)
     val rowHeight = (56.dp.value * scale).dp
-    val circleSize = (40.dp.value * scale).dp
-    val iconSize = (24.dp.value * scale).dp
-    val iconSizeSmall = (16.dp.value * scale).dp
+    val circleSize = (36.dp.value * scale).dp
+    val iconSize = (22.dp.value * scale).dp
+    val iconSizeSmall = (14.dp.value * scale).dp
     val weekColWidth = (36.dp.value * scale).dp
     val weekBadgeSize = (24.dp.value * scale).dp
     val weekCheckSize = (16.dp.value * scale).dp
-    val weekBoltSize = (36.dp.value * scale).dp
+    val weekStreakSize = (36.dp.value * scale).dp
 
     Column {
         Text(
@@ -383,7 +383,7 @@ fun StravaCalendar(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
                                     contentDescription = null,
                                     tint = primaryColor,
-                                    modifier = Modifier.size(weekBoltSize)
+                                    modifier = Modifier.size(weekStreakSize)
                                 )
                             } else {
                                 val hasActivityThisWeek = streakStartMonday != null && (weekStartDay..weekEndDay).any { d ->

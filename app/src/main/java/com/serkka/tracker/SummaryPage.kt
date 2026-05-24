@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -118,6 +119,27 @@ fun SummaryPage(
             val date = startDate.plusDays(i.toLong())
             val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
             date to (activityData.containsKey(dateString) || sessionDates.contains(date))
+        }
+    }
+
+    // Count of activities per day (Strava + local sessions). Used to badge multi-workout days.
+    val weeklyActivityCount = remember(activityData, workoutSessions, today) {
+        val startDate = today.minusDays(6)
+        val sessionCounts = workoutSessions
+            .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
+            .filter { !it.isBefore(startDate) && !it.isAfter(today) }
+            .groupingBy { it }
+            .eachCount()
+        val stravaCounts = mutableMapOf<LocalDate, Int>()
+        activityData.forEach { (dateStr, list) ->
+            runCatching { LocalDate.parse(dateStr) }.getOrNull()?.let { d ->
+                if (!d.isBefore(startDate) && !d.isAfter(today)) {
+                    stravaCounts[d] = (stravaCounts[d] ?: 0) + list.size
+                }
+            }
+        }
+        (sessionCounts.keys + stravaCounts.keys).associateWith {
+            (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0)
         }
     }
 
@@ -269,6 +291,7 @@ fun SummaryPage(
                                 val hitStepGoal = stepGoal > 0 && stepsForDay >= stepGoal && !isFuture
                                 val isPastActive = !isFuture && !isToday && (hadActivity || hitStepGoal)
 
+                                val activityCount = weeklyActivityCount[date] ?: 0
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -280,53 +303,83 @@ fun SummaryPage(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .background(
-                                                color = if (isPastActive) Color.White
-                                                        else Color.Transparent,
-                                                shape = CircleShape
-                                            )
-                                            .border(
-                                                width = if (isToday) 1.5.dp else 1.dp,
-                                                color = when {
-                                                    isToday -> Color.White
-                                                    isPastActive -> Color.Transparent
-                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                                },
-                                                shape = CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        when {
-                                            isPastActive && hadActivity -> Icon(
-                                                imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
-                                                contentDescription = null,
-                                                tint = Color.Black,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            isPastActive && hitStepGoal -> Box(contentAlignment = Alignment.TopEnd) {
-                                                Icon(
-                                                    imageVector = Icons.Default.TouchApp,
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(30.dp)
+                                                .background(
+                                                    color = if (isPastActive) Color.White
+                                                            else Color.Transparent,
+                                                    shape = CircleShape
+                                                )
+                                                .border(
+                                                    width = if (isToday) 1.5.dp else 1.dp,
+                                                    color = when {
+                                                        isToday -> Color.White
+                                                        isPastActive -> Color.Transparent
+                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                    },
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            when {
+                                                isPastActive && hadActivity -> Icon(
+                                                    imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
                                                     contentDescription = null,
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(18.dp)
+                                                    modifier = Modifier.size(20.dp)
                                                 )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(6.dp)
-                                                        .background(flameColor, CircleShape)
-                                                        .offset(x = 2.dp, y = (-2).dp)
+                                                isPastActive && hitStepGoal -> Box(contentAlignment = Alignment.TopEnd) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.TouchApp,
+                                                        contentDescription = null,
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(6.dp)
+                                                            .background(flameColor, CircleShape)
+                                                            .offset(x = 2.dp, y = (-2).dp)
+                                                    )
+                                                }
+                                                else -> Text(
+                                                    text = date.dayOfMonth.toString(),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = if (isFuture) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                            else Color.White,
+                                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
                                                 )
                                             }
-                                            else -> Text(
-                                                text = date.dayOfMonth.toString(),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = if (isFuture) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                                        else Color.White,
-                                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
-                                            )
+                                        }
+                                        // Badge for multi-workout days
+                                        if (activityCount > 1) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .offset(x = 6.dp, y = (-6).dp)
+                                                    .size(14.dp)
+                                                    .background(primaryColor, CircleShape)
+                                                    .border(1.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = activityCount.toString(),
+                                                    color = MaterialTheme.colorScheme.surface,
+                                                    fontSize = 9.sp,
+                                                    lineHeight = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    textAlign = TextAlign.Center,
+                                                    style = androidx.compose.material3.LocalTextStyle.current.copy(
+                                                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                                                        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                                            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                                            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+                                                        )
+                                                    )
+                                                )
+                                            }
                                         }
                                     }
                                 }
