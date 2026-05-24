@@ -15,6 +15,10 @@
 -keepclassmembers,allowobfuscation class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
+# Preserve generic type info on TypeToken<T>() {} anonymous subclasses we use
+# to deserialize List<...> from cached JSON.
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
 
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;

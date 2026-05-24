@@ -37,7 +37,35 @@ sealed class UploadState {
 class StravaViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager.getInstance(application).strava
 
-    private val _activities = MutableStateFlow<List<StravaActivity>>(emptyList())
+    private val gson = com.google.gson.Gson()
+    private val cachedActivitiesKey = "cached_activities"
+
+    private fun loadCachedActivities(): List<StravaActivity> {
+        val json = prefs.getString(cachedActivitiesKey, null) ?: run {
+            Log.d("StravaViewModel", "No cached activities found")
+            return emptyList()
+        }
+        return try {
+            val type = object : com.google.gson.reflect.TypeToken<List<StravaActivity>>() {}.type
+            val list: List<StravaActivity> = gson.fromJson(json, type) ?: emptyList()
+            Log.d("StravaViewModel", "Loaded ${list.size} cached activities")
+            list
+        } catch (e: Exception) {
+            Log.e("StravaViewModel", "Failed to load cached activities", e)
+            emptyList()
+        }
+    }
+
+    private fun saveCachedActivities(list: List<StravaActivity>) {
+        try {
+            prefs.edit().putString(cachedActivitiesKey, gson.toJson(list)).apply()
+            Log.d("StravaViewModel", "Saved ${list.size} activities to cache")
+        } catch (e: Exception) {
+            Log.e("StravaViewModel", "Failed to save cached activities", e)
+        }
+    }
+
+    private val _activities = MutableStateFlow<List<StravaActivity>>(loadCachedActivities())
     val activities: StateFlow<List<StravaActivity>> = _activities
 
     private val _isLoading = MutableStateFlow(false)
@@ -204,6 +232,7 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                 if (response.isEmpty()) {
                     _error.value     = "No activities found."
                     _activities.value = emptyList()
+                    saveCachedActivities(emptyList())
                     return@launch
                 }
 
@@ -237,7 +266,8 @@ class StravaViewModel(application: Application) : AndroidViewModel(application) 
                 val finalList     = response.map { activity -> detailMap[activity.id] ?: activity }
                 
                 _activities.value = finalList
-                
+                saveCachedActivities(finalList)
+
                 // Save the new latest ID
                 prefs.edit().putLong("latest_activity_id", latestFetchedId).apply()
 
