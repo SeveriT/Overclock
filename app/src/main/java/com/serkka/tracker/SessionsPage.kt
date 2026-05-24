@@ -365,7 +365,7 @@ internal fun AddSessionDialog(
                             onClick = { selectedType = type },
                             label = { Text(type.label) },
                             leadingIcon = {
-                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = primaryColor.copy(alpha = 0.2f),
@@ -509,7 +509,7 @@ internal fun EditSessionDialog(
                             onClick = { selectedType = type },
                             label = { Text(type.label) },
                             leadingIcon = {
-                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = primaryColor.copy(alpha = 0.2f),

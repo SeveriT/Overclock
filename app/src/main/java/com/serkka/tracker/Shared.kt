@@ -99,17 +99,17 @@ internal fun String.toLeadFloat(): Float? = this.replace(',', '.').toFloatOrNull
 @Composable
 internal fun getIconForActivity(type: String, name: String? = null): ImageVector {
     if (type == "Run" && name?.contains("trail run", ignoreCase = true) == true) {
-        return Icons.Default.Terrain
+        return ImageVector.vectorResource(R.drawable.ic_activity_trail_run)
     }
     return when (type) {
         "WeightTraining" -> ImageVector.vectorResource(R.drawable.ic_weight_training)
         "Run"            -> ImageVector.vectorResource(R.drawable.ic_activity_run)
-        "TrailRun"       -> Icons.Default.Terrain
+        "TrailRun"       -> ImageVector.vectorResource(R.drawable.ic_activity_trail_run)
         "Ride"           -> ImageVector.vectorResource(R.drawable.ic_activity_ride)
-        "Swim"           -> Icons.Default.Waves
-        "Walk"           -> Icons.AutoMirrored.Filled.DirectionsWalk
-        "Hike"           -> Icons.Default.Hiking
-        else             -> Icons.Default.Star
+        "Swim"           -> ImageVector.vectorResource(R.drawable.ic_activity_swim)
+        "Walk"           -> ImageVector.vectorResource(R.drawable.ic_activity_walk)
+        "Hike"           -> ImageVector.vectorResource(R.drawable.ic_activity_hike)
+        else             -> ImageVector.vectorResource(R.drawable.ic_activity_workout)
     }
 }
 

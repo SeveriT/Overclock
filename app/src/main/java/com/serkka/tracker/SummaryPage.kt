@@ -304,14 +304,14 @@ fun SummaryPage(
                                                 imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
                                                 contentDescription = null,
                                                 tint = Color.Black,
-                                                modifier = Modifier.size(14.dp)
+                                                modifier = Modifier.size(20.dp)
                                             )
                                             isPastActive && hitStepGoal -> Box(contentAlignment = Alignment.TopEnd) {
                                                 Icon(
                                                     imageVector = Icons.Default.TouchApp,
                                                     contentDescription = null,
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                                 Box(
                                                     modifier = Modifier
@@ -873,7 +873,7 @@ fun SummaryPage(
                                     modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(getIconForActivity(item.type, item.name), null, tint = accentColor, modifier = Modifier.size(20.dp))
+                                    Icon(getIconForActivity(item.type, item.name), null, tint = accentColor, modifier = Modifier.size(21.dp))
                                 }
                                 if (item.isStrava) {
                                     Icon(
