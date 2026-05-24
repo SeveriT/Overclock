@@ -287,9 +287,7 @@ fun SummaryPage(
                             weeklyStreak.forEach { (date, hadActivity) ->
                                 val isToday = date == today
                                 val isFuture = date.isAfter(today)
-                                val stepsForDay = weeklySteps.firstOrNull { it.first == date }?.second ?: 0L
-                                val hitStepGoal = stepGoal > 0 && stepsForDay >= stepGoal && !isFuture
-                                val isPastActive = !isFuture && !isToday && (hadActivity || hitStepGoal)
+                                val isPastActive = !isFuture && !isToday && hadActivity
 
                                 val activityCount = weeklyActivityCount[date] ?: 0
                                 Column(
@@ -324,26 +322,12 @@ fun SummaryPage(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             when {
-                                                isPastActive && hadActivity -> Icon(
+                                                isPastActive -> Icon(
                                                     imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
                                                     contentDescription = null,
                                                     tint = Color.Black,
                                                     modifier = Modifier.size(20.dp)
                                                 )
-                                                isPastActive && hitStepGoal -> Box(contentAlignment = Alignment.TopEnd) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.TouchApp,
-                                                        contentDescription = null,
-                                                        tint = Color.Black,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(6.dp)
-                                                            .background(flameColor, CircleShape)
-                                                            .offset(x = 2.dp, y = (-2).dp)
-                                                    )
-                                                }
                                                 else -> Text(
                                                     text = date.dayOfMonth.toString(),
                                                     style = MaterialTheme.typography.labelMedium,
