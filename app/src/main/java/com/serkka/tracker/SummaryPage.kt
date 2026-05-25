@@ -143,7 +143,9 @@ fun SummaryPage(
         }
     }
 
-    // Consecutive week-streak: how many weeks back (including current) have at least one active day.
+    // Consecutive week-streak: how many weeks back have at least one active day.
+    // If the current week has no activity yet, we still count the streak from last week
+    // (matches StravaCalendarPage behavior).
     val weekStreak = remember(activityData, workoutSessions, workouts, today) {
         val sessionDates = workoutSessions.map { s ->
             Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -153,14 +155,17 @@ fun SummaryPage(
         }.toHashSet()
         val stravaDates = activityData.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }.toHashSet()
         val allActiveDates = sessionDates + workoutDates + stravaDates
-        var weekStart = today.with(java.time.DayOfWeek.MONDAY)
+        var weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        if (allActiveDates.none { !it.isBefore(weekStart) }) {
+            weekStart = weekStart.minusWeeks(1)
+        }
         var count = 0
         while (count < 520) {
             val weekEnd = weekStart.plusDays(6)
             val any = allActiveDates.any { !it.isBefore(weekStart) && !it.isAfter(weekEnd) }
             if (!any) break
             count++
-            weekStart = weekStart.minusDays(7)
+            weekStart = weekStart.minusWeeks(1)
         }
         count
     }
