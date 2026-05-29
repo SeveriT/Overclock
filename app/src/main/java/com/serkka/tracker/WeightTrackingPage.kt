@@ -59,25 +59,39 @@ fun WeightTrackingPage(
 ) {
     val sortedWeights = remember(bodyWeights) { bodyWeights.sortedBy { it.date } }
 
-    val prediction = remember(sortedWeights) {
-        if (sortedWeights.size < 2) null
-        else {
-            val last = sortedWeights.last()
-            val first = sortedWeights.first()
-            val daysDiff = (last.date - first.date) / (1000 * 60 * 60 * 24).toDouble()
-            if (daysDiff < 1) null
-            else {
-                val ratePerDay = (last.weight - first.weight) / daysDiff
-                Pair(last.weight + (ratePerDay * 30), ratePerDay * 7)
-            }
-        }
-    }
-
     // ── Height preference for BMI ─────────────────────────────────────────────
     val context = LocalContext.current
     val prefs = remember { PreferencesManager.getInstance(context).tracker }
     var heightCm by remember { mutableStateOf(prefs.getFloat("height_cm", 0f)) }
     var showHeightDialog by remember { mutableStateOf(false) }
+
+    // ── Prediction target date (persisted) ────────────────────────────────────
+    val msPerDay = 1000L * 60 * 60 * 24
+    val defaultPredictionMillis = remember(sortedWeights) {
+        val baseDate = sortedWeights.lastOrNull()?.date ?: System.currentTimeMillis()
+        baseDate + 30L * msPerDay
+    }
+    var predictionTargetMillis by remember(defaultPredictionMillis) {
+        val saved = prefs.getLong("weight_prediction_target_millis", 0L)
+        val lastDate = sortedWeights.lastOrNull()?.date ?: 0L
+        mutableStateOf(if (saved > lastDate) saved else defaultPredictionMillis)
+    }
+    var showPredictionDatePicker by remember { mutableStateOf(false) }
+
+    val prediction = remember(sortedWeights, predictionTargetMillis) {
+        if (sortedWeights.size < 2) null
+        else {
+            val last = sortedWeights.last()
+            val first = sortedWeights.first()
+            val daysDiff = (last.date - first.date) / msPerDay.toDouble()
+            if (daysDiff < 1) null
+            else {
+                val ratePerDay = (last.weight - first.weight) / daysDiff
+                val targetDays = ((predictionTargetMillis - last.date) / msPerDay.toDouble()).coerceAtLeast(1.0)
+                Triple(last.weight + (ratePerDay * targetDays).toFloat(), ratePerDay * 7, targetDays.toInt())
+            }
+        }
+    }
 
     LazyColumn(
         state = listState,
@@ -167,8 +181,8 @@ fun WeightTrackingPage(
                                 }
                             }
 
-                            // ── Right: trend + 30-day prediction ────────────
-                            prediction?.let { (pred, rate) ->
+                            // ── Right: trend + prediction (target date selectable) ──
+                            prediction?.let { (pred, rate, days) ->
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(
                                         "Trend",
@@ -183,19 +197,27 @@ fun WeightTrackingPage(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
+                                    val labelFormat = SimpleDateFormat("MMM d", Locale.getDefault())
                                     Text(
-                                        "30-Day Prediction",
+                                        "${labelFormat.format(Date(predictionTargetMillis))} Prediction",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.clickable { showPredictionDatePicker = true }
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         "${String.format(Locale.getDefault(), "%.1f", pred)} kg",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = if (pred > sortedWeights.last().weight) Color(0xFFEE3E3E).copy(alpha = 0.8f) else Color(0xFF46CE46).copy(alpha = 0.8f),
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { showPredictionDatePicker = true }
                                     )
-                                } //color = if (pred <= 0) Color(0xFF46CE46).copy(alpha = 0.8f) else Color(0xFFEE3E3E).copy(alpha = 0.8f),
+                                    Text(
+                                        "in $days days",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
                             }
                         }
 
@@ -314,6 +336,42 @@ fun WeightTrackingPage(
                 )
             }
         }
+    }
+
+    if (showPredictionDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = predictionTargetMillis,
+            selectableDates = object : SelectableDates {
+                val lastEntry = sortedWeights.lastOrNull()?.date ?: 0L
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis > lastEntry
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPredictionDatePicker = false },
+            confirmButton = {
+                val okInteraction = remember { MutableInteractionSource() }
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            predictionTargetMillis = it
+                            prefs.edit().putLong("weight_prediction_target_millis", it).apply()
+                        }
+                        showPredictionDatePicker = false
+                    },
+                    interactionSource = okInteraction,
+                    modifier = Modifier.bounceClick(okInteraction)
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                val cancelInteraction = remember { MutableInteractionSource() }
+                TextButton(
+                    onClick = { showPredictionDatePicker = false },
+                    interactionSource = cancelInteraction,
+                    modifier = Modifier.bounceClick(cancelInteraction)
+                ) { Text("Cancel") }
+            }
+        ) { DatePicker(state = datePickerState) }
     }
 
     if (showHeightDialog) {

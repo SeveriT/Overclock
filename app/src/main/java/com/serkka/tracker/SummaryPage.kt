@@ -110,22 +110,30 @@ fun SummaryPage(
         weekWorkouts.groupBy { formatDate(it.date) }
     }
 
-    val weeklyStreak = remember(activityData, workoutSessions, today) {
+    val weeklyStreak = remember(activityData, workoutSessions, workouts, today) {
         val startDate = today.minusDays(6)
         val sessionDates = workoutSessions.map { session ->
             Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
         }.toSet()
+        val workoutDates = workouts.map { w ->
+            Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }.toSet()
         (0..6).map { i ->
             val date = startDate.plusDays(i.toLong())
             val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
-            date to (activityData.containsKey(dateString) || sessionDates.contains(date))
+            date to (activityData.containsKey(dateString) || sessionDates.contains(date) || workoutDates.contains(date))
         }
     }
 
-    // Count of activities per day (Strava + local sessions). Used to badge multi-workout days.
-    val weeklyActivityCount = remember(activityData, workoutSessions, today) {
+    // Count of activities per day (Strava + local sessions + workouts). Used to badge multi-workout days.
+    val weeklyActivityCount = remember(activityData, workoutSessions, workouts, today) {
         val startDate = today.minusDays(6)
         val sessionCounts = workoutSessions
+            .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
+            .filter { !it.isBefore(startDate) && !it.isAfter(today) }
+            .groupingBy { it }
+            .eachCount()
+        val workoutCounts = workouts
             .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
             .filter { !it.isBefore(startDate) && !it.isAfter(today) }
             .groupingBy { it }
@@ -138,8 +146,8 @@ fun SummaryPage(
                 }
             }
         }
-        (sessionCounts.keys + stravaCounts.keys).associateWith {
-            (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0)
+        (sessionCounts.keys + stravaCounts.keys + workoutCounts.keys).associateWith {
+            (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0) + (workoutCounts[it] ?: 0)
         }
     }
 
@@ -292,7 +300,7 @@ fun SummaryPage(
                             weeklyStreak.forEach { (date, hadActivity) ->
                                 val isToday = date == today
                                 val isFuture = date.isAfter(today)
-                                val isPastActive = !isFuture && !isToday && hadActivity
+                                val isActive = !isFuture && hadActivity
 
                                 val activityCount = weeklyActivityCount[date] ?: 0
                                 Column(
@@ -311,7 +319,7 @@ fun SummaryPage(
                                             modifier = Modifier
                                                 .size(30.dp)
                                                 .background(
-                                                    color = if (isPastActive) Color.White
+                                                    color = if (isActive) Color.White
                                                             else Color.Transparent,
                                                     shape = CircleShape
                                                 )
@@ -319,7 +327,7 @@ fun SummaryPage(
                                                     width = if (isToday) 1.5.dp else 1.dp,
                                                     color = when {
                                                         isToday -> Color.White
-                                                        isPastActive -> Color.Transparent
+                                                        isActive -> Color.Transparent
                                                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                                     },
                                                     shape = CircleShape
@@ -327,7 +335,7 @@ fun SummaryPage(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             when {
-                                                isPastActive -> Icon(
+                                                isActive -> Icon(
                                                     imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
                                                     contentDescription = null,
                                                     tint = Color.Black,
