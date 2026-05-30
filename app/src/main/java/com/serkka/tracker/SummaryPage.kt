@@ -120,7 +120,7 @@ fun SummaryPage(
         }.toSet()
         (0..6).map { i ->
             val date = startDate.plusDays(i.toLong())
-            val dateString = String.format(Locale.getDefault(), "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
+            val dateString = String.format(Locale.ROOT, "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
             date to (activityData.containsKey(dateString) || sessionDates.contains(date) || workoutDates.contains(date))
         }
     }
@@ -133,11 +133,12 @@ fun SummaryPage(
             .filter { !it.isBefore(startDate) && !it.isAfter(today) }
             .groupingBy { it }
             .eachCount()
+        // Workout rows are per-exercise (sets/reps), so collapse to one "weight training session" per day.
         val workoutCounts = workouts
             .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
             .filter { !it.isBefore(startDate) && !it.isAfter(today) }
-            .groupingBy { it }
-            .eachCount()
+            .distinct()
+            .associateWith { 1 }
         val stravaCounts = mutableMapOf<LocalDate, Int>()
         activityData.forEach { (dateStr, list) ->
             runCatching { LocalDate.parse(dateStr) }.getOrNull()?.let { d ->
@@ -149,6 +150,32 @@ fun SummaryPage(
         (sessionCounts.keys + stravaCounts.keys + workoutCounts.keys).associateWith {
             (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0) + (workoutCounts[it] ?: 0)
         }
+    }
+
+    // Primary (type, name) per day for icon selection. Strava wins, then sessions, then weight-training workouts.
+    val weeklyActivityType = remember(activityData, workoutSessions, workouts, today) {
+        val startDate = today.minusDays(6)
+        val map = mutableMapOf<LocalDate, Pair<String, String?>>()
+        activityData.forEach { (dateStr, list) ->
+            runCatching { LocalDate.parse(dateStr) }.getOrNull()?.let { d ->
+                if (!d.isBefore(startDate) && !d.isAfter(today)) {
+                    list.firstOrNull()?.let { (type, name) -> map.putIfAbsent(d, type to name) }
+                }
+            }
+        }
+        workoutSessions.forEach { s ->
+            val d = Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            if (!d.isBefore(startDate) && !d.isAfter(today)) {
+                map.putIfAbsent(d, s.type to s.name)
+            }
+        }
+        workouts.forEach { w ->
+            val d = Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
+            if (!d.isBefore(startDate) && !d.isAfter(today)) {
+                map.putIfAbsent(d, "WeightTraining" to null)
+            }
+        }
+        map
     }
 
     // Consecutive week-streak: how many weeks back have at least one active day.
@@ -264,7 +291,6 @@ fun SummaryPage(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Flame + week-streak counter
-                        val flameColor = Color(0xFFFF6D24)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(end = 20.dp)
@@ -335,12 +361,15 @@ fun SummaryPage(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             when {
-                                                isActive -> Icon(
-                                                    imageVector = ImageVector.vectorResource(R.drawable.ic_weight_training),
-                                                    contentDescription = null,
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
+                                                isActive -> {
+                                                    val (activityType, activityName) = weeklyActivityType[date] ?: ("WeightTraining" to null)
+                                                    Icon(
+                                                        imageVector = getIconForActivity(activityType, activityName),
+                                                        contentDescription = null,
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
                                                 else -> Text(
                                                     text = date.dayOfMonth.toString(),
                                                     style = MaterialTheme.typography.labelMedium,
