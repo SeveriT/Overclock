@@ -197,7 +197,7 @@ fun WeightTrackingPage(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    val labelFormat = SimpleDateFormat("MMM d", Locale.getDefault())
+                                    val labelFormat = remember { SimpleDateFormat("MMM d", Locale.getDefault()) }
                                     Text(
                                         "${labelFormat.format(Date(predictionTargetMillis))} Prediction",
                                         style = MaterialTheme.typography.labelMedium,
@@ -213,7 +213,7 @@ fun WeightTrackingPage(
                                         modifier = Modifier.clickable { showPredictionDatePicker = true }
                                     )
                                     Text(
-                                        "in $days days",
+                                        "in $days ${if (days == 1) "day" else "days"}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                     )
