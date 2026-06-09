@@ -633,7 +633,6 @@ fun WorkoutScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 8.dp, end = 8.dp)
-                                    .heightIn(max = 48.dp)
                                     .focusRequester(focusRequester)
                                     .onFocusChanged { state ->
                                         if (state.isFocused) {

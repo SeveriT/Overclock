@@ -110,35 +110,26 @@ fun SummaryPage(
         weekWorkouts.groupBy { formatDate(it.date) }
     }
 
-    val weeklyStreak = remember(activityData, workoutSessions, workouts, today) {
+    val weeklyStreak = remember(activityData, workoutSessions, today) {
         val startDate = today.minusDays(6)
         val sessionDates = workoutSessions.map { session ->
             Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
         }.toSet()
-        val workoutDates = workouts.map { w ->
-            Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
-        }.toSet()
         (0..6).map { i ->
             val date = startDate.plusDays(i.toLong())
             val dateString = String.format(Locale.ROOT, "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
-            date to (activityData.containsKey(dateString) || sessionDates.contains(date) || workoutDates.contains(date))
+            date to (activityData.containsKey(dateString) || sessionDates.contains(date))
         }
     }
 
-    // Count of activities per day (Strava + local sessions + workouts). Used to badge multi-workout days.
-    val weeklyActivityCount = remember(activityData, workoutSessions, workouts, today) {
+    // Count of activities per day (Strava + local sessions only). Used to badge multi-workout days.
+    val weeklyActivityCount = remember(activityData, workoutSessions, today) {
         val startDate = today.minusDays(6)
         val sessionCounts = workoutSessions
             .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
             .filter { !it.isBefore(startDate) && !it.isAfter(today) }
             .groupingBy { it }
             .eachCount()
-        // Workout rows are per-exercise (sets/reps), so collapse to one "weight training session" per day.
-        val workoutCounts = workouts
-            .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
-            .filter { !it.isBefore(startDate) && !it.isAfter(today) }
-            .distinct()
-            .associateWith { 1 }
         val stravaCounts = mutableMapOf<LocalDate, Int>()
         activityData.forEach { (dateStr, list) ->
             runCatching { LocalDate.parse(dateStr) }.getOrNull()?.let { d ->
@@ -147,13 +138,13 @@ fun SummaryPage(
                 }
             }
         }
-        (sessionCounts.keys + stravaCounts.keys + workoutCounts.keys).associateWith {
-            (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0) + (workoutCounts[it] ?: 0)
+        (sessionCounts.keys + stravaCounts.keys).associateWith {
+            (sessionCounts[it] ?: 0) + (stravaCounts[it] ?: 0)
         }
     }
 
-    // Primary (type, name) per day for icon selection. Strava wins, then sessions, then weight-training workouts.
-    val weeklyActivityType = remember(activityData, workoutSessions, workouts, today) {
+    // Primary (type, name) per day for icon selection. Strava wins, then sessions.
+    val weeklyActivityType = remember(activityData, workoutSessions, today) {
         val startDate = today.minusDays(6)
         val map = mutableMapOf<LocalDate, Pair<String, String?>>()
         activityData.forEach { (dateStr, list) ->
@@ -167,12 +158,6 @@ fun SummaryPage(
             val d = Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
             if (!d.isBefore(startDate) && !d.isAfter(today)) {
                 map.putIfAbsent(d, s.type to s.name)
-            }
-        }
-        workouts.forEach { w ->
-            val d = Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            if (!d.isBefore(startDate) && !d.isAfter(today)) {
-                map.putIfAbsent(d, "WeightTraining" to null)
             }
         }
         map
