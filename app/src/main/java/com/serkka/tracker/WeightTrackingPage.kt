@@ -35,6 +35,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -83,12 +87,41 @@ fun WeightTrackingPage(
         else {
             val last = sortedWeights.last()
             val first = sortedWeights.first()
-            val daysDiff = (last.date - first.date) / msPerDay.toDouble()
-            if (daysDiff < 1) null
+            val spanDays = (last.date - first.date) / msPerDay.toDouble()
+            if (spanDays < 1) null
             else {
-                val ratePerDay = (last.weight - first.weight) / daysDiff
+                // Recency-weighted linear regression over ALL entries.
+                //  • Weight decays exponentially with age (half-life 14 days) so the
+                //    last ~4 weeks dominate the slope while older data fades but still
+                //    smooths things out.
+                //  • Fitting the slope across many points — and starting the projection
+                //    from the regression's fitted "current" value instead of the raw
+                //    last reading — means one outlier weigh-in can't throw it off.
+                val halfLifeDays = 14.0
+                val anchor = last.date          // x = days relative to newest entry (0 = newest)
+                var sumW = 0.0; var sumWX = 0.0; var sumWY = 0.0
+                var sumWXX = 0.0; var sumWXY = 0.0
+                for (entry in sortedWeights) {
+                    val ageDays = (anchor - entry.date) / msPerDay.toDouble()   // ≥ 0
+                    val w = Math.pow(0.5, ageDays / halfLifeDays)
+                    val x = -ageDays            // newest = 0, older = negative, future = positive
+                    val y = entry.weight.toDouble()
+                    sumW += w; sumWX += w * x; sumWY += w * y
+                    sumWXX += w * x * x; sumWXY += w * x * y
+                }
+                val denom = sumW * sumWXX - sumWX * sumWX
+                val ratePerDay: Double
+                val fittedNow: Double
+                if (kotlin.math.abs(denom) < 1e-9) {
+                    // Degenerate (e.g. all points effectively same date) → simple slope.
+                    ratePerDay = (last.weight - first.weight) / spanDays
+                    fittedNow = last.weight.toDouble()
+                } else {
+                    ratePerDay = (sumW * sumWXY - sumWX * sumWY) / denom      // kg/day
+                    fittedNow = (sumWY - ratePerDay * sumWX) / sumW           // fitted weight at x = 0
+                }
                 val targetDays = ((predictionTargetMillis - last.date) / msPerDay.toDouble()).coerceAtLeast(1.0)
-                Triple(last.weight + (ratePerDay * targetDays).toFloat(), ratePerDay * 7, targetDays.toInt())
+                Triple((fittedNow + ratePerDay * targetDays).toFloat(), ratePerDay * 7, targetDays.toInt())
             }
         }
     }
@@ -502,6 +535,17 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
         scrollState.scrollTo(scrollState.maxValue)
     }
 
+    // Swallow any leftover horizontal scroll/fling so swiping the chart never
+    // bubbles up to the screen pager and flips to another page.
+    val consumeHorizontalSwipe = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                Offset(available.x, 0f)
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                Velocity(available.x, 0f)
+        }
+    }
+
     // X-axis labels: one per ~7 days
     val xLabels: List<Pair<Float, String>> = remember(weights) {
         if (weights.size < 2) return@remember emptyList()
@@ -551,6 +595,7 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .nestedScroll(consumeHorizontalSwipe)
                     .horizontalScroll(scrollState)
             ) {
                 Canvas(

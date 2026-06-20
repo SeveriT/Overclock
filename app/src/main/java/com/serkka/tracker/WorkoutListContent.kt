@@ -135,7 +135,9 @@ fun WorkoutListContent(
                                     if (!isExpanded) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = exercises.joinToString(", "),
+                                            // Reversed so the collapsed preview reads in the order
+                                            // the exercises were performed (oldest-added first).
+                                            text = exercises.reversed().joinToString(", "),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                             maxLines = 1,

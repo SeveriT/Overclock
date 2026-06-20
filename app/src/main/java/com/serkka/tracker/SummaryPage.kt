@@ -15,6 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -223,6 +225,22 @@ fun SummaryPage(
 
     val recentItemsGrouped = remember(recentItems) {
         recentItems.groupBy { formatDate(it.date) }
+    }
+
+    // Aggregate totals for the last-7-days summary card (Strava + local sessions).
+    data class WeeklyTotals(
+        val activityCount: Int,
+        val totalSeconds: Int,
+        val totalCalories: Int,
+        val totalDistanceKm: Float
+    )
+    val weeklyTotals = remember(recentItems) {
+        WeeklyTotals(
+            activityCount = recentItems.size,
+            totalSeconds = recentItems.sumOf { it.durationSeconds },
+            totalCalories = recentItems.sumOf { it.calories.toDouble() }.toInt(),
+            totalDistanceKm = (recentItems.sumOf { it.distance.toDouble() } / 1000.0).toFloat()
+        )
     }
 
     val expandedDays = remember { mutableStateMapOf<String, Boolean>() }
@@ -591,40 +609,47 @@ fun SummaryPage(
             if (showAddStepsDialog) {
                 item {
                     var addInput by remember { mutableStateOf("") }
-                    var addToYesterday by remember { mutableStateOf(false) }
+                    val last7Days = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
+                    var selectedDate by remember { mutableStateOf(today) }
+                    val currentForDay = weeklySteps.firstOrNull { it.first == selectedDate }?.second ?: 0L
                     AlertDialog(
                         onDismissRequest = { showAddStepsDialog = false },
                         title = { Text("Add steps") },
                         text = {
                             Column {
+                                Text(
+                                    "Day",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
                                 ) {
-                                    val todayChip = remember { MutableInteractionSource() }
-                                    val yChip = remember { MutableInteractionSource() }
-                                    FilterChip(
-                                        selected = !addToYesterday,
-                                        onClick = { addToYesterday = false },
-                                        label = { Text("Today") },
-                                        modifier = Modifier.weight(1f).bounceClick(todayChip),
-                                        interactionSource = todayChip,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = primaryColor.copy(alpha = 0.2f),
-                                            selectedLabelColor = primaryColor
+                                    last7Days.forEach { d ->
+                                        val chipSource = remember(d) { MutableInteractionSource() }
+                                        val label = when (d) {
+                                            today -> "Today"
+                                            today.minusDays(1) -> "Yest"
+                                            else -> d.dayOfWeek.getDisplayName(
+                                                java.time.format.TextStyle.SHORT, Locale.getDefault()
+                                            )
+                                        }
+                                        FilterChip(
+                                            selected = d == selectedDate,
+                                            onClick = { selectedDate = d },
+                                            label = { Text(label) },
+                                            modifier = Modifier.bounceClick(chipSource),
+                                            interactionSource = chipSource,
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                                                selectedLabelColor = primaryColor
+                                            )
                                         )
-                                    )
-                                    FilterChip(
-                                        selected = addToYesterday,
-                                        onClick = { addToYesterday = true },
-                                        label = { Text("Yesterday") },
-                                        modifier = Modifier.weight(1f).bounceClick(yChip),
-                                        interactionSource = yChip,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = primaryColor.copy(alpha = 0.2f),
-                                            selectedLabelColor = primaryColor
-                                        )
-                                    )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 OutlinedTextField(
@@ -634,17 +659,19 @@ fun SummaryPage(
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Currently: ${String.format(Locale.getDefault(), "%,d", currentForDay)} steps",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         },
                         confirmButton = {
                             TextButton(onClick = {
                                 addInput.toLongOrNull()
                                     ?.takeIf { it > 0 }
-                                    ?.let {
-                                        val date = if (addToYesterday) LocalDate.now().minusDays(1)
-                                                   else LocalDate.now()
-                                        stepsViewModel.addStepsManually(it, date)
-                                    }
+                                    ?.let { stepsViewModel.addStepsManually(it, selectedDate) }
                                 showAddStepsDialog = false
                             }) { Text("Add", color = primaryColor) }
                         },
@@ -900,6 +927,41 @@ fun SummaryPage(
                 }
             }
 
+            // ── Last 7 days totals ────────────────────────────────────────────
+            if (recentItems.isNotEmpty()) {
+                item {
+                    val totalMinutes = weeklyTotals.totalSeconds / 60
+                    val timeText = when {
+                        totalMinutes < 60      -> "${totalMinutes}m"
+                        totalMinutes % 60 == 0 -> "${totalMinutes / 60}h"
+                        else                   -> "${totalMinutes / 60}h ${totalMinutes % 60}m"
+                    }
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            WeeklyStatCell(Icons.Default.Schedule, timeText, "Time", primaryColor, Modifier.weight(1f))
+                            WeeklyStatCell(Icons.Default.LocalFireDepartment, "${weeklyTotals.totalCalories}", "Calories", primaryColor, Modifier.weight(1f))
+                            if (weeklyTotals.totalDistanceKm > 0f) {
+                                WeeklyStatCell(
+                                    Icons.AutoMirrored.Filled.DirectionsRun,
+                                    String.format(Locale.getDefault(), "%.1f km", weeklyTotals.totalDistanceKm),
+                                    "Distance", primaryColor, Modifier.weight(1f)
+                                )
+                            }
+                            WeeklyStatCell(Icons.Default.FitnessCenter, "${weeklyTotals.activityCount}", "Activities", primaryColor, Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
             if (isLoading && activities.isEmpty() && recentItems.isEmpty()) {
                 item {
                     Box(
@@ -993,7 +1055,7 @@ fun SummaryPage(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "This Week's Exercises",
+                        "This Week's Gym Entries",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
@@ -1155,5 +1217,38 @@ fun SummaryPage(
                 }
             }
         }
+    }
+}
+
+// ── Weekly totals stat cell ───────────────────────────────────────────────────
+@Composable
+private fun WeeklyStatCell(
+    icon: ImageVector,
+    value: String,
+    label: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
     }
 }
