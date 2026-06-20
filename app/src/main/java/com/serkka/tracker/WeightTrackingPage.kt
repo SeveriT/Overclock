@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -255,7 +256,12 @@ fun WeightTrackingPage(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        WeightChart(weights = sortedWeights, color = primaryColor)
+                        WeightChart(
+                            weights = sortedWeights,
+                            color = primaryColor,
+                            predictionDateMillis = prediction?.let { predictionTargetMillis },
+                            predictionWeight = prediction?.first
+                        )
                     }
                 }
             }
@@ -501,7 +507,12 @@ fun WeightTrackingPage(
 // ── Weight chart ──────────────────────────────────────────────────────────────
 
 @Composable
-fun WeightChart(weights: List<BodyWeight>, color: Color) {
+fun WeightChart(
+    weights: List<BodyWeight>,
+    color: Color,
+    predictionDateMillis: Long? = null,
+    predictionWeight: Float? = null
+) {
     if (weights.isEmpty()) return
 
     val gridLineColor  = Color(0xFF424349)
@@ -510,15 +521,16 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     val yLabelCount    = 4
     val visibleDaysMs  = 30L * 24 * 60 * 60 * 1000  // 30 days in ms
 
-    val rawMin = weights.minOf { it.weight }
-    val rawMax = weights.maxOf { it.weight }
+    // Fold the prediction point into both axes so the projected line fits on-screen.
+    val rawMin = minOf(weights.minOf { it.weight }, predictionWeight ?: Float.MAX_VALUE)
+    val rawMax = maxOf(weights.maxOf { it.weight }, predictionWeight ?: -Float.MAX_VALUE)
     val padding = maxOf(1f, (rawMax - rawMin) * 0.15f)
     val minWeight  = rawMin - padding
     val maxWeight  = rawMax + padding
     val weightRange = maxOf(1f, maxWeight - minWeight)
 
     val minDate  = weights.first().date
-    val maxDate  = weights.last().date
+    val maxDate  = maxOf(weights.last().date, predictionDateMillis ?: weights.last().date)
     val dateRange = maxOf(1L, maxDate - minDate)
 
     // Calculate how wide the canvas needs to be relative to the 30-day viewport
@@ -547,7 +559,7 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     }
 
     // X-axis labels: one per ~7 days
-    val xLabels: List<Pair<Float, String>> = remember(weights) {
+    val xLabels: List<Pair<Float, String>> = remember(weights, maxDate, dateRange) {
         if (weights.size < 2) return@remember emptyList()
         val stepMs = 7L * 24 * 60 * 60 * 1000 // 7 days
         val labels = mutableListOf<Pair<Float, String>>()
@@ -563,7 +575,7 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(210.dp)
+            .height(250.dp)
             .padding(vertical = 8.dp)
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -735,6 +747,47 @@ fun WeightChart(weights: List<BodyWeight>, color: Color) {
                     points.forEach { pt ->
                         drawCircle(color = color, radius = 4.dp.toPx() * animationProgress.value, center = pt)
                         drawCircle(color = Color(0xFF24252B), radius = 2.dp.toPx() * animationProgress.value, center = pt)
+                    }
+
+                    // ── Prediction projection (dashed line to the forecast point) ──
+                    if (predictionDateMillis != null && predictionWeight != null && points.isNotEmpty()) {
+                        val predX = chartLeft + ((predictionDateMillis - minDate).toFloat() / dateRange.toFloat()) * usableWidth
+                        val predY = chartBottom - ((predictionWeight - minWeight) / weightRange) * chartHeight
+                        val start = points.last()
+                        val end = Offset(predX, predY)
+                        // Grow the dashed line out from the last real point as the chart animates in.
+                        val animEnd = Offset(
+                            start.x + (end.x - start.x) * animationProgress.value,
+                            start.y + (end.y - start.y) * animationProgress.value
+                        )
+                        drawLine(
+                            color = color.copy(alpha = 0.7f),
+                            start = start,
+                            end = animEnd,
+                            strokeWidth = 2.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                        )
+                        // Hollow dot marks the forecast value (distinct from solid data dots).
+                        drawCircle(
+                            color = color,
+                            radius = 4.dp.toPx() * animationProgress.value,
+                            center = end,
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                        if (animationProgress.value > 0.6f) {
+                            val predLabelPaint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                textSize = 10.sp.toPx()
+                                setColor(color.toArgb())
+                                textAlign = android.graphics.Paint.Align.RIGHT
+                                isFakeBoldText = true
+                            }
+                            val labelY = kotlin.math.max(predY - 8.dp.toPx(), predLabelPaint.textSize)
+                            drawContext.canvas.nativeCanvas.drawText(
+                                String.format(Locale.getDefault(), "%.1f", predictionWeight),
+                                end.x, labelY, predLabelPaint
+                            )
+                        }
                     }
                 }
             }
