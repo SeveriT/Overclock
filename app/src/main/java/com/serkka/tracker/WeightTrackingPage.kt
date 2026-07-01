@@ -86,12 +86,18 @@ fun WeightTrackingPage(
     val prediction = remember(sortedWeights, predictionTargetMillis) {
         if (sortedWeights.size < 2) null
         else {
-            val last = sortedWeights.last()
-            val first = sortedWeights.first()
-            val spanDays = (last.date - first.date) / msPerDay.toDouble()
-            if (spanDays < 1) null
+            // Only use entries from the last ~3 months (relative to the newest entry);
+            // older history is ignored so the trend reflects current trajectory.
+            val cutoffMillis = sortedWeights.last().date - 91L * msPerDay
+            val recent = sortedWeights.filter { it.date >= cutoffMillis }
+            if (recent.size < 2) null
             else {
-                // Recency-weighted linear regression over ALL entries.
+                val last = recent.last()
+                val first = recent.first()
+                val spanDays = (last.date - first.date) / msPerDay.toDouble()
+                if (spanDays < 1) null
+                else {
+                // Recency-weighted linear regression over the last-3-months entries.
                 //  • Weight decays exponentially with age (half-life 14 days) so the
                 //    last ~4 weeks dominate the slope while older data fades but still
                 //    smooths things out.
@@ -102,7 +108,7 @@ fun WeightTrackingPage(
                 val anchor = last.date          // x = days relative to newest entry (0 = newest)
                 var sumW = 0.0; var sumWX = 0.0; var sumWY = 0.0
                 var sumWXX = 0.0; var sumWXY = 0.0
-                for (entry in sortedWeights) {
+                for (entry in recent) {
                     val ageDays = (anchor - entry.date) / msPerDay.toDouble()   // ≥ 0
                     val w = Math.pow(0.5, ageDays / halfLifeDays)
                     val x = -ageDays            // newest = 0, older = negative, future = positive
@@ -123,6 +129,7 @@ fun WeightTrackingPage(
                 }
                 val targetDays = ((predictionTargetMillis - last.date) / msPerDay.toDouble()).coerceAtLeast(1.0)
                 Triple((fittedNow + ratePerDay * targetDays).toFloat(), ratePerDay * 7, targetDays.toInt())
+                }
             }
         }
     }
