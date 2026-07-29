@@ -52,13 +52,13 @@ import java.util.*
 fun StravaCalendarPage(
     stravaViewModel: StravaViewModel,
     workoutSessions: List<WorkoutSession>,
+    workouts: List<Workout>,
     primaryColor: Color,
     topPadding: Dp,
     bottomPadding: Dp = 16.dp,
     listState: LazyListState = rememberLazyListState()
 ) {
     val context = LocalContext.current
-    val activities by stravaViewModel.activities.collectAsState()
     val isLoading by stravaViewModel.isLoading.collectAsState()
     val error by stravaViewModel.error.collectAsState()
     val savedToken by stravaViewModel.savedToken.collectAsState()
@@ -71,9 +71,9 @@ fun StravaCalendarPage(
         if (!isLoading && refreshTrigger) refreshTrigger = false
     }
 
-    val stravaActivityData = remember(activities) { stravaViewModel.getActivityData() }
-    val activityData = remember(stravaActivityData, workoutSessions) {
-        val combined = stravaActivityData.toMutableMap()
+    // Calendar is driven by local data only: timer sessions + weight-training workout entries.
+    val activityData = remember(workoutSessions, workouts) {
+        val combined = mutableMapOf<String, List<Pair<String, String>>>()
         workoutSessions.forEach { session ->
             val dateKey = Instant.ofEpochMilli(session.date)
                 .atZone(ZoneId.systemDefault())
@@ -81,14 +81,26 @@ fun StravaCalendarPage(
                 .toString()
             combined[dateKey] = (combined[dateKey] ?: emptyList()) + (session.type to session.name)
         }
+        // Workout rows are per-exercise; add a single dumbbell marker per gym day
+        // (skip if a WeightTraining session already covers that day).
+        workouts.map {
+            Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+        }.distinct().forEach { dateKey ->
+            val existing = combined[dateKey] ?: emptyList()
+            if (existing.none { it.first == "WeightTraining" }) {
+                combined[dateKey] = existing + ("WeightTraining" to "Workout")
+            }
+        }
         combined
     }
-    val allActivityDates = remember(activities, workoutSessions) {
-        val stravaDates = activities.map { LocalDate.parse(it.startDate.substringBefore("T")) }
-        val localDates = workoutSessions.map {
+    val allActivityDates = remember(workoutSessions, workouts) {
+        val sessionDates = workoutSessions.map {
             Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
         }
-        (stravaDates + localDates).distinct().sortedDescending()
+        val workoutDates = workouts.map {
+            Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        }
+        (sessionDates + workoutDates).distinct().sortedDescending()
     }
 
     val streakInfo = remember(allActivityDates) {
@@ -110,13 +122,14 @@ fun StravaCalendarPage(
     val streakStartMonday = streakInfo.second
     val streakEndMonday = streakInfo.third
 
-    val totalStreakActivities = remember(allActivityDates, activities, workoutSessions) {
+    val totalStreakActivities = remember(allActivityDates, workoutSessions, workouts) {
         if (allActivityDates.isEmpty()) 0
         else {
             var weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             if (allActivityDates.none { !it.isBefore(weekStart) }) weekStart = weekStart.minusWeeks(1)
-            val allDates = activities.map { LocalDate.parse(it.startDate.substringBefore("T")) } +
-                workoutSessions.map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
+            // Each session counts once; each gym day (workout rows) counts once.
+            val allDates = workoutSessions.map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() } +
+                workouts.map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }.distinct()
             var total = 0
             while (allDates.any { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }) {
                 total += allDates.count { !it.isBefore(weekStart) && it.isBefore(weekStart.plusWeeks(1)) }
@@ -148,7 +161,7 @@ fun StravaCalendarPage(
             contentPadding = PaddingValues(top = 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (activities.isNotEmpty()) {
+            if (allActivityDates.isNotEmpty()) {
                 item {
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 16.dp),
@@ -200,7 +213,7 @@ fun StravaCalendarPage(
                 }
             }
 
-            if (isLoading && activities.isEmpty() && workoutSessions.isEmpty()) {
+            if (isLoading && allActivityDates.isEmpty()) {
                 items(2) {
                     CalendarShimmerSkeleton()
                     Spacer(modifier = Modifier.height(32.dp))

@@ -392,6 +392,7 @@ private fun WorkoutMovementRow(
 fun WorkoutDialog(
     workout: Workout? = null,
     history: List<Workout> = emptyList(),
+    titleOverride: String? = null,
     onDismiss: () -> Unit,
     onConfirm: (String, Int, Int, Float, Long, Boolean, String, String) -> Unit,
     onDelete: (() -> Unit)? = null,
@@ -465,7 +466,7 @@ fun WorkoutDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.padding(24.dp).fillMaxWidth(),
-        title = { Text(if (workout == null) "Add Workout" else "Edit Workout") },
+        title = { Text(titleOverride ?: if (workout == null) "Add Workout" else "Edit Workout") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),

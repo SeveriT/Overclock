@@ -515,6 +515,7 @@ fun WorkoutScreen(
                                 StravaCalendarPage(
                                     stravaViewModel = stravaViewModel,
                                     workoutSessions = workoutSessions,
+                                    workouts = workouts,
                                     primaryColor = primaryColor,
                                     topPadding = totalTopPadding,
                                     bottomPadding = contentBottomPadding,
@@ -911,6 +912,7 @@ fun WorkoutScreen(
                 WorkoutDialog(
                     workout = workout.copy(id = 0, date = System.currentTimeMillis()),
                     history = workoutHistory,
+                    titleOverride = "Copy Workout",
                     onDismiss = { copyingWorkout = null },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)

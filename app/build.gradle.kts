@@ -42,8 +42,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8/ProGuard disabled — not publishing, so skip minification/shrinking to
+            // avoid obfuscation-related crashes and speed up release builds.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
