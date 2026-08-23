@@ -36,9 +36,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -60,7 +63,8 @@ fun WeightTrackingPage(
     onWeightDelete: (BodyWeight) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp,
-    bottomPadding: Dp = 16.dp
+    bottomPadding: Dp = 16.dp,
+    onChartTouch: (Boolean) -> Unit = {}
 ) {
     val sortedWeights = remember(bodyWeights) { bodyWeights.sortedBy { it.date } }
 
@@ -69,6 +73,11 @@ fun WeightTrackingPage(
     val prefs = remember { PreferencesManager.getInstance(context).tracker }
     var heightCm by remember { mutableStateOf(prefs.getFloat("height_cm", 0f)) }
     var showHeightDialog by remember { mutableStateOf(false) }
+
+    // ── Chart Y-axis range override (0 = auto) ────────────────────────────────
+    var chartMinWeight by remember { mutableStateOf(prefs.getFloat("chart_weight_min", 0f)) }
+    var chartMaxWeight by remember { mutableStateOf(prefs.getFloat("chart_weight_max", 0f)) }
+    var showAxisRangeDialog by remember { mutableStateOf(false) }
 
     // ── Prediction target date (persisted) ────────────────────────────────────
     val msPerDay = 1000L * 60 * 60 * 24
@@ -267,7 +276,11 @@ fun WeightTrackingPage(
                             weights = sortedWeights,
                             color = primaryColor,
                             predictionDateMillis = prediction?.let { predictionTargetMillis },
-                            predictionWeight = prediction?.first
+                            predictionWeight = prediction?.first,
+                            minWeightOverride = chartMinWeight.takeIf { it > 0f },
+                            maxWeightOverride = chartMaxWeight.takeIf { it > 0f },
+                            onHorizontalTouch = onChartTouch,
+                            onAxisClick = { showAxisRangeDialog = true }
                         )
                     }
                 }
@@ -420,6 +433,97 @@ fun WeightTrackingPage(
         ) { DatePicker(state = datePickerState) }
     }
 
+    if (showAxisRangeDialog) {
+        var minInput by remember { mutableStateOf(if (chartMinWeight > 0f) formatWeight(chartMinWeight) else "") }
+        var maxInput by remember { mutableStateOf(if (chartMaxWeight > 0f) formatWeight(chartMaxWeight) else "") }
+        val minVal = minInput.toLeadFloat()
+        val maxVal = maxInput.toLeadFloat()
+        val rangeValid = minInput.isBlank() || maxInput.isBlank() ||
+            (minVal != null && maxVal != null && minVal < maxVal)
+        AlertDialog(
+            onDismissRequest = { showAxisRangeDialog = false },
+            title = { Text("Chart weight range", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Set the min and max weight shown on the chart's vertical axis. Leave a field blank for automatic.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = minInput,
+                            onValueChange = { v -> minInput = v.filter { it.isDigit() || it == '.' }.take(6) },
+                            label = { Text("Min (kg)") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                        OutlinedTextField(
+                            value = maxInput,
+                            onValueChange = { v -> maxInput = v.filter { it.isDigit() || it == '.' }.take(6) },
+                            label = { Text("Max (kg)") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        )
+                    }
+                    if (!rangeValid) {
+                        Text(
+                            "Min must be less than max.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val saveInteraction = remember { MutableInteractionSource() }
+                Button(
+                    onClick = {
+                        val newMin = minInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
+                        val newMax = maxInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
+                        chartMinWeight = newMin
+                        chartMaxWeight = newMax
+                        prefs.edit()
+                            .putFloat("chart_weight_min", newMin)
+                            .putFloat("chart_weight_max", newMax)
+                            .apply()
+                        showAxisRangeDialog = false
+                    },
+                    enabled = rangeValid,
+                    interactionSource = saveInteraction,
+                    modifier = Modifier.bounceClick(saveInteraction),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = MaterialTheme.colorScheme.surface
+                    )
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                Row {
+                    val resetInteraction = remember { MutableInteractionSource() }
+                    TextButton(
+                        onClick = {
+                            chartMinWeight = 0f
+                            chartMaxWeight = 0f
+                            prefs.edit().remove("chart_weight_min").remove("chart_weight_max").apply()
+                            showAxisRangeDialog = false
+                        },
+                        interactionSource = resetInteraction,
+                        modifier = Modifier.bounceClick(resetInteraction)
+                    ) { Text("Auto") }
+                    val cancelInteraction = remember { MutableInteractionSource() }
+                    TextButton(
+                        onClick = { showAxisRangeDialog = false },
+                        interactionSource = cancelInteraction,
+                        modifier = Modifier.bounceClick(cancelInteraction)
+                    ) { Text("Cancel") }
+                }
+            }
+        )
+    }
+
     if (showHeightDialog) {
         var heightInput by remember {
             mutableStateOf(if (heightCm > 0f) heightCm.toInt().toString() else "")
@@ -518,7 +622,11 @@ fun WeightChart(
     weights: List<BodyWeight>,
     color: Color,
     predictionDateMillis: Long? = null,
-    predictionWeight: Float? = null
+    predictionWeight: Float? = null,
+    minWeightOverride: Float? = null,
+    maxWeightOverride: Float? = null,
+    onHorizontalTouch: (Boolean) -> Unit = {},
+    onAxisClick: () -> Unit = {}
 ) {
     if (weights.isEmpty()) return
 
@@ -528,12 +636,13 @@ fun WeightChart(
     val yLabelCount    = 4
     val visibleDaysMs  = 30L * 24 * 60 * 60 * 1000  // 30 days in ms
 
-    // Fold the prediction point into both axes so the projected line fits on-screen.
-    val rawMin = minOf(weights.minOf { it.weight }, predictionWeight ?: Float.MAX_VALUE)
-    val rawMax = maxOf(weights.maxOf { it.weight }, predictionWeight ?: -Float.MAX_VALUE)
-    val padding = maxOf(1f, (rawMax - rawMin) * 0.15f)
-    val minWeight  = rawMin - padding
-    val maxWeight  = rawMax + padding
+    // Auto range folds the prediction point in so the projected line fits on-screen.
+    // A user-set min/max override (from tapping the axis) wins over the auto value.
+    val autoMinBase = minOf(weights.minOf { it.weight }, predictionWeight ?: Float.MAX_VALUE)
+    val autoMaxBase = maxOf(weights.maxOf { it.weight }, predictionWeight ?: -Float.MAX_VALUE)
+    val padding = maxOf(1f, (autoMaxBase - autoMinBase) * 0.15f)
+    val minWeight  = minWeightOverride ?: (autoMinBase - padding)
+    val maxWeight  = maxWeightOverride ?: (autoMaxBase + padding)
     val weightRange = maxOf(1f, maxWeight - minWeight)
 
     val minDate  = weights.first().date
@@ -584,11 +693,28 @@ fun WeightChart(
             .fillMaxWidth()
             .height(250.dp)
             .padding(vertical = 8.dp)
+            // While a finger is down on the chart, tell the host to freeze the pager so
+            // swiping the chart can never flip to another screen.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    onHorizontalTouch(true)
+                    do {
+                        val event = awaitPointerEvent()
+                    } while (event.changes.any { it.pressed })
+                    onHorizontalTouch(false)
+                }
+            }
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // Fixed Y-axis labels on the left
-            Canvas(modifier = Modifier.width(30.dp).fillMaxHeight()) {
-                val xLabelHeightPx = 20.dp.toPx()
+            // Fixed Y-axis labels on the left — tap to configure the min/max range.
+            Canvas(
+                modifier = Modifier
+                    .width(32.dp)
+                    .fillMaxHeight()
+                    .clickable { onAxisClick() }
+            ) {
+                val xLabelHeightPx = 22.dp.toPx()
                 val chartBottom = size.height - xLabelHeightPx
                 val chartHeight = chartBottom
                 val textPaint = android.graphics.Paint().apply {

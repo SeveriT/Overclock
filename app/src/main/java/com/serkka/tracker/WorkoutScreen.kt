@@ -217,6 +217,8 @@ fun WorkoutScreen(
         initialPage = swipeScreens.indexOf(Screen.Summary.name),
         pageCount = { swipeScreens.size }
     )
+    // True while the user is touching the weight chart, so the pager won't page mid-gesture.
+    var chartInteracting by remember { mutableStateOf(false) }
 
     val currentRoute = when (val r = currentBackStackEntry?.destination?.route) {
         pagerHostRoute, null -> swipeScreens[pagerState.currentPage]
@@ -428,6 +430,7 @@ fun WorkoutScreen(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
                         beyondViewportPageCount = 1,
+                        userScrollEnabled = !chartInteracting,
                         flingBehavior = PagerDefaults.flingBehavior(
                             state = pagerState,
                             snapAnimationSpec = tween(225)
@@ -507,7 +510,8 @@ fun WorkoutScreen(
                                         onWeightDelete = { weightToDelete = it },
                                         listState = weightListState,
                                         topPadding = totalTopPadding,
-                                        bottomPadding = contentBottomPadding
+                                        bottomPadding = contentBottomPadding,
+                                        onChartTouch = { chartInteracting = it }
                                     )
                                 }
                             }
