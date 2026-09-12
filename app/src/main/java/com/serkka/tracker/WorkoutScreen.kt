@@ -229,6 +229,7 @@ fun WorkoutScreen(
     val summaryListState  = rememberLazyListState()
     val weightListState   = rememberLazyListState()
     val notesListState    = rememberLazyListState()
+    val scheduleListState = rememberLazyListState()
     val sessionsListState = rememberLazyListState()
     val calendarListState = rememberLazyListState()
 
@@ -297,6 +298,7 @@ fun WorkoutScreen(
     val bodyWeights     by viewModel.allBodyWeights.collectAsState()
     val notesList       by viewModel.allNotes.collectAsState()
     val workoutSessions by viewModel.allSessions.collectAsState()
+    val scheduleItems   by viewModel.allScheduleItems.collectAsState()
     val stravaActivities by stravaViewModel.activities.collectAsState()
 
     val workoutHistory = remember(workouts) {
@@ -559,6 +561,22 @@ fun WorkoutScreen(
                         )
                     }
                 }
+                composable(Screen.Schedule.name) {
+                    ElasticColumnWrapper {
+                        SchedulePage(
+                            items = scheduleItems,
+                            primaryColor = primaryColor,
+                            onAdd = { viewModel.addScheduleItem(it) },
+                            onToggle = { viewModel.toggleScheduleItem(it) },
+                            onRename = { item, text -> viewModel.renameScheduleItem(item, text) },
+                            onDelete = { viewModel.deleteScheduleItem(it) },
+                            onResetAll = { viewModel.resetSchedule() },
+                            listState = scheduleListState,
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
+                        )
+                    }
+                }
                 composable(Screen.Settings.name) {
                     SettingsPage(
                         primaryColor = primaryColor,
@@ -810,6 +828,15 @@ fun WorkoutScreen(
                             ) {
                                 Icon(Icons.Default.History, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
+                        }
+
+                        val scheduleInteractionSource = remember { MutableInteractionSource() }
+                        IconButton(
+                            onClick = { navigate(Screen.Schedule.name) },
+                            interactionSource = scheduleInteractionSource,
+                            modifier = Modifier.size(42.dp).bounceClick(scheduleInteractionSource)
+                        ) {
+                            Icon(Icons.Default.Checklist, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         val notesInteractionSource = remember { MutableInteractionSource() }

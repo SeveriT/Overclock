@@ -54,6 +54,7 @@ enum class Screen(val title: String) {
     WorkoutStats("Workout Stats"),
     Notes("Notes"),
     Sessions("Sessions"),
+    Schedule("Schedule"),
     Settings("Settings"),
     WorkoutTimer("Workout Timer"),
     AiAssistant("AI Assistant")

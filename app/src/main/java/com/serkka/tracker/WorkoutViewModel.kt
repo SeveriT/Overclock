@@ -43,6 +43,13 @@ class WorkoutViewModel(
             initialValue = emptyList()
         )
 
+    val allScheduleItems: StateFlow<List<ScheduleItem>> = repository.getAllScheduleItems()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     fun addWorkout(exercise: String, sets: Int, reps: Int, weight: Float, dateMillis: Long, isPersonalBest: Boolean, weightUnit: String = "kg", notes: String = "") {
         viewModelScope.launch {
             val newWorkout = Workout(
@@ -163,6 +170,31 @@ class WorkoutViewModel(
         viewModelScope.launch {
             repository.addSession(session)
         }
+    }
+
+    // Schedule (workout checklist) operations
+    fun addScheduleItem(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch { repository.addScheduleItem(trimmed) }
+    }
+
+    fun toggleScheduleItem(item: ScheduleItem) {
+        viewModelScope.launch { repository.updateScheduleItem(item.copy(isDone = !item.isDone)) }
+    }
+
+    fun renameScheduleItem(item: ScheduleItem, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch { repository.updateScheduleItem(item.copy(text = trimmed)) }
+    }
+
+    fun deleteScheduleItem(item: ScheduleItem) {
+        viewModelScope.launch { repository.deleteScheduleItem(item) }
+    }
+
+    fun resetSchedule() {
+        viewModelScope.launch { repository.resetSchedule() }
     }
 
 }
