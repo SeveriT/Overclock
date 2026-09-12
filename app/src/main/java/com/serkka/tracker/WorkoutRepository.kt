@@ -5,7 +5,8 @@ import kotlinx.coroutines.flow.Flow
 class WorkoutRepository(
     private val workoutDao: WorkoutDao,
     private val bodyWeightDao: BodyWeightDao,
-    private val workoutSessionDao: WorkoutSessionDao
+    private val workoutSessionDao: WorkoutSessionDao,
+    private val scheduleItemDao: ScheduleItemDao
 ) {
 
     fun getAllWorkouts(): Flow<List<Workout>> {
@@ -71,5 +72,25 @@ class WorkoutRepository(
 
     suspend fun deleteSession(session: WorkoutSession) {
         workoutSessionDao.delete(session)
+    }
+
+    // Schedule (workout checklist) operations
+    fun getAllScheduleItems(): Flow<List<ScheduleItem>> = scheduleItemDao.getAll()
+
+    suspend fun addScheduleItem(text: String) {
+        val nextPosition = scheduleItemDao.maxPosition() + 1
+        scheduleItemDao.insert(ScheduleItem(text = text, position = nextPosition))
+    }
+
+    suspend fun updateScheduleItem(item: ScheduleItem) {
+        scheduleItemDao.update(item)
+    }
+
+    suspend fun deleteScheduleItem(item: ScheduleItem) {
+        scheduleItemDao.delete(item)
+    }
+
+    suspend fun resetSchedule() {
+        scheduleItemDao.resetAll()
     }
 }

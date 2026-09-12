@@ -28,7 +28,8 @@ class DemoDataReceiver : BroadcastReceiver() {
                 val repo = WorkoutRepository(
                     db.workoutDao(),
                     db.bodyWeightDao(),
-                    db.workoutSessionDao()
+                    db.workoutSessionDao(),
+                    db.scheduleItemDao()
                 )
                 DemoData.seed(appContext, repo)
                 Log.i("DemoDataReceiver", "Demo data seeded")
