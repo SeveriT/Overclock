@@ -49,21 +49,15 @@ import kotlin.math.roundToInt
 enum class Screen(val title: String) {
     Summary("Weekly Summary"),
     Workouts("Workouts"),
-    StravaCalendar("Calendar"),
+    Calendar("Calendar"),
     WeightTracking("Weight Tracking"),
     WorkoutStats("Workout Stats"),
     Notes("Notes"),
     Sessions("Sessions"),
     Schedule("Schedule"),
     Settings("Settings"),
-    WorkoutTimer("Workout Timer"),
-    AiAssistant("AI Assistant")
+    WorkoutTimer("Workout Timer")
 }
-
-// ── Strava ────────────────────────────────────────────────────────────────────
-
-internal val STRAVA_CLIENT_ID = BuildConfig.STRAVA_CLIENT_ID
-internal val STRAVA_CLIENT_SECRET = BuildConfig.STRAVA_CLIENT_SECRET
 
 // ── Date & time formatting ────────────────────────────────────────────────────
 
@@ -110,6 +104,7 @@ internal fun getIconForActivity(type: String, name: String? = null): ImageVector
         "Swim"           -> ImageVector.vectorResource(R.drawable.ic_activity_swim)
         "Walk"           -> ImageVector.vectorResource(R.drawable.ic_activity_walk)
         "Hike"           -> ImageVector.vectorResource(R.drawable.ic_activity_hike)
+        "Cardio"         -> ImageVector.vectorResource(R.drawable.ic_activity_run)
         else             -> ImageVector.vectorResource(R.drawable.ic_activity_workout)
     }
 }

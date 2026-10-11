@@ -56,8 +56,6 @@ fun SubscriptionDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 PremiumFeatureRow(Icons.Default.Cloud, "Google Drive Backups", "Keep your data safe and synced")
-                PremiumFeatureRow(Icons.Default.DirectionsRun, "Strava Integration", "Sync activities and track streaks")
-                PremiumFeatureRow(Icons.Default.AutoAwesome, "AI Workout Assistant", "Generate personalized workout plans")
 
                 Surface(
                     color = primaryColor.copy(alpha = 0.1f),

@@ -68,7 +68,6 @@ fun SummaryPage(
     workouts: List<Workout>,
     bodyWeights: List<BodyWeight>,
     workoutSessions: List<WorkoutSession>,
-    stravaViewModel: StravaViewModel,
     stepsViewModel: StepsViewModel,
     primaryColor: Color,
     onWorkoutEdit: (Workout) -> Unit,
@@ -84,16 +83,6 @@ fun SummaryPage(
     onHideWeightCard: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val activities by stravaViewModel.activities.collectAsState()
-    val isLoading by stravaViewModel.isLoading.collectAsState()
-    val savedToken by stravaViewModel.savedToken.collectAsState()
-    var refreshTrigger by remember { mutableStateOf(false) }
-
-    val isRefreshing = refreshTrigger && isLoading
-
-    LaunchedEffect(isLoading) {
-        if (!isLoading && refreshTrigger) refreshTrigger = false
-    }
 
     val lastWeight = remember(bodyWeights) { bodyWeights.maxByOrNull { it.date } }
 
@@ -166,7 +155,7 @@ fun SummaryPage(
 
     // Consecutive week-streak: how many weeks back have at least one active day.
     // Local sessions + workout entries only (no Strava). If the current week has no
-    // activity yet, we still count the streak from last week (matches StravaCalendarPage).
+    // activity yet, we still count the streak from last week (matches CalendarPage).
     val weekStreak = remember(workoutSessions, workouts, today) {
         val sessionDates = workoutSessions.map { s ->
             Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -190,54 +179,36 @@ fun SummaryPage(
         count
     }
 
-    // Combine Strava activities and local sessions into one sorted list
+    // Recent local sessions (last 7 days)
     data class RecentItem(
         val name: String,
         val type: String,
         val date: Long,          // epoch ms
-        val durationSeconds: Int,
-        val distance: Float = 0f,
-        val calories: Float = 0f,
-        val isStrava: Boolean = false,
-        val stravaId: Long? = null
+        val durationSeconds: Int
     )
 
-    val recentItems = remember(activities, workoutSessions) {
+    val recentItems = remember(workoutSessions) {
         val sevenDaysAgo = today.minusDays(6)
-        val stravaItems = activities.mapNotNull { activity ->
-            val activityDate = LocalDate.parse(activity.startDate.substringBefore("T"))
-            if (activityDate.isBefore(sevenDaysAgo) || activityDate.isAfter(today)) return@mapNotNull null
-            val epochMs = try {
-                java.time.OffsetDateTime.parse(activity.startDate.replace("Z", "+00:00"))
-                    .toInstant().toEpochMilli()
-            } catch (_: Exception) { 0L }
-            RecentItem(activity.name, activity.type, epochMs, activity.movingTime, activity.distance, activity.calories, isStrava = true, stravaId = activity.id)
-        }
-        val sessionItems = workoutSessions.mapNotNull { session ->
+        workoutSessions.mapNotNull { session ->
             val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
             if (d.isBefore(sevenDaysAgo) || d.isAfter(today)) return@mapNotNull null
             RecentItem(session.name, session.type, session.date, session.durationSeconds)
-        }
-        (stravaItems + sessionItems).sortedByDescending { it.date }
+        }.sortedByDescending { it.date }
     }
 
     val recentItemsGrouped = remember(recentItems) {
         recentItems.groupBy { formatDate(it.date) }
     }
 
-    // Aggregate totals for the last-7-days summary card (Strava + local sessions).
+    // Aggregate totals for the last-7-days summary card.
     data class WeeklyTotals(
         val activityCount: Int,
-        val totalSeconds: Int,
-        val totalCalories: Int,
-        val totalDistanceKm: Float
+        val totalSeconds: Int
     )
     val weeklyTotals = remember(recentItems) {
         WeeklyTotals(
             activityCount = recentItems.size,
-            totalSeconds = recentItems.sumOf { it.durationSeconds },
-            totalCalories = recentItems.sumOf { it.calories.toDouble() }.toInt(),
-            totalDistanceKm = (recentItems.sumOf { it.distance.toDouble() } / 1000.0).toFloat()
+            totalSeconds = recentItems.sumOf { it.durationSeconds }
         )
     }
 
@@ -257,24 +228,12 @@ fun SummaryPage(
     var showStepGoalDialog by remember { mutableStateOf(false) }
     var showAddStepsDialog by remember { mutableStateOf(false) }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            if (savedToken.isBlank()) {
-                Toast.makeText(context, "Link Strava to refresh activities", Toast.LENGTH_SHORT).show()
-            } else {
-                refreshTrigger = true
-                stravaViewModel.checkAndFetchActivities()
-            }
-        },
-        modifier = Modifier.padding(top = topPadding)
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize().padding(top = topPadding),
+        contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, bottomPadding),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, bottomPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
             // ── Weekly streak dots ────────────────────────────────────────────
             item {
                 ElevatedCard(
@@ -1065,7 +1024,7 @@ fun SummaryPage(
                     }
                 }
             }
-            // ── Recent Activity (combined Strava + local sessions) ──────────
+            // ── Recent Activity (local sessions, last 7 days) ───────────────
             item {
                 val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
                 Row(
@@ -1116,28 +1075,13 @@ fun SummaryPage(
                             verticalAlignment = Alignment.Top
                         ) {
                             WeeklyStatCell(Icons.Default.Schedule, timeText, "Time", primaryColor, Modifier.weight(1f))
-                            WeeklyStatCell(Icons.Default.LocalFireDepartment, "${weeklyTotals.totalCalories}", "Calories", primaryColor, Modifier.weight(1f))
-                            if (weeklyTotals.totalDistanceKm > 0f) {
-                                WeeklyStatCell(
-                                    Icons.AutoMirrored.Filled.DirectionsRun,
-                                    String.format(Locale.getDefault(), "%.1f km", weeklyTotals.totalDistanceKm),
-                                    "Distance", primaryColor, Modifier.weight(1f)
-                                )
-                            }
                             WeeklyStatCell(Icons.Default.FitnessCenter, "${weeklyTotals.activityCount}", "Activities", primaryColor, Modifier.weight(1f))
                         }
                     }
                 }
             }
 
-            if (isLoading && activities.isEmpty() && recentItems.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(100.dp),
-                        contentAlignment = Alignment.Center
-                    ) { CircularProgressIndicator(color = primaryColor) }
-                }
-            } else if (recentItems.isEmpty()) {
+            if (recentItems.isEmpty()) {
                 item {
                     EmptyState(
                         icon = Icons.Default.Schedule,
@@ -1147,13 +1091,8 @@ fun SummaryPage(
             } else {
                 items(recentItems, key = { "${it.date}_${it.name}" }) { item ->
                     val accentColor = primaryColor
-                    val cardModifier = if (item.isStrava && item.stravaId != null) {
-                        Modifier.fillMaxWidth().clickable { context.openStravaActivity(item.stravaId) }
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }
                     ElevatedCard(
-                        modifier = cardModifier,
+                        modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         shape = RoundedCornerShape(12.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -1168,14 +1107,6 @@ fun SummaryPage(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(getIconForActivity(item.type, item.name), null, tint = accentColor, modifier = Modifier.size(21.dp))
-                                }
-                                if (item.isStrava) {
-                                    Icon(
-                                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.strava_logo),
-                                        contentDescription = null,
-                                        tint = Color.Unspecified,
-                                        modifier = Modifier.size(14.dp).align(Alignment.BottomEnd).clip(RoundedCornerShape(6.dp))
-                                    )
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -1197,9 +1128,6 @@ fun SummaryPage(
                                         totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
                                         else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
                                     })
-                                    if (item.isStrava && item.distance > 0f) {
-                                        append(" · ${String.format(Locale.getDefault(), "%.1f", item.distance / 1000f)} km")
-                                    }
                                 }
                                 Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -1215,7 +1143,6 @@ fun SummaryPage(
             }
         }
     }
-}
 
 // ── Weekly totals stat cell ───────────────────────────────────────────────────
 @Composable

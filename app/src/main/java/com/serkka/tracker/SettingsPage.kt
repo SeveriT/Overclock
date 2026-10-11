@@ -59,7 +59,6 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import coil.compose.AsyncImage
-import com.serkka.tracker.TrackerColors.StravaOrange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,7 +72,6 @@ private const val BACKUP_INTERVAL_MS = 24L * 60 * 60 * 1000  // 24 hours
 fun SettingsPage(
     primaryColor: Color,
     themeViewModel: ThemeViewModel,
-    stravaViewModel: StravaViewModel,
     viewModel: WorkoutViewModel,
     topPadding: Dp,
     bottomPadding: Dp,
@@ -89,8 +87,6 @@ fun SettingsPage(
     val bodyWeights by viewModel.allBodyWeights.collectAsState()
     val notesList by viewModel.allNotes.collectAsState()
     val sessions by viewModel.allSessions.collectAsState()
-    val activities by stravaViewModel.activities.collectAsState()
-    val isLoading by stravaViewModel.isLoading.collectAsState()
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showUserGuide by remember { mutableStateOf(false) }
 
@@ -503,51 +499,7 @@ fun SettingsPage(
                         )
                     }
 
-                    // Row 3: Strava login (only when not linked)
-                    if (activities.isEmpty() && !isLoading) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SettingsButton(
-                                label = "Login with Strava",
-                                icon = Icons.Default.DirectionsRun,
-                                containerColor = if (isSubscribed) StravaOrange else StravaOrange.copy(alpha = 0.4f),
-                                onClick = {
-                                    if (isSubscribed) {
-                                        val authUri = "https://www.strava.com/oauth/mobile/authorize".toUri()
-                                            .buildUpon()
-                                            .appendQueryParameter("client_id", STRAVA_CLIENT_ID)
-                                            .appendQueryParameter("redirect_uri", "tracker-app://localhost")
-                                            .appendQueryParameter("response_type", "code")
-                                            .appendQueryParameter("approval_prompt", "force")
-                                            .appendQueryParameter("scope", "activity:read_all,activity:write,profile:read_all")
-                                            .build()
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, authUri))
-                                    } else onSubscribe()
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SettingsButton(
-                                label = "Strava Sign Out",
-                                icon = Icons.Default.DirectionsRun,
-                                containerColor = StravaOrange,
-                                onClick = {
-                                    stravaViewModel.logout()
-                                    Toast.makeText(context, "Strava signed out", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    // Row 4: Delete all data
+                    // Row 3: Delete all data
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -615,7 +567,7 @@ fun SettingsPage(
                         )
                     } else {
                         Text(
-                            "Subscribe to unlock Drive backups, Strava, and AI assistant.",
+                            "Subscribe to unlock Drive backups.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -743,18 +695,16 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                 GuideSection("2. Demo Mode", "First-time users can tap 'Try with demo data' on the welcome screen to load ~4 weeks of realistic sample workouts, body weight entries, sessions, and step history. Wipe it anytime from Settings → Clear All Data.")
                 GuideSection("3. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap.")
                 GuideSection("4. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history appear as you type. Tap any row to open the dropdown: Duplicate (instant copy with today's date), Copy (edit then save), toggle PB, or delete. Grouped by day with expandable cards — today's card is open by default.")
-                GuideSection("5. AI Assistant", "Generate personalized workouts and full programs with AI. Use quick prompts or type your own. Save selected exercises directly to your workout log. The AI reads your last 50 exercises to suggest realistic weights. Premium feature.")
-                GuideSection("6. Home", "Weekly summary with activity count and streaks combining local sessions and Strava activities. Shows steps, latest weight, recent activity, and this week's exercises. Tap the eye-off icon on any card to hide it — a matching icon appears in the top bar to bring it back.")
-                GuideSection("7. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition in Settings → Permissions.")
-                GuideSection("8. Weight Tracking", "Log body weight entries with optional notes. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height.")
-                GuideSection("9. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Tap 'See all' on the Home screen to jump here.")
-                GuideSection("10. Calendar", "View your activity history with daily dot indicators combining Strava activities and local sessions. The calendar dynamically extends back to cover all your Strava history.")
-                GuideSection("11. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
-                GuideSection("12. Strava", "Link your Strava account in Settings to sync activities. Your Strava workouts will appear in Sessions, Calendar, and count toward streaks. Premium feature.")
-                GuideSection("13. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. Local backups are a single .zip bundle containing your database and step history. Premium feature.")
-                GuideSection("14. Permissions", "Manage Notifications, Notification Listener (music widget), and Activity Recognition (step counter) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
-                GuideSection("15. Clear All Data", "Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
-                GuideSection("16. Customization", "Change your primary accent color using the RGB sliders in Settings. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
+                GuideSection("5. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, recent activity, and this week's exercises. Tap the eye-off icon on any card to hide it — a matching icon appears in the top bar to bring it back.")
+                GuideSection("6. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition in Settings → Permissions.")
+                GuideSection("7. Weight Tracking", "Log body weight entries with optional notes. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height.")
+                GuideSection("8. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Tap 'See all' on the Home screen to jump here.")
+                GuideSection("9. Calendar", "A year-at-a-glance overview of compact month grids. Days with a logged session or workout are marked with an accent circle; today gets a ring. Shows the last 12 months back from the current month.")
+                GuideSection("10. Music Widget", "Control Spotify directly. The progress bar waves while music plays. Tap to open Spotify. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
+                GuideSection("11. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. Local backups are a single .zip bundle containing your database and step history. Premium feature.")
+                GuideSection("12. Permissions", "Manage Notifications, Notification Listener (music widget), and Activity Recognition (step counter) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
+                GuideSection("13. Clear All Data", "Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
+                GuideSection("14. Customization", "Change your primary accent color using the RGB sliders in Settings. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
             }
         },
         confirmButton = {

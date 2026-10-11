@@ -13,9 +13,6 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
-val stravaSecret = localProperties.getProperty("STRAVA_CLIENT_SECRET") ?: "MISSING_SECRET"
-val stravaClientId = localProperties.getProperty("STRAVA_CLIENT_ID") ?: "MISSING_ID"
-val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: "MISSING_KEY"
 val premiumEmails = localProperties.getProperty("PREMIUM_EMAILS") ?: ""
 
 android {
@@ -29,12 +26,9 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 43
-        versionName = "1.9.9"
+        versionCode = 44
+        versionName = "2.0.0"
 
-        buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaSecret\"")
-        buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
         buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
