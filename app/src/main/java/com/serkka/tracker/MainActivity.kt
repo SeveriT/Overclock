@@ -37,7 +37,6 @@ import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
-    private lateinit var stravaViewModel: StravaViewModel
     private lateinit var stepsViewModel: StepsViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,8 +51,6 @@ class MainActivity : ComponentActivity() {
         val scheduleItemDao = database.scheduleItemDao()
         val repository = WorkoutRepository(workoutDao, bodyWeightDao, workoutSessionDao, scheduleItemDao)
 
-        // 2. Initialize StravaViewModel immediately to handle intents
-        stravaViewModel = ViewModelProvider(this)[StravaViewModel::class.java]
         stepsViewModel = ViewModelProvider(this)[StepsViewModel::class.java]
         
         // Initialize ThemeViewModel
@@ -159,38 +156,16 @@ class MainActivity : ComponentActivity() {
                 } else {
                     WorkoutScreen(
                         viewModel = workoutViewModel,
-                        stravaViewModel = stravaViewModel,
                         themeViewModel = themeViewModel
                     )
                 }
             }
         }
-        
-        // Handle the initial intent if the app was started via a deep link
-        handleIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent) // Always update the intent
-        handleIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
         if (::stepsViewModel.isInitialized) stepsViewModel.refresh()
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        val uri = intent?.data
-        Log.d("MainActivity", "Handling intent: $uri")
-        if (uri != null && uri.scheme == "tracker-app" && uri.host == "localhost") {
-            val code = uri.getQueryParameter("code")
-            Log.d("MainActivity", "Received Strava code: $code")
-            if (code != null) {
-                stravaViewModel.exchangeCodeForToken(code)
-            }
-        }
     }
 
     private fun scheduleBackup() {

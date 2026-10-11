@@ -34,19 +34,10 @@
 -dontwarn org.openjsse.**
 
 # ── App data models (Gson deserializes these) ─────────────────────────────────
--keep class com.serkka.tracker.AiWorkoutEntry { *; }
--keep class com.serkka.tracker.AiWorkoutResponse { *; }
 -keep class com.serkka.tracker.Workout { *; }
 -keep class com.serkka.tracker.BodyWeight { *; }
 -keep class com.serkka.tracker.Note { *; }
 -keep class com.serkka.tracker.WorkoutSession { *; }
-
-# ── Strava API models ────────────────────────────────────────────────────────
--keep class com.serkka.tracker.StravaApi$* { *; }
--keep interface com.serkka.tracker.StravaApi { *; }
--keep class com.serkka.tracker.TokenResponse { *; }
--keep class com.serkka.tracker.StravaAthlete { *; }
--keep class com.serkka.tracker.StravaActivity { *; }
 
 # ── Room ──────────────────────────────────────────────────────────────────────
 -keep class * extends androidx.room.RoomDatabase

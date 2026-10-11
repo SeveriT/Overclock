@@ -156,10 +156,8 @@ private fun ElasticColumnWrapper(
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
-    stravaViewModel: StravaViewModel = viewModel(),
     themeViewModel: ThemeViewModel = viewModel(),
     timerViewModel: WorkoutTimerViewModel = viewModel(),
-    aiViewModel: AiViewModel = viewModel(),
     subscriptionViewModel: SubscriptionViewModel = viewModel(),
     stepsViewModel: StepsViewModel = viewModel()
 ) {
@@ -193,14 +191,13 @@ fun WorkoutScreen(
     }
 
     LaunchedEffect(Unit) {
-        stravaViewModel.checkAndFetchActivities()
         subscriptionViewModel.refreshStatus()
     }
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
     // Swipeable screens are hosted in a HorizontalPager under a single NavHost
-    // destination ("swipe_host"). Non-swipe routes (Settings, AiAssistant, etc.)
+    // destination ("swipe_host"). Non-swipe routes (Settings, Notes, etc.)
     // remain as individual NavHost composables.
     val swipeScreens = remember {
         listOf(
@@ -208,7 +205,7 @@ fun WorkoutScreen(
             Screen.Workouts.name,
             Screen.Summary.name,
             Screen.WeightTracking.name,
-            Screen.StravaCalendar.name,
+            Screen.Calendar.name,
             Screen.Sessions.name
         )
     }
@@ -239,7 +236,7 @@ fun WorkoutScreen(
         Screen.WeightTracking.name -> weightListState
         Screen.Notes.name          -> notesListState
         Screen.Sessions.name       -> sessionsListState
-        Screen.StravaCalendar.name -> calendarListState
+        Screen.Calendar.name -> calendarListState
         else                       -> null
     }
 
@@ -299,7 +296,6 @@ fun WorkoutScreen(
     val notesList       by viewModel.allNotes.collectAsState()
     val workoutSessions by viewModel.allSessions.collectAsState()
     val scheduleItems   by viewModel.allScheduleItems.collectAsState()
-    val stravaActivities by stravaViewModel.activities.collectAsState()
 
     val workoutHistory = remember(workouts) {
         workouts.asSequence()
@@ -445,7 +441,6 @@ fun WorkoutScreen(
                                     !musicDismissed
                                 WorkoutTimerScreen(
                                     timerViewModel  = timerViewModel,
-                                    stravaViewModel = stravaViewModel,
                                     bottomPadding   = if (musicVisible) 88.dp else 0.dp,
                                     topPadding = totalTopPadding,
                                     onSaveLocally = { name, type, startMs, duration ->
@@ -486,7 +481,6 @@ fun WorkoutScreen(
                                         workouts = workouts,
                                         bodyWeights = bodyWeights,
                                         workoutSessions = workoutSessions,
-                                        stravaViewModel = stravaViewModel,
                                         stepsViewModel = stepsViewModel,
                                         primaryColor = primaryColor,
                                         onWorkoutEdit   = { editingWorkout = it },
@@ -517,9 +511,8 @@ fun WorkoutScreen(
                                     )
                                 }
                             }
-                            Screen.StravaCalendar.name -> {
-                                StravaCalendarPage(
-                                    stravaViewModel = stravaViewModel,
+                            Screen.Calendar.name -> {
+                                CalendarPage(
                                     workoutSessions = workoutSessions,
                                     workouts = workouts,
                                     primaryColor = primaryColor,
@@ -532,7 +525,6 @@ fun WorkoutScreen(
                                 ElasticColumnWrapper {
                                     SessionsPage(
                                         sessions = workoutSessions,
-                                        stravaActivities = stravaActivities,
                                         primaryColor = primaryColor,
                                         onDelete = { sessionToDelete = it },
                                         onEdit = { sessionToEdit = it },
@@ -581,24 +573,12 @@ fun WorkoutScreen(
                     SettingsPage(
                         primaryColor = primaryColor,
                         themeViewModel = themeViewModel,
-                        stravaViewModel = stravaViewModel,
                         viewModel = viewModel,
                         topPadding = totalTopPadding,
                         bottomPadding = contentBottomPadding,
                         isSubscribed = isSubscribed,
                         onSubscribe = { showSubscriptionDialog = true },
                         onRecheckWhitelist = { subscriptionViewModel.recheckWhitelist() }
-                    )
-                }
-                composable(Screen.AiAssistant.name) {
-                    AiAssistantPage(
-                        workoutViewModel = viewModel,
-                        aiViewModel = aiViewModel,
-                        workouts = workouts,
-                        primaryColor = primaryColor,
-                        topPadding = totalTopPadding,
-                        bottomPadding = contentBottomPadding,
-                        dailyLimit = aiViewModel.dailyRequestLimit
                     )
                 }
             }
@@ -775,23 +755,6 @@ fun WorkoutScreen(
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
                         ) {
-                            val aiInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = {
-                                    if (isSubscribed) navigate(Screen.AiAssistant.name)
-                                    else showSubscriptionDialog = true
-                                },
-                                interactionSource = aiInteractionSource,
-                                modifier = Modifier.size(42.dp).bounceClick(aiInteractionSource)
-                            ) {
-                                Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                        AnimatedVisibility(
-                            visible = currentRoute == Screen.Workouts.name && !searchExpanded,
-                            enter   = fadeIn() + slideInHorizontally { it },
-                            exit    = fadeOut() + slideOutHorizontally { it }
-                        ) {
                             val statsInteractionSource = remember { MutableInteractionSource() }
                             IconButton(
                                 onClick = { navigate(Screen.WorkoutStats.name) },
@@ -816,7 +779,7 @@ fun WorkoutScreen(
                             }
                         }
                         AnimatedVisibility(
-                            visible = currentRoute == Screen.StravaCalendar.name,
+                            visible = currentRoute == Screen.Calendar.name,
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
                         ) {
@@ -1488,8 +1451,8 @@ fun WorkoutScreen(
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.CalendarMonth, null) },
                     label = { Text("Calendar") },
-                    selected = currentRoute == Screen.StravaCalendar.name,
-                    onClick  = { navigate(Screen.StravaCalendar.name) },
+                    selected = currentRoute == Screen.Calendar.name,
+                    onClick  = { navigate(Screen.Calendar.name) },
                     colors = navBarColors
                 )
                 Spacer(modifier = Modifier.width(4.dp))

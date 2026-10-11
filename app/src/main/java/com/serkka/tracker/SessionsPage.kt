@@ -39,7 +39,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 
 /**
- * A unified display item for the sessions list, wrapping either a local session or a Strava activity.
+ * A unified display item for the sessions list.
  */
 internal data class SessionDisplayItem(
     val id: String,
@@ -48,8 +48,6 @@ internal data class SessionDisplayItem(
     val date: Long,           // epoch ms
     val durationSeconds: Int,
     val notes: String = "",
-    val isStrava: Boolean = false,
-    val stravaId: Long? = null,
     val localSession: WorkoutSession? = null
 )
 
@@ -60,30 +58,12 @@ private fun WorkoutSession.toDisplayItem() = SessionDisplayItem(
     date = date,
     durationSeconds = durationSeconds,
     notes = notes,
-    isStrava = false,
     localSession = this
 )
-
-private fun StravaActivity.toDisplayItem(): SessionDisplayItem {
-    val epochMs = try {
-        java.time.OffsetDateTime.parse(startDate.replace("Z", "+00:00"))
-            .toInstant().toEpochMilli()
-    } catch (_: Exception) { 0L }
-    return SessionDisplayItem(
-        id = "strava_$id",
-        name = name,
-        type = type,
-        date = epochMs,
-        durationSeconds = movingTime,
-        isStrava = true,
-        stravaId = id
-    )
-}
 
 @Composable
 fun SessionsPage(
     sessions: List<WorkoutSession>,
-    stravaActivities: List<StravaActivity> = emptyList(),
     primaryColor: Color,
     onDelete: (WorkoutSession) -> Unit,
     onEdit: (WorkoutSession) -> Unit,
@@ -91,9 +71,8 @@ fun SessionsPage(
     topPadding: Dp,
     bottomPadding: Dp = 16.dp
 ) {
-    val allItems = remember(sessions, stravaActivities) {
-        (sessions.map { it.toDisplayItem() } + stravaActivities.map { it.toDisplayItem() })
-            .sortedByDescending { it.date }
+    val allItems = remember(sessions) {
+        sessions.map { it.toDisplayItem() }.sortedByDescending { it.date }
     }
     val totalDurationSeconds = remember(allItems) { allItems.sumOf { it.durationSeconds.toLong() } }
 
@@ -164,8 +143,6 @@ fun SessionsPage(
     }
 }
 
-private val StravaOrange = Color(0xFFFC4C02)
-
 @Composable
 private fun SessionDisplayCard(
     item: SessionDisplayItem,
@@ -175,17 +152,10 @@ private fun SessionDisplayCard(
     modifier: Modifier = Modifier
 ) {
     val cardInteractionSource = remember { MutableInteractionSource() }
-    val accentColor = if (item.isStrava) StravaOrange else primaryColor
-    val context = LocalContext.current
+    val accentColor = primaryColor
 
     ElevatedCard(
-        onClick = {
-            if (item.isStrava) {
-                item.stravaId?.let { context.openStravaActivity(it) }
-            } else {
-                onEdit()
-            }
-        },
+        onClick = onEdit,
         interactionSource = cardInteractionSource,
         modifier = modifier
             .fillMaxWidth()
@@ -213,14 +183,6 @@ private fun SessionDisplayCard(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                }
-                if (item.isStrava) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.strava_logo),
-                        contentDescription = "Strava",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(16.dp).align(Alignment.BottomEnd).clip(RoundedCornerShape(8.dp))
-                    )
                 }
             }
 
@@ -267,20 +229,18 @@ private fun SessionDisplayCard(
                 }
             }
 
-            if (!item.isStrava) {
-                val deleteInteractionSource = remember { MutableInteractionSource() }
-                IconButton(
-                    onClick = onDelete,
-                    interactionSource = deleteInteractionSource,
-                    modifier = Modifier.bounceClick(deleteInteractionSource)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+            val deleteInteractionSource = remember { MutableInteractionSource() }
+            IconButton(
+                onClick = onDelete,
+                interactionSource = deleteInteractionSource,
+                modifier = Modifier.bounceClick(deleteInteractionSource)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -365,7 +325,7 @@ internal fun AddSessionDialog(
                             onClick = { selectedType = type },
                             label = { Text(type.label) },
                             leadingIcon = {
-                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
+                                Icon(getIconForActivity(type.typeId, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = primaryColor.copy(alpha = 0.2f),
@@ -410,7 +370,7 @@ internal fun AddSessionDialog(
                 onClick = {
                     onSave(
                         name,
-                        selectedType.stravaType,
+                        selectedType.typeId,
                         datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
                         totalSeconds
                     )
@@ -441,7 +401,7 @@ internal fun EditSessionDialog(
     var name by remember { mutableStateOf(session.name) }
     var selectedType by remember {
         mutableStateOf(
-            workoutActivityTypes.firstOrNull { it.stravaType == session.type } ?: workoutActivityTypes.first()
+            workoutActivityTypes.firstOrNull { it.typeId == session.type } ?: workoutActivityTypes.first()
         )
     }
     var hours by remember {
@@ -509,7 +469,7 @@ internal fun EditSessionDialog(
                             onClick = { selectedType = type },
                             label = { Text(type.label) },
                             leadingIcon = {
-                                Icon(getIconForActivity(type.stravaType, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
+                                Icon(getIconForActivity(type.typeId, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = primaryColor.copy(alpha = 0.2f),
@@ -564,7 +524,7 @@ internal fun EditSessionDialog(
                     onSave(
                         session.copy(
                             name = name,
-                            type = selectedType.stravaType,
+                            type = selectedType.typeId,
                             date = datePickerState.selectedDateMillis ?: session.date,
                             durationSeconds = totalSeconds,
                             notes = notes

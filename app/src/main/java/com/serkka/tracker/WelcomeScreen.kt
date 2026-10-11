@@ -158,7 +158,6 @@ fun WelcomeScreen(
         // Features
         FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
-        FeatureItem(Icons.Default.AutoAwesome, "AI Assistant", "Generate personalized workouts with Gemini AI", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
@@ -234,7 +233,7 @@ fun WelcomeScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Unlock Cloud Backup, Strava Sync, and AI Assistant with Premium",
+                    "Unlock Cloud Backup with Premium",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
