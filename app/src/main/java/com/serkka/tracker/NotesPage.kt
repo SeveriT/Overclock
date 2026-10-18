@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -43,31 +44,21 @@ fun NotesPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
     ) {
         if (notes.isNotEmpty()) {
-            items(notes, key = { it.id }) { note ->
-                val interactionSource = remember { MutableInteractionSource() }
-                ElevatedCard(
+            itemsIndexed(notes, key = { _, it -> it.id }) { index, note ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp)
                         .animateContentSize()
                         .animateItem()
-                        .bounceClick(
-                            interactionSource = interactionSource,
-                            onClick = { onNoteClick(note) }
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 8.dp
-                    )
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNoteClick(note) }
+                            .padding(horizontal = PageGutter, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -95,6 +86,7 @@ fun NotesPage(
                             )
                         }
                     }
+                    if (index < notes.lastIndex) ListRowDivider(inset = 0.dp)
                 }
             }
         } else {

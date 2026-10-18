@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,20 +40,15 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
     ) {
         item {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                )
+            FlatSection(
+                modifier = Modifier.fillMaxWidth().animateContentSize()
+                    .padding(horizontal = PageGutter, vertical = 16.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -76,26 +72,11 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
             }
         }
 
-        item {
-            Text(
-                "Breakdown by Exercise",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
+        item { SectionHeader("Breakdown by Exercise") }
 
-        items(workoutStats) { (exercise, weight) ->
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth().animateContentSize().padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+        itemsIndexed(workoutStats) { index, (exercise, weight) ->
+            Column(Modifier.fillMaxWidth().animateContentSize()) {
+                Column(modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,6 +110,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
                         trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                     )
                 }
+                if (index < workoutStats.lastIndex) ListRowDivider(inset = PageGutter)
             }
         }
     }

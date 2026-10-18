@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,6 +28,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -146,21 +150,15 @@ fun WeightTrackingPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
     ) {
         if (sortedWeights.isNotEmpty()) {
             item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 6.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 8.dp
-                    )
+                FlatSection(
+                    modifier = Modifier.fillMaxWidth().animateContentSize()
+                        .padding(horizontal = PageGutter, vertical = 8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             // ── Left: weight + BMI ───────────────────────────
                             Column {
@@ -265,7 +263,7 @@ fun WeightTrackingPage(
                                     Text(
                                         "in $days ${if (days == 1) "day" else "days"}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -311,78 +309,51 @@ fun WeightTrackingPage(
                     ) {
                         Text(
                             text = month,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = PageGutter, vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
 
-                items(entries, key = { it.id }) { weightEntry ->
-                    val interactionSource = remember { MutableInteractionSource() }
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .animateContentSize()
-                            .animateItem()
-                            .bounceClick(
-                                interactionSource = interactionSource,
-                                onClick = { onWeightClick(weightEntry) }
-                            ),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 8.dp
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f).padding(start = 4.dp)
-                            ) {
-                                Text(
-                                    formatDate(weightEntry.date),
-                                    color = primaryColor,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                itemsIndexed(entries, key = { _, it -> it.id }) { index, weightEntry ->
+                    Column(Modifier.fillMaxWidth().animateContentSize().animateItem()) {
+                        ListItem(
+                            modifier = Modifier.clickable { onWeightClick(weightEntry) },
+                            colors = flatListItemColors(),
+                            headlineContent = {
                                 Text(
                                     "${formatWeight(weightEntry.weight)} kg",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.titleLarge,
-                                    modifier = Modifier.padding(top = 6.dp)
+                                    fontWeight = FontWeight.Bold
                                 )
-                                if (weightEntry.notes.isNotEmpty()) {
-                                    Text(
-                                        weightEntry.notes,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Bold,
-                                        overflow = TextOverflow.Ellipsis
+                            },
+                            supportingContent = {
+                                Column {
+                                    Text(formatDate(weightEntry.date))
+                                    if (weightEntry.notes.isNotEmpty()) {
+                                        Text(
+                                            weightEntry.notes,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            },
+                            trailingContent = {
+                                IconButton(onClick = { onWeightDelete(weightEntry) }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
                             }
-                            val deleteInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = { onWeightDelete(weightEntry) },
-                                interactionSource = deleteInteractionSource,
-                                modifier = Modifier.bounceClick(deleteInteractionSource)
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                        )
+                        if (index < entries.lastIndex) ListRowDivider(inset = PageGutter)
                     }
                 }
             }
@@ -631,7 +602,7 @@ fun WeightChart(
     if (weights.isEmpty()) return
 
     val gridLineColor  = Color(0xFF424349)
-    val labelColor     = Color(0xFF9E9EA8)
+    val labelColor     = Color.White
     val gridLineStroke = 1.dp
     val yLabelCount    = 4
     val visibleDaysMs  = 30L * 24 * 60 * 60 * 1000  // 30 days in ms
@@ -657,10 +628,27 @@ fun WeightChart(
         animationProgress.animateTo(1f, animationSpec = tween(600, easing = FastOutSlowInEasing))
     }
 
-    // Scroll to end (most recent data) on first load
+    // Open with the latest real weigh-in at the right edge of the viewport. The forecast
+    // (which extends maxDate past the last entry) stays off-screen until you scroll right.
+    val density = LocalDensity.current
     val scrollState = rememberScrollState()
-    LaunchedEffect(weights) {
-        scrollState.scrollTo(scrollState.maxValue)
+    // Single source for the canvas width — used by both the scroll math and the Canvas.
+    val canvasWidth = (300.dp * totalPages).coerceAtLeast(300.dp)
+    LaunchedEffect(weights, maxDate) {
+        // maxValue is Int.MAX_VALUE until the scroll container has been measured.
+        val maxScroll = snapshotFlow { scrollState.maxValue }.first { it != Int.MAX_VALUE }
+        if (maxScroll <= 0) return@LaunchedEffect          // everything fits; nothing to scroll
+        with(density) {
+            val canvasPx = canvasWidth.toPx()
+            val viewportPx = canvasPx - maxScroll
+            val dotRadiusPx = 4.dp.toPx()                     // matches the Canvas's chartLeft inset
+            val usablePx = canvasPx - 2 * dotRadiusPx
+            val lastX = dotRadiusPx +
+                ((weights.last().date - minDate).toFloat() / dateRange.toFloat()) * usablePx
+            val rightMargin = 16.dp.toPx()                    // keep the last dot off the edge
+            val target = (lastX + rightMargin - viewportPx).roundToInt().coerceIn(0, maxScroll)
+            scrollState.scrollTo(target)
+        }
     }
 
     // Swallow any leftover horizontal scroll/fling so swiping the chart never
@@ -674,16 +662,21 @@ fun WeightChart(
         }
     }
 
-    // X-axis labels: one per ~7 days
+    // X-axis labels: ISO week numbers ("W42"), one per week, each placed on that week's
+    // Monday so the gridlines mark week boundaries.
     val xLabels: List<Pair<Float, String>> = remember(weights, maxDate, dateRange) {
         if (weights.size < 2) return@remember emptyList()
-        val stepMs = 7L * 24 * 60 * 60 * 1000 // 7 days
+        val zone = java.time.ZoneId.systemDefault()
+        val weekOfYear = java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()
+        var monday = java.time.Instant.ofEpochMilli(minDate).atZone(zone).toLocalDate()
+            .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY))
         val labels = mutableListOf<Pair<Float, String>>()
-        var nextLabel = minDate
-        while (nextLabel <= maxDate) {
-            val ratio = (nextLabel - minDate).toFloat() / dateRange.toFloat()
-            labels.add(Pair(ratio, formatChartDate(nextLabel)))
-            nextLabel += stepMs
+        while (true) {
+            val mondayMs = monday.atStartOfDay(zone).toInstant().toEpochMilli()
+            if (mondayMs > maxDate) break
+            val ratio = (mondayMs - minDate).toFloat() / dateRange.toFloat()
+            labels.add(ratio to "W${monday.get(weekOfYear)}")
+            monday = monday.plusWeeks(1)
         }
         labels
     }
@@ -710,7 +703,7 @@ fun WeightChart(
             // Fixed Y-axis labels on the left — tap to configure the min/max range.
             Canvas(
                 modifier = Modifier
-                    .width(32.dp)
+                    .width(36.dp)
                     .fillMaxHeight()
                     .clickable { onAxisClick() }
             ) {
@@ -719,7 +712,7 @@ fun WeightChart(
                 val chartHeight = chartBottom
                 val textPaint = android.graphics.Paint().apply {
                     isAntiAlias = true
-                    textSize = 10.sp.toPx()
+                    textSize = 12.sp.toPx()
                     setColor(labelColor.toArgb())
                     textAlign = android.graphics.Paint.Align.LEFT
                 }
@@ -745,10 +738,8 @@ fun WeightChart(
             ) {
                 Canvas(
                     modifier = Modifier
-                        .width(with(androidx.compose.ui.platform.LocalDensity.current) {
-                            // Minimum width = parent width, scales up for longer date ranges
-                            (300.dp * totalPages).coerceAtLeast(300.dp)
-                        })
+                        // Minimum width = parent width, scales up for longer date ranges
+                        .width(canvasWidth)
                         .fillMaxHeight()
                 ) {
                     val xLabelHeightPx = 20.dp.toPx()
@@ -757,7 +748,7 @@ fun WeightChart(
 
                     val textPaint = android.graphics.Paint().apply {
                         isAntiAlias = true
-                        textSize = 10.sp.toPx()
+                        textSize = 12.sp.toPx()
                         setColor(labelColor.toArgb())
                         textAlign = android.graphics.Paint.Align.CENTER
                     }
@@ -910,7 +901,7 @@ fun WeightChart(
                         if (animationProgress.value > 0.6f) {
                             val predLabelPaint = android.graphics.Paint().apply {
                                 isAntiAlias = true
-                                textSize = 10.sp.toPx()
+                                textSize = 12.sp.toPx()
                                 setColor(color.toArgb())
                                 textAlign = android.graphics.Paint.Align.RIGHT
                                 isFakeBoldText = true

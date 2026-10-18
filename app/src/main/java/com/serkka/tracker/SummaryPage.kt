@@ -97,7 +97,11 @@ fun SummaryPage(
     }
 
     val weekWorkoutsGrouped = remember(weekWorkouts) {
+        // Same ordering as the Workouts screen: newest-added first within a day (id DESC).
+        // Timestamps alone are unreliable here — picker entries are midnight UTC while
+        // AI/quick entries use the exact time — which shuffled same-day rows.
         weekWorkouts.groupBy { formatDate(it.date) }
+            .mapValues { (_, list) -> list.sortedByDescending { it.id } }
     }
 
     // Weekly dots use local sessions + weight-training workout entries only (no Strava).
@@ -231,20 +235,13 @@ fun SummaryPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().padding(top = topPadding),
-        contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        // No page gutter: panels carry PageGutter themselves, list rows run full-bleed.
+        contentPadding = PaddingValues(top = 4.dp, bottom = bottomPadding)
     ) {
             // ── Weekly streak dots ────────────────────────────────────────────
             item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth().animateContentSize(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 8.dp
-                    )
+                FlatSection(
+                    modifier = Modifier.fillMaxWidth().animateContentSize()
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -381,15 +378,15 @@ fun SummaryPage(
             if ((stepsViewModel.isAvailable || hasStepData) && isStepsCardVisible) {
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, end = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             "Steps",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (hasStepsPermission) {
@@ -419,11 +416,8 @@ fun SummaryPage(
                             }
                         }
                     }
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth().animateContentSize().padding(top = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                    FlatSection(
+                        modifier = Modifier.fillMaxWidth().animateContentSize()
                     ) {
                         if (!hasStepsPermission && !hasStepData) {
                             Row(
@@ -643,15 +637,15 @@ fun SummaryPage(
             if (weightCardVisible) {
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(start = PageGutter, end = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             "Latest Weight",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                         IconButton(
                             onClick = onHideWeightCard,
@@ -674,23 +668,11 @@ fun SummaryPage(
                         }.sortedBy { it.date }
                     }
 
-                    val weightInteractionSource = remember { MutableInteractionSource() }
-                    ElevatedCard(
+                    FlatSection(
+                        onClick = onNavigateToWeightTracking,
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize()
-                            .padding(top = 8.dp)
-                            .bounceClick(
-                                interactionSource = weightInteractionSource,
-                                onClick = onNavigateToWeightTracking
-                            ),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 10.dp
-                        )
                     ) {
                         if (lastWeight == null) {
                             EmptyState(
@@ -856,32 +838,11 @@ fun SummaryPage(
 
             // ── This week's exercises ─────────────────────────────────────────
             item {
-                val repsTitleInteractionSource = remember { MutableInteractionSource() }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "This Week's Gym Entries",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .bounceClick(repsTitleInteractionSource)
-                            .clickable(
-                                interactionSource = repsTitleInteractionSource,
-                                indication = null,
-                                onClick = onNavigateToReps
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "See all")
-                    }
-                }
+                SectionHeader(
+                    title = "This Week's Gym Entries",
+                    actionLabel = "See all",
+                    onAction = onNavigateToReps
+                )
             }
 
             if (weekWorkouts.isEmpty()) {
@@ -892,166 +853,52 @@ fun SummaryPage(
                     )
                 }
             } else {
+                // All days in one item so the list's item spacing doesn't gap the flat rows.
+                item(key = "summary_week_days") {
+                    val dayEntries = weekWorkoutsGrouped.entries.toList()
+                    Column(Modifier.fillMaxWidth().animateContentSize()) {
+                        dayEntries.forEachIndexed { dayIndex, (date, workoutsInDay) ->
+                            val isExpanded = expandedDays[date] ?: false
 
-                weekWorkoutsGrouped.forEach { (date, workoutsInDay) ->
-                    val isExpanded = expandedDays[date] ?: false
-                    val exercises = workoutsInDay.map { it.exerciseName }.distinct()
-                    val totalSets = workoutsInDay.sumOf { it.sets }
-                    val hasPB = workoutsInDay.any { it.isPersonalBest }
+                            // Shared with the Workouts screen (WorkoutListContent.kt).
+                            WorkoutDayHeader(
+                                workoutsInDay = workoutsInDay,
+                                isExpanded = isExpanded,
+                                primaryColor = primaryColor,
+                                onToggle = { expandedDays[date] = !isExpanded }
+                            )
 
-                    item(key = "summary_day_$date") {
-                        ElevatedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateContentSize(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { expandedDays[date] = !isExpanded }
-                                        .padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = date,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = primaryColor,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "${exercises.size} exercises · $totalSets sets",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        if (!isExpanded) {
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = exercises.joinToString(", "),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                            if (isExpanded) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    workoutsInDay.forEachIndexed { i, workout ->
+                                        // Summary keeps its own interactions: tap = edit, long-press = copy.
+                                        WorkoutEntryRow(
+                                            workout = workout,
+                                            modifier = Modifier.combinedClickable(
+                                                onClick = { onWorkoutEdit(workout) },
+                                                onLongClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    onWorkoutCopy(workout)
+                                                }
                                             )
-                                        }
-                                    }
-                                    if (hasPB) {
-                                        Icon(
-                                            Icons.Default.EmojiEvents,
-                                            contentDescription = "Personal Best",
-                                            tint = PersonalBestGold,
-                                            modifier = Modifier.size(20.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-                                    Icon(
-                                        if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                if (isExpanded) {
-                                    HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outlineVariant,
-                                        modifier = Modifier.padding(horizontal = 14.dp)
-                                    )
-                                    workoutsInDay.forEach { workout ->
-                                        val textColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface
-                                        val subtextColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .combinedClickable(
-                                                    onClick = { onWorkoutEdit(workout) },
-                                                    onLongClick = {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        onWorkoutCopy(workout)
-                                                    }
-                                                )
-                                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = workout.exerciseName,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = textColor,
-                                                    fontWeight = FontWeight.Bold,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                val details = buildString {
-                                                    if (workout.sets > 0) append("${workout.sets} sets ")
-                                                    if (workout.reps > 0) {
-                                                        if (workout.sets > 0) append("x ")
-                                                        append("${workout.reps} reps ")
-                                                    }
-                                                    if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
-                                                }
-                                                Text(details, style = MaterialTheme.typography.bodySmall, color = subtextColor)
-                                                if (workout.notes.isNotBlank()) {
-                                                    Text(
-                                                        workout.notes,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = subtextColor.copy(alpha = 0.8f),
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        fontStyle = FontStyle.Italic
-                                                    )
-                                                }
-                                            }
-                                            if (workout.isPersonalBest) {
-                                                Icon(
-                                                    Icons.Default.EmojiEvents,
-                                                    contentDescription = "PB",
-                                                    tint = PersonalBestGold,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
+                                        if (i < workoutsInDay.lastIndex) WorkoutEntryDivider()
                                     }
                                 }
                             }
+
+                            if (dayIndex < dayEntries.lastIndex) WorkoutDayDivider()
                         }
                     }
                 }
             }
             // ── Recent Activity (local sessions, last 7 days) ───────────────
             item {
-                val sessionsTitleInteractionSource = remember { MutableInteractionSource() }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Recent Activity (Last 7 Days)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .bounceClick(sessionsTitleInteractionSource)
-                            .clickable(
-                                interactionSource = sessionsTitleInteractionSource,
-                                indication = null,
-                                onClick = onNavigateToSessions
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "See all")
-                    }
-                }
+                SectionHeader(
+                    title = "Recent Activity (Last 7 Days)",
+                    actionLabel = "See all",
+                    onAction = onNavigateToSessions
+                )
             }
 
             // ── Last 7 days totals ────────────────────────────────────────────
@@ -1063,11 +910,8 @@ fun SummaryPage(
                         totalMinutes % 60 == 0 -> "${totalMinutes / 60}h"
                         else                   -> "${totalMinutes / 60}h ${totalMinutes % 60}m"
                     }
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    FlatSection(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 12.dp),
@@ -1089,54 +933,32 @@ fun SummaryPage(
                     )
                 }
             } else {
-                items(recentItems, key = { "${it.date}_${it.name}" }) { item ->
-                    val accentColor = primaryColor
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(modifier = Modifier.size(36.dp)) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize().background(accentColor.copy(alpha = 0.1f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(getIconForActivity(item.type, item.name), null, tint = accentColor, modifier = Modifier.size(21.dp))
-                                }
+                // All rows in one item so the list's item spacing doesn't gap the flat rows.
+                item(key = "summary_recent_rows") {
+                    Column(Modifier.fillMaxWidth()) {
+                        recentItems.forEachIndexed { index, item ->
+                            val totalMinutes = item.durationSeconds / 60
+                            val durationText = when {
+                                totalMinutes < 60      -> "$totalMinutes min"
+                                totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
+                                else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    item.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                val details = buildString {
-                                    append(item.type)
-                                    val totalMinutes = item.durationSeconds / 60
-                                    append(" · ")
-                                    append(when {
-                                        totalMinutes < 60      -> "$totalMinutes min"
-                                        totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
-                                        else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
-                                    })
+                            ListItem(
+                                colors = flatListItemColors(),
+                                leadingContent = { ActivityAvatar(item.type, item.name, primaryColor) },
+                                headlineContent = {
+                                    Text(
+                                        item.name,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                supportingContent = {
+                                    Text("${formatDate(item.date)}  ·  $durationText")
                                 }
-                                Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    formatDate(item.date),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
+                            )
+                            if (index < recentItems.lastIndex) ListRowDivider()
                         }
                     }
                 }

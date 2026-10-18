@@ -88,17 +88,12 @@ fun CalendarPage(
             // ── Streak / totals card ──────────────────────────────────────────
             if (allActivityDates.isNotEmpty()) {
                 item {
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth().animateContentSize().padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                        )
+                    // Page already carries the 16dp gutter (month grid needs it).
+                    FlatSection(
+                        modifier = Modifier.fillMaxWidth().animateContentSize().padding(top = 8.dp, bottom = 16.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {

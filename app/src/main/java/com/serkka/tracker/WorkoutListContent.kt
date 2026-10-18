@@ -79,8 +79,8 @@ fun WorkoutListContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp, 6.dp, 16.dp, bottomPadding),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            // Full-bleed flat rows — no horizontal page padding.
+            contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding)
         ) {
             if (groupedWorkouts.isEmpty()) {
                 item {
@@ -92,82 +92,23 @@ fun WorkoutListContent(
                 }
             }
 
-            groupedWorkouts.forEach { (date, workoutsInDay) ->
+            val dayEntries = groupedWorkouts.entries.toList()
+            dayEntries.forEachIndexed { dayIndex, (date, workoutsInDay) ->
                 val isExpanded = expandedDays[date] ?: false
-                val exercises = workoutsInDay.map { it.exerciseName }.distinct()
-                val totalSets = workoutsInDay.sumOf { it.sets }
-                val hasPB = workoutsInDay.any { it.isPersonalBest }
 
                 item(key = "day_$date") {
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .animateContentSize(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Column {
-                            // ── Day header (always visible) ──────────────
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { expandedDays[date] = !isExpanded }
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = date,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = primaryColor,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "${exercises.size} exercises · $totalSets sets",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    if (!isExpanded) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            // Reversed so the collapsed preview reads in the order
-                                            // the exercises were performed (oldest-added first).
-                                            text = exercises.reversed().joinToString(", "),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                                if (hasPB) {
-                                    Icon(
-                                        Icons.Default.EmojiEvents,
-                                        contentDescription = "Personal Best",
-                                        tint = PersonalBestGold,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                                Icon(
-                                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                    Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+                        WorkoutDayHeader(
+                            workoutsInDay = workoutsInDay,
+                            isExpanded = isExpanded,
+                            primaryColor = primaryColor,
+                            onToggle = { expandedDays[date] = !isExpanded }
+                        )
 
-                            // ── Expanded movements ───────────────────────
-                            if (isExpanded) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                    modifier = Modifier.padding(horizontal = 14.dp)
-                                )
-                                workoutsInDay.forEach { workout ->
+                        // ── Expanded movements: flat, grouped by indent only ─
+                        if (isExpanded) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                workoutsInDay.forEachIndexed { i, workout ->
                                     WorkoutMovementRow(
                                         workout = workout,
                                         primaryColor = primaryColor,
@@ -177,9 +118,12 @@ fun WorkoutListContent(
                                         onDelete = { onDelete(workout) },
                                         onTogglePB = { onTogglePB(workout) }
                                     )
+                                    if (i < workoutsInDay.lastIndex) WorkoutEntryDivider()
                                 }
                             }
                         }
+
+                        if (dayIndex < dayEntries.lastIndex) WorkoutDayDivider()
                     }
                 }
             }
@@ -187,82 +131,143 @@ fun WorkoutListContent(
     }
 }
 
-// ── Workout card (used in SummaryPage) ───────────────────────────────────────
+// ── Shared day-grouped workout list pieces (Workouts screen + Summary "This Week") ──
+// Single source for header/row paddings and text styles: tweak here, both screens follow.
+// Plain Rows rather than M3 ListItem, because ListItem top-aligns trailing content once
+// the text wraps to three lines; these stay vertically centred.
 
+/** "Sets x reps @ weight" detail line; cardio entries show minutes instead. */
+internal fun workoutDetailsText(workout: Workout): String {
+    val isCardio = workout.exerciseName.trim().equals("Cardio", ignoreCase = true)
+    return buildString {
+        if (isCardio) {
+            if (workout.weight > 0) append("${formatWeight(workout.weight)} min")
+        } else {
+            if (workout.sets > 0) append("${workout.sets} sets ")
+            if (workout.reps > 0) {
+                if (workout.sets > 0) append("x ")
+                append("${workout.reps} reps ")
+            }
+            if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
+        }
+    }
+}
+
+/**
+ * Tap-to-expand header for one day. Expects [workoutsInDay] sorted newest-added first
+ * (id DESC); the collapsed preview is reversed so it reads in the order performed.
+ */
 @Composable
-fun WorkoutCard(
-    workout: Workout,
-    primaryColor: androidx.compose.ui.graphics.Color,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit,
-    onCopy: () -> Unit,
-    modifier: Modifier = Modifier
+internal fun WorkoutDayHeader(
+    workoutsInDay: List<Workout>,
+    isExpanded: Boolean,
+    primaryColor: Color,
+    onToggle: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
-    val interactionSource = remember { MutableInteractionSource() }
+    val exercises = workoutsInDay.map { it.exerciseName }.distinct()
+    val hasPB = workoutsInDay.any { it.isPersonalBest }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClick = onToggle)
+            .padding(horizontal = PageGutter, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                // Label only; callers group by the full date (incl. year).
+                text = formatDateNoYear(workoutsInDay.first().date),
+                style = MaterialTheme.typography.bodyLarge,
+                color = primaryColor,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (!isExpanded) {
+                Text(
+                    text = exercises.reversed().joinToString(", "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        if (hasPB) {
+            Icon(
+                Icons.Default.EmojiEvents,
+                contentDescription = "Personal Best",
+                tint = PersonalBestGold,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Icon(
+            if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = if (isExpanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
-    ElevatedCard(
+/**
+ * One exercise entry: name / details / notes, vertically centred with optional [trailing]
+ * content. Put the click handling in [modifier]; it's applied before the padding so the
+ * ripple covers the full row.
+ */
+@Composable
+internal fun WorkoutEntryRow(
+    workout: Workout,
+    modifier: Modifier = Modifier,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    val textColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface
+    val subtextColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .animateContentSize()
-            .padding(vertical = 4.dp)
-            .bounceClick(
-                interactionSource = interactionSource,
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onCopy()
-                },
-                onClick = { onEdit() }
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            .padding(start = PageGutter, end = PageGutter, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = workout.exerciseName,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                style = MaterialTheme.typography.bodyLarge,
+                color = textColor,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            val isCardio = workout.exerciseName.trim().equals("Cardio", ignoreCase = true)
-            val details = buildString {
-                if (isCardio) {
-                    if (workout.weight > 0) append("${formatWeight(workout.weight)} min")
-                } else {
-                    if (workout.sets > 0) append("${workout.sets} sets ")
-                    if (workout.reps > 0) {
-                        if (workout.sets > 0) append("x ")
-                        append("${workout.reps} reps ")
-                    }
-                    if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
-                }
-            }
             Text(
-                text = details,
-                color = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
+                text = workoutDetailsText(workout),
+                style = MaterialTheme.typography.bodyMedium,
+                color = subtextColor
             )
             if (workout.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = workout.notes,
-                    color = if (workout.isPersonalBest) PersonalBestGold
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.labelSmall,
+                    color = subtextColor.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     fontStyle = FontStyle.Italic
                 )
             }
         }
+        Spacer(modifier = Modifier.width(8.dp))
+        trailing()
     }
 }
+
+/** Divider between exercises within a day — aligned with the row text. */
+@Composable
+internal fun WorkoutEntryDivider() = ListRowDivider(inset = PageGutter)
+
+/** Divider between days — full width with breathing room above and below. */
+@Composable
+internal fun WorkoutDayDivider() =
+    ListRowDivider(modifier = Modifier.padding(vertical = 8.dp), inset = 0.dp)
 
 // ── Workout movement row (inside expanded day card) ──────────────────────────
 
@@ -277,33 +282,47 @@ private fun WorkoutMovementRow(
     onTogglePB: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
-    val textColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurface
-    val subtextColor = if (workout.isPersonalBest) PersonalBestGold else MaterialTheme.colorScheme.onSurfaceVariant
     var menuOpen by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
+    // Box anchors the dropdown menu to the row.
+    Box(modifier = Modifier.fillMaxWidth()) {
+        WorkoutEntryRow(
+            workout = workout,
+            modifier = Modifier.clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 menuOpen = true
             }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+        ) {
+            // Duplicate: instant copy with today's date — haptic confirms the tap.
+            IconButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onDuplicate()
+            }) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Duplicate",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            // Copy: opens the dialog pre-filled so it can be tweaked before saving.
+            IconButton(onClick = onCopy) {
+                Icon(
+                    Icons.Default.PostAdd,
+                    contentDescription = "Copy",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
         DropdownMenu(
             expanded = menuOpen,
             onDismissRequest = { menuOpen = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Duplicate") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                onClick = { menuOpen = false; onDuplicate() }
-            )
-            DropdownMenuItem(
-                text = { Text("Copy") },
+                text = { Text("Edit") },
                 leadingIcon = { Icon(Icons.Default.Edit, null) },
-                onClick = { menuOpen = false; onCopy() }
+                onClick = { menuOpen = false; onEdit() }
             )
             DropdownMenuItem(
                 text = { Text(if (workout.isPersonalBest) "Unmark PB" else "Mark PB") },
@@ -321,65 +340,6 @@ private fun WorkoutMovementRow(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
                 onClick = { menuOpen = false; onDelete() }
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = workout.exerciseName,
-                style = MaterialTheme.typography.titleSmall,
-                color = textColor,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            val isCardio = workout.exerciseName.trim().equals("Cardio", ignoreCase = true)
-            val details = buildString {
-                if (isCardio) {
-                    if (workout.weight > 0) append("${formatWeight(workout.weight)} min")
-                } else {
-                    if (workout.sets > 0) append("${workout.sets} sets ")
-                    if (workout.reps > 0) {
-                        if (workout.sets > 0) append("x ")
-                        append("${workout.reps} reps ")
-                    }
-                    if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
-                }
-            }
-            Text(
-                text = details,
-                color = subtextColor,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            if (workout.notes.isNotBlank()) {
-                Text(
-                    text = workout.notes,
-                    color = subtextColor.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontStyle = FontStyle.Italic
-                )
-            }
-        }
-        if (workout.isPersonalBest) {
-            Icon(
-                Icons.Default.EmojiEvents,
-                contentDescription = "PB",
-                tint = PersonalBestGold,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        val editInteractionSource = remember { MutableInteractionSource() }
-        IconButton(
-            onClick = onEdit,
-            interactionSource = editInteractionSource,
-            modifier = Modifier.bounceClick(editInteractionSource)
-        ) {
-            Icon(
-                Icons.Default.Edit,
-                contentDescription = "Edit",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
             )
         }
     }

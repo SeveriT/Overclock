@@ -68,6 +68,10 @@ private val chartDateFormat = java.text.SimpleDateFormat("d MMM", java.util.Loca
 
 internal fun formatDate(epochMs: Long): String = fullDateFormat.format(java.util.Date(epochMs))
 internal fun formatDateShort(epochMs: Long): String = shortDateFormat.format(java.util.Date(epochMs))
+
+private val dateNoYearFormat = java.text.SimpleDateFormat("EEEE d.M", java.util.Locale.getDefault())
+/** formatDate() without the year, e.g. "Tuesday 14.10". Display only — never a grouping key. */
+internal fun formatDateNoYear(epochMs: Long): String = dateNoYearFormat.format(java.util.Date(epochMs))
 internal fun formatBackupDate(epochMs: Long): String = backupDateFormat.format(java.util.Date(epochMs))
 internal fun formatChartDate(epochMs: Long): String = chartDateFormat.format(java.util.Date(epochMs))
 
