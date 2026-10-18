@@ -17,11 +17,14 @@ import androidx.compose.ui.unit.sp
 
 
 object TrackerColors {
-    // Backgrounds
+    // Backgrounds — M3 tonal surface ladder (depth via tone, not shadow)
     val Background        = Color(0xFF050505)   // deepest dark
+    val SurfaceContainerLowest = Color(0xFF0A0A0A)
     val Surface           = Color(0xFF0F0F0F)   // slightly lifted
-    val SurfaceContainer  = Color(0xFF141414)   // card surface
-    val SurfaceBright     = Color(0xFF191919)   // hover / pressed
+    val SurfaceContainerLow    = Color(0xFF111111)
+    val SurfaceContainer  = Color(0xFF141414)   // panel surface
+    val SurfaceBright     = Color(0xFF191919)   // hover / pressed (= surfaceContainerHigh)
+    val SurfaceContainerHighest = Color(0xFF1F1F1F)
 
     // Primaries
     val Purple            = Color(0xFF8766EB)   // primary brand purple
@@ -78,8 +81,11 @@ private val DarkColorScheme = darkColorScheme(
     onSurface            = TrackerColors.OnSurface,
     surfaceVariant       = TrackerColors.SurfaceContainer,
     onSurfaceVariant     = TrackerColors.OnSurfaceVariant,
+    surfaceContainerLowest  = TrackerColors.SurfaceContainerLowest,
+    surfaceContainerLow     = TrackerColors.SurfaceContainerLow,
     surfaceContainer     = TrackerColors.SurfaceContainer,
     surfaceContainerHigh = TrackerColors.SurfaceBright,
+    surfaceContainerHighest = TrackerColors.SurfaceContainerHighest,
     surfaceBright        = TrackerColors.SurfaceBright,
     surfaceDim           = TrackerColors.Background,
 

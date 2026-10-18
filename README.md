@@ -18,7 +18,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 
 ## Features
 
-- **Workout logging** — log sets, reps and weight with auto-fill from history, personal best tracking, and confetti celebrations when you hit a new PB
+- **Workout logging** — log sets, reps and weight with auto-fill from history, and personal best tracking
 - **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed. Save each session locally with a name, activity type, and date
 - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
 - **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Configurable axis range

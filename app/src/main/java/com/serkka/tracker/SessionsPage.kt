@@ -3,6 +3,7 @@
 package com.serkka.tracker
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -79,17 +82,16 @@ fun SessionsPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 6.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding)
+        // No horizontal padding: list rows run full-bleed; the hero panel adds its own gutter.
+        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
     ) {
         if (allItems.isNotEmpty()) {
             item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                FlatSection(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -122,14 +124,18 @@ fun SessionsPage(
                 }
             }
 
-            items(allItems, key = { it.id }) { item ->
-                SessionDisplayCard(
-                    item = item,
-                    primaryColor = primaryColor,
-                    onDelete = { item.localSession?.let { onDelete(it) } },
-                    onEdit = { item.localSession?.let { onEdit(it) } },
-                    modifier = Modifier.animateItem()
-                )
+            item { SectionHeader("History") }
+
+            itemsIndexed(allItems, key = { _, it -> it.id }) { index, item ->
+                Column(Modifier.animateItem()) {
+                    SessionRow(
+                        item = item,
+                        primaryColor = primaryColor,
+                        onDelete = { item.localSession?.let { onDelete(it) } },
+                        onEdit = { item.localSession?.let { onEdit(it) } }
+                    )
+                    if (index < allItems.lastIndex) ListRowDivider()
+                }
             }
         } else {
             item {
@@ -143,98 +149,44 @@ fun SessionsPage(
     }
 }
 
+/** Flat, full-width M3 list row for a session. Tap to edit; trailing delete. */
 @Composable
-private fun SessionDisplayCard(
+private fun SessionRow(
     item: SessionDisplayItem,
     primaryColor: Color,
     onDelete: () -> Unit,
-    onEdit: () -> Unit,
-    modifier: Modifier = Modifier
+    onEdit: () -> Unit
 ) {
-    val cardInteractionSource = remember { MutableInteractionSource() }
-    val accentColor = primaryColor
-
-    ElevatedCard(
-        onClick = onEdit,
-        interactionSource = cardInteractionSource,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.size(44.dp)) {
-                Surface(
-                    color = accentColor.copy(alpha = 0.12f),
-                    shape = CircleShape,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            getIconForActivity(item.type, item.name),
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    formatDate(item.date),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(14.dp)
-                    )
+    ListItem(
+        modifier = Modifier.clickable(onClick = onEdit),
+        colors = flatListItemColors(),
+        leadingContent = { ActivityAvatar(item.type, item.name, primaryColor) },
+        headlineContent = {
+            Text(
+                item.name,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        supportingContent = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatDate(item.date))
+                    Text("  ·  ")
                     Text(
                         formatElapsed(item.durationSeconds.toLong()),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = accentColor
+                        color = primaryColor,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
                 if (item.notes.isNotEmpty()) {
-                    Text(
-                        item.notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                    Text(item.notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-
-            val deleteInteractionSource = remember { MutableInteractionSource() }
-            IconButton(
-                onClick = onDelete,
-                interactionSource = deleteInteractionSource,
-                modifier = Modifier.bounceClick(deleteInteractionSource)
-            ) {
+        },
+        trailingContent = {
+            IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
@@ -243,7 +195,7 @@ private fun SessionDisplayCard(
                 )
             }
         }
-    }
+    )
 }
 
 @Composable

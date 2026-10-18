@@ -215,19 +215,14 @@ fun SettingsPage(
     // ── UI ────────────────────────────────────────────────────────────────────
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Flat M3 settings layout: section headers + control groups on the background.
+        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         item {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     SettingsButton(
@@ -254,27 +249,12 @@ fun SettingsPage(
             }
         }
 
-        item {
-            Text(
-                "Appearance",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        item { SectionHeader("Appearance") }
 
         item {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth().animateContentSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                )
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().animateContentSize().padding(horizontal = PageGutter)) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
@@ -356,39 +336,17 @@ fun SettingsPage(
 
 
         // ── Permissions ─────────────────────────────────────────────────
-        item {
-            Text(
-                "Permissions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        item { SectionHeader("Permissions") }
         item {
             PermissionsCard(primaryColor = primaryColor)
         }
 
-        item {
-            Text(
-                "Backup & Restore",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        item { SectionHeader("Backup & Restore") }
 
         item {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth().animateContentSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp, pressedElevation = 4.dp, hoveredElevation = 10.dp
-                )
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().animateContentSize().padding(horizontal = PageGutter)) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
 
@@ -517,22 +475,11 @@ fun SettingsPage(
             }
         }
         // ── Subscription ──────────────────────────────────────────────────
+        item { SectionHeader("Subscription") }
         item {
-            Text(
-                "Subscription",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
-        item {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
@@ -874,13 +821,10 @@ private fun PermissionsCard(primaryColor: Color) {
         ActivityResultContracts.StartActivityForResult()
     ) { listenerEnabled = isNotificationListenerEnabledInSettings(context) }
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth().animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
+    // Flat list of permission rows (no container).
+    Box(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = PageGutter),
         ) {
             SettingsPermissionRow(
                 icon = Icons.Default.Notifications,

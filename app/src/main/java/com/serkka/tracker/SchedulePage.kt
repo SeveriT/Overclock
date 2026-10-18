@@ -1,13 +1,16 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.serkka.tracker
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,14 +52,14 @@ fun SchedulePage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 12.dp, start = 16.dp, end = 16.dp, bottom = bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Full-bleed rows; header + add field carry their own gutter.
+        contentPadding = PaddingValues(top = topPadding + 12.dp, bottom = bottomPadding)
     ) {
         // ── Progress + reset ──────────────────────────────────────────────────
         if (items.isNotEmpty()) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = PageGutter, end = 4.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -84,7 +87,7 @@ fun SchedulePage(
         // ── Add item ──────────────────────────────────────────────────────────
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter).padding(bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -130,61 +133,47 @@ fun SchedulePage(
                 )
             }
         } else {
-            items(items, key = { it.id }) { item ->
-                val interactionSource = remember { MutableInteractionSource() }
-                ElevatedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize()
-                        .animateItem()
-                        .bounceClick(
-                            interactionSource = interactionSource,
+            itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
+                Column(Modifier.fillMaxWidth().animateContentSize().animateItem()) {
+                    ListItem(
+                        modifier = Modifier.combinedClickable(
                             onClick = { onToggle(item) },
                             onLongClick = { editing = item }
                         ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = item.isDone,
-                            onCheckedChange = { onToggle(item) },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = primaryColor,
-                                checkmarkColor = MaterialTheme.colorScheme.surface
+                        colors = flatListItemColors(),
+                        leadingContent = {
+                            Checkbox(
+                                checked = item.isDone,
+                                onCheckedChange = { onToggle(item) },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = primaryColor,
+                                    checkmarkColor = MaterialTheme.colorScheme.surface
+                                )
                             )
-                        )
-                        Text(
-                            text = item.text,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = if (item.isDone) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                    else MaterialTheme.colorScheme.onSurface,
-                            textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        val deleteInteraction = remember { MutableInteractionSource() }
-                        IconButton(
-                            onClick = { onDelete(item) },
-                            interactionSource = deleteInteraction,
-                            modifier = Modifier.bounceClick(deleteInteraction)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                        },
+                        headlineContent = {
+                            Text(
+                                text = item.text,
+                                fontWeight = FontWeight.Medium,
+                                color = if (item.isDone) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        else MaterialTheme.colorScheme.onSurface,
+                                textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { onDelete(item) }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
-                    }
+                    )
+                    if (index < items.lastIndex) ListRowDivider(inset = 0.dp)
                 }
             }
         }
