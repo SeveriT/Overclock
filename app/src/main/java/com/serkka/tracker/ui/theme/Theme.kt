@@ -1,6 +1,7 @@
 package com.serkka.tracker
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -196,9 +197,37 @@ private val TrackerTypography = Typography(
 )
 
 
+/** Lift [base] toward white by [amount] (0–1), per sRGB channel. */
+private fun lift(base: Color, amount: Float) = Color(
+    red = base.red + (1f - base.red) * amount,
+    green = base.green + (1f - base.green) * amount,
+    blue = base.blue + (1f - base.blue) * amount
+)
+
+/**
+ * Applies a user-chosen background and derives the whole tonal surface ladder from it, so
+ * dialogs, menus, fields and sheets match a custom background instead of staying near-black.
+ * The lift amounts reproduce the original ladder for the default #050505
+ * (0A / 0F / 11 / 14 / 19 / 1E).
+ */
+private fun ColorScheme.withBackground(bg: Color) = copy(
+    background              = bg,
+    surfaceDim              = bg,
+    inverseOnSurface        = bg,
+    surfaceContainerLowest  = lift(bg, 0.02f),
+    surface                 = lift(bg, 0.04f),
+    surfaceContainerLow     = lift(bg, 0.05f),
+    surfaceContainer        = lift(bg, 0.06f),
+    surfaceVariant          = lift(bg, 0.06f),
+    surfaceContainerHigh    = lift(bg, 0.08f),
+    surfaceBright           = lift(bg, 0.08f),
+    surfaceContainerHighest = lift(bg, 0.10f)
+)
+
 @Composable
 fun TrackerTheme(
     primaryColor: Color = TrackerColors.Purple,
+    backgroundColor: Color = TrackerColors.Background,
     fontScale: Float = 1f,
     content: @Composable () -> Unit
 ) {
@@ -209,7 +238,7 @@ fun TrackerTheme(
     )
     CompositionLocalProvider(LocalDensity provides scaledDensity) {
         MaterialTheme(
-            colorScheme = DarkColorScheme.copy(primary = primaryColor),
+            colorScheme = DarkColorScheme.copy(primary = primaryColor).withBackground(backgroundColor),
             typography  = TrackerTypography,
             content     = content
         )

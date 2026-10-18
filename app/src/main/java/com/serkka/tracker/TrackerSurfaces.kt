@@ -66,10 +66,19 @@ internal fun SectionHeader(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
+    // The action TextButton keeps M3's 48dp touch target, which makes the row ~14dp taller
+    // above (and below) the title. Trim the padding by that much so every header's title
+    // sits the same 16dp below the content above it, with or without an action.
+    val hasAction = actionLabel != null && onAction != null
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = PageGutter, end = if (actionLabel != null) 4.dp else PageGutter, top = 16.dp, bottom = 4.dp),
+            .padding(
+                start = PageGutter,
+                end = if (hasAction) 4.dp else PageGutter,
+                top = if (hasAction) 2.dp else 16.dp,
+                bottom = if (hasAction) 0.dp else 4.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(

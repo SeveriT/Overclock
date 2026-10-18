@@ -293,6 +293,48 @@ fun SettingsPage(
                         }
                     }
 
+                    // ── Background color ──────────────────────────────────────
+                    val backgroundColor by themeViewModel.backgroundColor.collectAsState()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Background Brightness",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { themeViewModel.resetBackgroundColor() },
+                            enabled = backgroundColor != TrackerColors.Background
+                        ) { Text("Reset") }
+                    }
+
+                    // Single neutral-gray slider (R = G = B). A previously tinted background
+                    // shows at its average level and becomes neutral once dragged.
+                    val grayLevel = (backgroundColor.red + backgroundColor.green + backgroundColor.blue) / 3f
+                    Slider(
+                        value = grayLevel,
+                        onValueChange = { v -> themeViewModel.updateBackgroundColor(Color(v, v, v)) },
+                        // Capped near-black (see ThemeViewModel.BACKGROUND_MAX_CHANNEL).
+                        valueRange = 0f..ThemeViewModel.BACKGROUND_MAX_CHANNEL,
+                        colors = SliderDefaults.colors(
+                            thumbColor = primaryColor,
+                            activeTrackColor = primaryColor
+                        ),
+                        thumb = {
+                            SliderDefaults.Thumb(
+                                interactionSource = remember { MutableInteractionSource() },
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                sliderState = sliderState,
+                                modifier = Modifier.height(4.dp),
+                                thumbTrackGapSize = 4.dp
+                            )
+                        }
+                    )
+
                     val fontScale by themeViewModel.fontScale.collectAsState()
                     val fontLabel = when {
                         fontScale <= 0.8f -> "Tiny"
