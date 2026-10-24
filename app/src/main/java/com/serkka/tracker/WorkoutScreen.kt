@@ -568,6 +568,13 @@ fun WorkoutScreen(
                         )
                     }
                 }
+                composable(Screen.PaceCalculator.name) {
+                    PaceCalculatorPage(
+                        primaryColor = primaryColor,
+                        topPadding = totalTopPadding,
+                        bottomPadding = contentBottomPadding
+                    )
+                }
                 composable(Screen.Settings.name) {
                     SettingsPage(
                         primaryColor = primaryColor,
@@ -789,6 +796,20 @@ fun WorkoutScreen(
                                 modifier = Modifier.size(42.dp).bounceClick(sessionsInteractionSource)
                             ) {
                                 Icon(Icons.Default.History, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = currentRoute == Screen.Summary.name,
+                            enter   = fadeIn() + slideInHorizontally { it },
+                            exit    = fadeOut() + slideOutHorizontally { it }
+                        ) {
+                            val paceInteractionSource = remember { MutableInteractionSource() }
+                            IconButton(
+                                onClick = { navigate(Screen.PaceCalculator.name) },
+                                interactionSource = paceInteractionSource,
+                                modifier = Modifier.size(42.dp).bounceClick(paceInteractionSource)
+                            ) {
+                                Icon(Icons.Default.Speed, contentDescription = "Pace calculator", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
 

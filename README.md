@@ -28,11 +28,12 @@ Overclock is an Android app for lifters who want full control over their trainin
 - **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes
 - **Volume stats** — total volume lifted broken down per exercise with animated progress bars
 - **Notes** — a dedicated training journal for freeform, date-organized notes
+- **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
 - **Music widget** — integrated Spotify controller with progress bar, album art accent color, and swipe gesture playback controls
-- **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors, a font-size slider, and edge-to-edge display
+- **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors, a background brightness slider, a font-size slider, and edge-to-edge display
 - **Cloud sync & backup** — automated Google Drive backups via WorkManager plus manual local backup/restore; backups are self-contained zip bundles that include both the workout database and step history
-- **Demo mode** — one-tap "Try with demo data" on the welcome screen seeds ~4 weeks of realistic workouts, body weight, sessions, and step history
-- **Permissions manager** — a dedicated Settings section for Notifications, Notification Listener, and Activity Recognition, with live status updates
+- **Demo mode** — one-tap "Try with demo data" on the welcome screen seeds ~4 weeks of realistic workouts, body weight, sessions, notes, and step history
+- **Permissions manager** — a dedicated Settings section for Notifications, Notification Listener, Activity Recognition, and Unrestricted Battery, mirrored on the welcome screen, with live status updates
 - **Clear all data** — atomic wipe of workouts, weights, notes, sessions, and step history with automatic app restart, re-enabling demo mode afterwards
 - **Premium subscription** — Google Play Billing with a monthly subscription that unlocks Google Drive backups
 

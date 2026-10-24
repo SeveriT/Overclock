@@ -188,6 +188,7 @@ fun WelcomeScreen(
         FeatureItem(Icons.Default.Checklist, "Schedule", "Weekly workout checklist to tick off as you train", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.AutoMirrored.Filled.Notes, "Notes", "Keep program plans, cues, and reminders in one place", primaryColor)
+        FeatureItem(Icons.Default.Speed, "Pace Calculator", "Convert min/km and km/h with sliders, plus race finish times", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
         FeatureItem(Icons.Default.CloudUpload, "Backup & Restore", "Zip bundle with workouts and step history, local or Drive", primaryColor)
 
