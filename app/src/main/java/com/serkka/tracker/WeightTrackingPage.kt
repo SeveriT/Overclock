@@ -101,7 +101,7 @@ fun WeightTrackingPage(
         else {
             // Only use entries from the last ~3 months (relative to the newest entry);
             // older history is ignored so the trend reflects current trajectory.
-            val cutoffMillis = sortedWeights.last().date - 91L * msPerDay
+            val cutoffMillis = sortedWeights.last().date - 30L * msPerDay
             val recent = sortedWeights.filter { it.date >= cutoffMillis }
             if (recent.size < 2) null
             else {
@@ -110,20 +110,22 @@ fun WeightTrackingPage(
                 val spanDays = (last.date - first.date) / msPerDay.toDouble()
                 if (spanDays < 1) null
                 else {
-                // Recency-weighted linear regression over the last-3-months entries.
-                //  • Weight decays exponentially with age (half-life 14 days) so the
-                //    last ~4 weeks dominate the slope while older data fades but still
-                //    smooths things out.
+                // Recency-weighted linear regression over the last-45-days entries.
+                //  • Linear fade from 1.0 (today) to 0.2 at 30 days old.
+                //  • Older than 30 days: flat 0.2, so earlier entries in the window keep
+                //    a steady say instead of fading toward zero.
                 //  • Fitting the slope across many points — and starting the projection
                 //    from the regression's fitted "current" value instead of the raw
                 //    last reading — means one outlier weigh-in can't throw it off.
-                val halfLifeDays = 14.0
+                val fadeDays = 30.0        // age at which the weight bottoms out
+                val floorWeight = 0.2      // weight at fadeDays and beyond
                 val anchor = last.date          // x = days relative to newest entry (0 = newest)
                 var sumW = 0.0; var sumWX = 0.0; var sumWY = 0.0
                 var sumWXX = 0.0; var sumWXY = 0.0
                 for (entry in recent) {
                     val ageDays = (anchor - entry.date) / msPerDay.toDouble()   // ≥ 0
-                    val w = Math.pow(0.5, ageDays / halfLifeDays)
+                    val w = if (ageDays < fadeDays) 1.0 - (1.0 - floorWeight) * (ageDays / fadeDays)
+                            else floorWeight
                     val x = -ageDays            // newest = 0, older = negative, future = positive
                     val y = entry.weight.toDouble()
                     sumW += w; sumWX += w * x; sumWY += w * y
