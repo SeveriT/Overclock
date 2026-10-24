@@ -204,8 +204,7 @@ fun WorkoutScreen(
             Screen.Workouts.name,
             Screen.Summary.name,
             Screen.WeightTracking.name,
-            Screen.Calendar.name,
-            Screen.Sessions.name
+            Screen.Calendar.name
         )
     }
     val pagerHostRoute = "swipe_host"
@@ -520,20 +519,21 @@ fun WorkoutScreen(
                                     listState = calendarListState
                                 )
                             }
-                            Screen.Sessions.name -> {
-                                ElasticColumnWrapper {
-                                    SessionsPage(
-                                        sessions = workoutSessions,
-                                        primaryColor = primaryColor,
-                                        onDelete = { sessionToDelete = it },
-                                        onEdit = { sessionToEdit = it },
-                                        listState = sessionsListState,
-                                        topPadding = totalTopPadding,
-                                        bottomPadding = contentBottomPadding
-                                    )
-                                }
-                            }
                         }
+                    }
+                }
+                // Not in the pager: reached from Calendar's History icon or Home's "See all".
+                composable(Screen.Sessions.name) {
+                    ElasticColumnWrapper {
+                        SessionsPage(
+                            sessions = workoutSessions,
+                            primaryColor = primaryColor,
+                            onDelete = { sessionToDelete = it },
+                            onEdit = { sessionToEdit = it },
+                            listState = sessionsListState,
+                            topPadding = totalTopPadding,
+                            bottomPadding = contentBottomPadding
+                        )
                     }
                 }
                 composable(Screen.WorkoutStats.name) {

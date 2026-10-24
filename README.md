@@ -23,7 +23,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
 - **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Configurable axis range
 - **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Summary page
-- **Weekly summary** — activity count, streaks, recent sessions and last-7-days totals, latest weight, steps, and this week's exercises, with individually hideable cards
+- **Home** — weekly activity count, streaks, recent sessions and last-7-days totals, latest weight, steps, and this week's exercises, with individually hideable sections
 - **Calendar** — a year-at-a-glance overview of compact month grids; days you trained are marked with an accent circle and today gets a ring
 - **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes
 - **Volume stats** — total volume lifted broken down per exercise with animated progress bars
