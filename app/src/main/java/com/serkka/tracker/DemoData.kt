@@ -112,15 +112,15 @@ object DemoData {
         // ── Workout sessions (timer-logged) ────────────────────────────────────
         val sessions = listOf(
             WorkoutSession(name = "Push Day", type = "WeightTraining", date = dayMs(27, 18), durationSeconds = 62 * 60),
-            WorkoutSession(name = "Morning Run", type = "Run", date = dayMs(26, 7), durationSeconds = 28 * 60),
+            WorkoutSession(name = "Treadmill Intervals", type = "Cardio", date = dayMs(26, 7), durationSeconds = 28 * 60),
             WorkoutSession(name = "Leg Day", type = "WeightTraining", date = dayMs(22, 17, 30), durationSeconds = 71 * 60),
             WorkoutSession(name = "Pull Day", type = "WeightTraining", date = dayMs(20, 18), durationSeconds = 58 * 60),
-            WorkoutSession(name = "Weekend Hike", type = "Hike", date = dayMs(15, 10), durationSeconds = 95 * 60),
+            WorkoutSession(name = "Mobility & Core", type = "Workout", date = dayMs(15, 10), durationSeconds = 40 * 60),
             WorkoutSession(name = "Push Day", type = "WeightTraining", date = dayMs(13, 18), durationSeconds = 65 * 60),
-            WorkoutSession(name = "Tempo Run", type = "Run", date = dayMs(12, 7), durationSeconds = 34 * 60),
+            WorkoutSession(name = "Rowing", type = "Cardio", date = dayMs(12, 7), durationSeconds = 34 * 60),
             WorkoutSession(name = "Leg Day", type = "WeightTraining", date = dayMs(9, 18), durationSeconds = 74 * 60),
             WorkoutSession(name = "Pull Day", type = "WeightTraining", date = dayMs(6, 18), durationSeconds = 60 * 60),
-            WorkoutSession(name = "Long Run", type = "Run", date = dayMs(5, 8), durationSeconds = 52 * 60),
+            WorkoutSession(name = "Stairmaster", type = "Cardio", date = dayMs(5, 8), durationSeconds = 45 * 60),
             WorkoutSession(name = "Push Day", type = "WeightTraining", date = dayMs(2, 18), durationSeconds = 63 * 60),
         )
         sessions.forEach { repository.addSession(it) }

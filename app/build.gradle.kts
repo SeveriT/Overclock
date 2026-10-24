@@ -26,8 +26,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "2.0.1"
+        versionCode = 47
+        versionName = "2.0.2"
 
         buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
 

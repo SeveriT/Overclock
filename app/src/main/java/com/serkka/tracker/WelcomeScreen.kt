@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable
 fun WelcomeScreen(
@@ -60,7 +64,7 @@ fun WelcomeScreen(
         AlertDialog(
             onDismissRequest = { showDemoConfirm = false },
             title = { Text("Load demo data?") },
-            text = { Text("This will add ~4 weeks of sample workouts, body weight entries, and sessions so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.") },
+            text = { Text("This will add ~4 weeks of sample workouts, body weight entries, timer sessions, notes, and step history so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -112,6 +116,27 @@ fun WelcomeScreen(
         activityRecognitionGranted = granted
     }
 
+    // Unrestricted battery (keeps the step counter service alive)
+    var batteryOptIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+
+    // Re-check on resume (user may have toggled in system settings)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationGranted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                listenerEnabled = isNotificationListenerEnabled(context)
+                activityRecognitionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                    ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.ACTIVITY_RECOGNITION
+                    ) == PackageManager.PERMISSION_GRANTED
+                batteryOptIgnored = isIgnoringBatteryOptimizations(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -148,7 +173,7 @@ fun WelcomeScreen(
         )
 
         Text(
-            "Your personal fitness companion",
+            "Your personal gym workout tracker",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -158,8 +183,11 @@ fun WelcomeScreen(
         // Features
         FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
-        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trends, volume stats, and weekly summaries", primaryColor)
+        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Body weight chart with trend prediction, volume stats, and weekly summaries", primaryColor)
+        FeatureItem(Icons.Default.CalendarMonth, "Calendar", "Year-at-a-glance view of your training days and streaks", primaryColor)
+        FeatureItem(Icons.Default.Checklist, "Schedule", "Weekly workout checklist to tick off as you train", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
+        FeatureItem(Icons.AutoMirrored.Filled.Notes, "Notes", "Keep program plans, cues, and reminders in one place", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
         FeatureItem(Icons.Default.CloudUpload, "Backup & Restore", "Zip bundle with workouts and step history, local or Drive", primaryColor)
 
@@ -211,6 +239,15 @@ fun WelcomeScreen(
                     activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                 }
             }
+        )
+
+        PermissionRow(
+            icon = Icons.Default.BatteryChargingFull,
+            label = "Unrestricted Battery",
+            description = "Keeps step counting running in the background",
+            granted = batteryOptIgnored,
+            primaryColor = primaryColor,
+            onEnable = { requestIgnoreBatteryOptimizations(context) }
         )
 
         Spacer(modifier = Modifier.height(16.dp))

@@ -927,7 +927,7 @@ private fun PermissionsCard(primaryColor: Color) {
     }
 }
 
-private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+internal fun isIgnoringBatteryOptimizations(context: Context): Boolean {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         pm.isIgnoringBatteryOptimizations(context.packageName)
@@ -935,7 +935,7 @@ private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
 }
 
 @SuppressLint("BatteryLife")
-private fun requestIgnoreBatteryOptimizations(context: Context) {
+internal fun requestIgnoreBatteryOptimizations(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
         data = Uri.fromParts("package", context.packageName, null)
