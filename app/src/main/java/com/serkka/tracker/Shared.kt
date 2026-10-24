@@ -47,7 +47,7 @@ import kotlin.math.roundToInt
 // ── Navigation ───────────────────────────────────────────────────────────────
 
 enum class Screen(val title: String) {
-    Summary("Weekly Summary"),
+    Summary("Home"),
     Workouts("Workouts"),
     Calendar("Calendar"),
     WeightTracking("Weight Tracking"),

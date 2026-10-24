@@ -183,7 +183,7 @@ fun WelcomeScreen(
         // Features
         FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
-        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Body weight chart with trend prediction, volume stats, and weekly summaries", primaryColor)
+        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Body weight chart with trend prediction, volume stats, and a weekly overview on Home", primaryColor)
         FeatureItem(Icons.Default.CalendarMonth, "Calendar", "Year-at-a-glance view of your training days and streaks", primaryColor)
         FeatureItem(Icons.Default.Checklist, "Schedule", "Weekly workout checklist to tick off as you train", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
