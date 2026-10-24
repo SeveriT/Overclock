@@ -55,6 +55,7 @@ enum class Screen(val title: String) {
     Notes("Notes"),
     Sessions("Sessions"),
     Schedule("Schedule"),
+    PaceCalculator("Pace Calculator"),
     Settings("Settings"),
     WorkoutTimer("Workout Timer")
 }
