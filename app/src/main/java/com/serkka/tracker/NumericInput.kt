@@ -39,9 +39,11 @@ fun NumericInput(
     modifier: Modifier = Modifier,
     step: Float = 1f,
     imeAction: ImeAction = ImeAction.Default,
-    onNext: (() -> Unit)? = null
+    onNext: (() -> Unit)? = null,
+    // Decimal typing is independent of the −/+ step (e.g. weight: ±5 buttons, but 62.5 typed).
+    allowDecimal: Boolean = step % 1 != 0f
 ) {
-    val isInteger = step % 1 == 0f
+    val isInteger = !allowDecimal
 
     OutlinedTextField(
         value = value,
@@ -79,10 +81,10 @@ fun NumericInput(
                 IconButton(
                     onClick = {
                         val current = value.toLeadFloat() ?: 0f
-                        if (current >= step) {
+                        if (current > 0f) {
                             val next = if (isInteger) (current.toInt() - step.toInt()).toFloat()
                                        else current - step
-                            onValueChange(formatWeight(next))
+                            onValueChange(formatWeight(next.coerceAtLeast(0f)))
                         }
                     },
                     interactionSource = subInteractionSource,

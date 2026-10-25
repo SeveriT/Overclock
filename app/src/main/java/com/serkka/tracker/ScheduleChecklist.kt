@@ -176,42 +176,23 @@ internal fun ScheduleItemEditDialog(
     onDismiss: () -> Unit
 ) {
     var text by remember(item.id) { mutableStateOf(item.text) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit item", fontWeight = FontWeight.Bold) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Workout") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-            )
-        },
-        confirmButton = {
-            val saveInteraction = remember { MutableInteractionSource() }
-            Button(
-                onClick = {
-                    if (text.isNotBlank()) onRename(item, text)
-                    onDismiss()
-                },
-                enabled = text.isNotBlank(),
-                interactionSource = saveInteraction,
-                modifier = Modifier.bounceClick(saveInteraction),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = primaryColor,
-                    contentColor = MaterialTheme.colorScheme.surface
-                )
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            val cancelInteraction = remember { MutableInteractionSource() }
-            TextButton(
-                onClick = onDismiss,
-                interactionSource = cancelInteraction,
-                modifier = Modifier.bounceClick(cancelInteraction)
-            ) { Text("Cancel") }
+    TrackerDialog(
+        title = "Rename item",
+        onDismiss = onDismiss,
+        confirmLabel = "Save",
+        confirmEnabled = text.isNotBlank(),
+        onConfirm = {
+            onRename(item, text)
+            onDismiss()
         }
-    )
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Workout") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+        )
+    }
 }

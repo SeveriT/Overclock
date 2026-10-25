@@ -37,7 +37,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -49,6 +48,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -63,6 +66,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.serkka.tracker.ui.theme.DarkSurfaceColor
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 import kotlin.math.sin
 import androidx.compose.animation.AnimatedContent
@@ -179,7 +183,7 @@ fun WorkoutScreen(
     }
     val isSubscribed by subscriptionViewModel.isSubscribed.collectAsState()
     var showSubscriptionDialog by remember { mutableStateOf(false) }
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
 
     val ctx = LocalContext.current
     val trackerPrefs = remember { PreferencesManager.getInstance(ctx).tracker }
@@ -615,7 +619,7 @@ fun WorkoutScreen(
                                         searchQuery = ""
                                         searchExpanded = false
                                     }) {
-                                        Icon(Icons.Default.ArrowBack, contentDescription = "Close search")
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search")
                                     }
                                 },
                                 trailingIcon = {
@@ -732,7 +736,7 @@ fun WorkoutScreen(
                                 interactionSource = showStepsInteractionSource,
                                 modifier = Modifier.size(42.dp).bounceClick(showStepsInteractionSource)
                             ) {
-                                Icon(Icons.Default.DirectionsWalk, contentDescription = "Show steps", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = "Show steps", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         AnimatedVisibility(
@@ -1034,7 +1038,7 @@ fun WorkoutScreen(
                                         // no-ops (process dead), fall back to launching.
                                         MediaRepository.getInstance().togglePlayPause()
                                         coroutineScope.launch {
-                                            delay(500)
+                                            delay(500.milliseconds)
                                             if (!MediaRepository.getInstance()
                                                     .currentSong.value.isPlaying
                                             ) launchSpotify()
@@ -1186,12 +1190,18 @@ fun WorkoutScreen(
                                     var inTitle   by remember { mutableStateOf(currentSong.title  ?: "") }
                                     var inArtist  by remember { mutableStateOf(currentSong.artist ?: "") }
 
+                                    // songKey is a plain val, so the coroutine below would only ever see the
+                                    // value from when it launched; this State tracks the latest one across the
+                                    // delay. Kept as a State (read via .value) rather than `by` so it's explicit
+                                    // that each read is fresh.
+                                    val latestSongKey = rememberUpdatedState(songKey)
+
                                     // Step 1: finger lifts — snapshot current text into outgoing layer,
                                     // hide incoming layer immediately so old text never shows in both
                                     LaunchedEffect(swipeConfirmed) {
                                         if (swipeConfirmed == 0) return@LaunchedEffect
                                         val d = swipeDirection
-                                        val keyBeforeSwipe = songKey
+                                        val keyBeforeSwipe = latestSongKey.value
                                         outTitle  = inTitle
                                         outArtist = inArtist
                                         outOffset.snapTo(0f)
@@ -1202,8 +1212,8 @@ fun WorkoutScreen(
                                         launch { outAlpha.animateTo(0f, tween(100)) }
                                         // Fallback: if song doesn't change (e.g. same song restarts),
                                         // restore the incoming layer so text doesn't stay blank
-                                        delay(600)
-                                        if (songKey == keyBeforeSwipe && inAlpha.value == 0f) {
+                                        delay(600.milliseconds)
+                                        if (latestSongKey.value == keyBeforeSwipe && inAlpha.value == 0f) {
                                             inTitle  = currentSong.title  ?: ""
                                             inArtist = currentSong.artist ?: ""
                                             inAlpha.snapTo(1f)
@@ -1392,7 +1402,7 @@ fun WorkoutScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .offset(y = navBarOffsetY)
+                    .offset { IntOffset(0, navBarOffsetY.roundToPx()) }
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
