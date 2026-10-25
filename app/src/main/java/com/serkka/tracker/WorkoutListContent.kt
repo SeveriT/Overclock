@@ -38,7 +38,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.PopupProperties
 import com.serkka.tracker.ui.theme.PersonalBestGold
 import java.text.SimpleDateFormat
@@ -345,7 +344,9 @@ private fun WorkoutMovementRow(
     }
 }
 
-// ── Workout dialog ────────────────────────────────────────────────────────────
+// ── Workout form (bottom sheet) ───────────────────────────────────────────────
+// Keeps the old WorkoutDialog name/signature so the add / edit / copy call sites
+// didn't change when it moved from an AlertDialog to a FormSheet.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -358,6 +359,7 @@ fun WorkoutDialog(
     onDelete: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     var exercise by remember { mutableStateOf(workout?.exerciseName ?: "") }
     var expanded by remember { mutableStateOf(false) }
     var sets by remember { mutableStateOf(workout?.sets?.toString() ?: "") }
@@ -370,7 +372,6 @@ fun WorkoutDialog(
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = workout?.date ?: System.currentTimeMillis()
     )
-    var showDatePicker by remember { mutableStateOf(false) }
 
     val focusExercise = remember { FocusRequester() }
     val focusSets     = remember { FocusRequester() }
@@ -395,248 +396,174 @@ fun WorkoutDialog(
         }
     }
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                val okInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showDatePicker = false },
-                    interactionSource = okInteractionSource,
-                    modifier = Modifier.bounceClick(okInteractionSource)
-                ) { Text("OK") }
-            },
-            dismissButton = {
-                val cancelInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showDatePicker = false },
-                    interactionSource = cancelInteractionSource,
-                    modifier = Modifier.bounceClick(cancelInteractionSource)
-                ) { Text("Cancel") }
-            }
-        ) { DatePicker(state = datePickerState) }
+    fun fillFrom(recent: Workout) {
+        sets = recent.sets.toString()
+        reps = recent.reps.toString()
+        weight = formatWeight(recent.weight)
     }
 
-    val selectedDateText = datePickerState.selectedDateMillis?.let {
-        val date = Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate()
-        date.format(DateTimeFormatter.ofPattern("EEEE d.M.yyyy"))
-    } ?: "Select date"
+    val isCardio = exercise.trim().equals("Cardio", ignoreCase = true)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.padding(24.dp).fillMaxWidth(),
-        title = { Text(titleOverride ?: if (workout == null) "Add Workout" else "Edit Workout") },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.animateContentSize()
-            ) {
-                if (exercise.isEmpty() && history.isNotEmpty()) {
-                    Text(
-                        "Recent exercises:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        history.take(8).forEach { recent ->
-                            AssistChip(
-                                onClick = {
-                                    exercise = recent.exerciseName
-                                    sets = recent.sets.toString()
-                                    reps = recent.reps.toString()
-                                    weight = formatWeight(recent.weight)
-                                },
-                                label = { Text(recent.exerciseName) }
-                            )
-                        }
-                    }
-                }
-
-                val keyboardController = LocalSoftwareKeyboardController.current
-                val focusManager = LocalFocusManager.current
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = exercise,
-                        onValueChange = { exercise = it; expanded = true },
-                        label = { Text("Exercise") },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusExercise),
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Words,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                            onNext = {
-                                if (exercise.trim().equals("Cardio", ignoreCase = true)) {
-                                    focusWeight.requestFocus()
-                                } else {
-                                    focusSets.requestFocus()
-                                }
-                            }
-                        ),
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                focusManager.clearFocus(force = true)
-                                keyboardController?.hide()
-                                expanded = !expanded
-                            }) {
-                                Icon(
-                                    imageVector = if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                                    contentDescription = if (expanded) "Collapse" else "Expand"
-                                )
-                            }
-                        }
-                    )
-                    DropdownMenu(
-                        expanded = expanded && suggestions.isNotEmpty(),
-                        onDismissRequest = { expanded = false },
-                        properties = PopupProperties(focusable = false),
-                        modifier = Modifier.heightIn(max = 280.dp)
-                    ) {
-                        suggestions.forEach { suggestion ->
-                            DropdownMenuItem(
-                                text = { Text(suggestion) },
-                                onClick = {
-                                    exercise = suggestion
-                                    history.find { it.exerciseName == suggestion }?.let { recent ->
-                                        sets = recent.sets.toString()
-                                        reps = recent.reps.toString()
-                                        weight = formatWeight(recent.weight)
-                                    }
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                lastPerformance?.let { last ->
-                    val lastIsCardio = last.exerciseName.trim().equals("Cardio", ignoreCase = true)
-                    Text(
-                        text = if (lastIsCardio) "Last time: ${formatWeight(last.weight)} min"
-                               else "Last time: ${last.sets}x${last.reps} @ ${formatWeight(last.weight)}${last.weightUnit}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(bottom = 4.dp)
-                            .clickable {
-                                sets = last.sets.toString()
-                                reps = last.reps.toString()
-                                weight = formatWeight(last.weight)
-                            }
-                    )
-                }
-
-                val isCardio = exercise.trim().equals("Cardio", ignoreCase = true)
-
-                if (!isCardio) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NumericInput(value = sets, onValueChange = { sets = it }, label = "Sets",
-                            modifier = Modifier.weight(1f).focusRequester(focusSets),
-                            imeAction = ImeAction.Next, onNext = { focusReps.requestFocus() })
-                        NumericInput(value = reps, onValueChange = { reps = it }, label = "Reps",
-                            modifier = Modifier.weight(1f).focusRequester(focusReps),
-                            imeAction = ImeAction.Next, onNext = { focusWeight.requestFocus() })
-                    }
-                }
-
-                NumericInput(
-                    value = weight,
-                    onValueChange = { weight = it },
-                    label = if (isCardio) "Minutes" else "Weight (kg)",
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusWeight),
-                    step = if (isCardio) 1f else 2.5f,
-                    imeAction = ImeAction.Next,
-                    onNext = { focusNotes.requestFocus() }
-                )
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusNotes),
-                    maxLines = 3,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Done
-                    )
-                )
-
-                val dateInteractionSource = remember { MutableInteractionSource() }
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
-                    interactionSource = dateInteractionSource,
-                    modifier = Modifier.fillMaxWidth().bounceClick(dateInteractionSource)
-                ) {
-                    Text(selectedDateText)
-                }
-            }
-        },
-        confirmButton = {
+    FormSheet(
+        title = titleOverride ?: if (workout == null) "Add Workout" else "Edit Workout",
+        primaryColor = primaryColor,
+        onDismiss = onDismiss,
+        confirmEnabled = exercise.isNotBlank(),
+        onConfirm = {
+            dialogHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onConfirm(
+                exercise,
+                sets.toIntOrNull() ?: 0,
+                reps.toIntOrNull() ?: 0,
+                weight.toLeadFloat() ?: 0f,
+                datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
+                isPB,
+                weightUnit,
+                notes
+            )
+        }
+    ) {
+        // ── Recent exercises (only while the name is empty) ──────────────────
+        if (exercise.isEmpty() && history.isNotEmpty()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable {
-                        isPB = !isPB
-                        dialogHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }
-                ) {
-                    Checkbox(
-                        checked = isPB,
-                        onCheckedChange = {
-                            isPB = it
-                            dialogHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
+                history.distinctBy { it.exerciseName }.take(8).forEach { recent ->
+                    SuggestionChip(
+                        onClick = { exercise = recent.exerciseName; fillFrom(recent) },
+                        label = { Text(recent.exerciseName) }
                     )
-                    Text(
-                        "PB",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    val cancelInteractionSource = remember { MutableInteractionSource() }
-                    val saveInteractionSource = remember { MutableInteractionSource() }
-
-                    TextButton(
-                        onClick = onDismiss,
-                        interactionSource = cancelInteractionSource,
-                        modifier = Modifier.bounceClick(cancelInteractionSource)
-                    ) { Text("Cancel") }
-                    Button(
-                        onClick = {
-                            dialogHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onConfirm(
-                                exercise,
-                                sets.toIntOrNull() ?: 0,
-                                reps.toIntOrNull() ?: 0,
-                                weight.toLeadFloat() ?: 0f,
-                                datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
-                                isPB,
-                                weightUnit,
-                                notes
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            contentColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        interactionSource = saveInteractionSource,
-                        modifier = Modifier.bounceClick(saveInteractionSource)
-                    ) { Text("Save") }
                 }
             }
-        },
-        dismissButton = null
-    )
+        }
+
+        // ── Exercise name with history dropdown ──────────────────────────────
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val focusManager = LocalFocusManager.current
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = exercise,
+                onValueChange = { exercise = it; expanded = true },
+                label = { Text("Exercise") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().focusRequester(focusExercise),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onNext = { if (isCardio) focusWeight.requestFocus() else focusSets.requestFocus() }
+                ),
+                trailingIcon = {
+                    IconButton(onClick = {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                        expanded = !expanded
+                    }) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                            contentDescription = if (expanded) "Collapse" else "Expand"
+                        )
+                    }
+                }
+            )
+            DropdownMenu(
+                expanded = expanded && suggestions.isNotEmpty(),
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = false),
+                modifier = Modifier.heightIn(max = 280.dp)
+            ) {
+                suggestions.forEach { suggestion ->
+                    DropdownMenuItem(
+                        text = { Text(suggestion) },
+                        onClick = {
+                            exercise = suggestion
+                            history.find { it.exerciseName == suggestion }?.let { fillFrom(it) }
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // ── Last time (tap to reuse) ─────────────────────────────────────────
+        lastPerformance?.let { last ->
+            val lastIsCardio = last.exerciseName.trim().equals("Cardio", ignoreCase = true)
+            AssistChip(
+                onClick = { fillFrom(last) },
+                label = {
+                    Text(
+                        if (lastIsCardio) "Last time: ${formatWeight(last.weight)} min · tap to reuse"
+                        else "Last time: ${last.sets}×${last.reps} @ ${formatWeight(last.weight)}${last.weightUnit} · tap to reuse"
+                    )
+                },
+                leadingIcon = { Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp)) },
+                colors = AssistChipDefaults.assistChipColors(
+                    labelColor = primaryColor,
+                    leadingIconContentColor = primaryColor
+                )
+            )
+        }
+
+        // ── Numbers ──────────────────────────────────────────────────────────
+        if (!isCardio) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumericInput(value = sets, onValueChange = { sets = it }, label = "Sets",
+                    modifier = Modifier.weight(1f).focusRequester(focusSets),
+                    imeAction = ImeAction.Next, onNext = { focusReps.requestFocus() })
+                NumericInput(value = reps, onValueChange = { reps = it }, label = "Reps",
+                    modifier = Modifier.weight(1f).focusRequester(focusReps),
+                    imeAction = ImeAction.Next, onNext = { focusWeight.requestFocus() })
+            }
+        }
+        NumericInput(
+            value = weight,
+            onValueChange = { weight = it },
+            label = if (isCardio) "Minutes" else "Weight (kg)",
+            modifier = Modifier.fillMaxWidth().focusRequester(focusWeight),
+            step = 5f,                        // −/+ buttons: coarse jumps of 5 kg (or 5 min)
+            allowDecimal = !isCardio,
+            imeAction = ImeAction.Next,
+            onNext = { focusNotes.requestFocus() }
+        )
+        // Fine adjustment: ±5 around the value in 0.5 kg (1 min) steps
+        StepSlider(
+            value = weight,
+            onValueChange = { weight = it },
+            step = if (isCardio) 1f else 0.5f,
+            span = 10f,
+            primaryColor = primaryColor
+        )
+
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text("Notes") },
+            modifier = Modifier.fillMaxWidth().focusRequester(focusNotes),
+            maxLines = 3,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Done
+            )
+        )
+
+        // ── Date + PB ────────────────────────────────────────────────────────
+        SheetDateRow(state = datePickerState, primaryColor = primaryColor)
+
+        FilterChip(
+            selected = isPB,
+            onClick = {
+                isPB = !isPB
+                dialogHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            label = { Text("Personal best") },
+            leadingIcon = { Icon(Icons.Default.EmojiEvents, null, modifier = Modifier.size(18.dp)) },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = PersonalBestGold.copy(alpha = 0.18f),
+                selectedLabelColor = PersonalBestGold,
+                selectedLeadingIconColor = PersonalBestGold
+            )
+        )
+    }
 }

@@ -413,11 +413,30 @@ fun WeightTrackingPage(
         val maxVal = maxInput.toLeadFloat()
         val rangeValid = minInput.isBlank() || maxInput.isBlank() ||
             (minVal != null && maxVal != null && minVal < maxVal)
-        AlertDialog(
-            onDismissRequest = { showAxisRangeDialog = false },
-            title = { Text("Chart weight range", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TrackerDialog(
+            title = "Chart weight range",
+            onDismiss = { showAxisRangeDialog = false },
+            confirmLabel = "Save",
+            confirmEnabled = rangeValid,
+            onConfirm = {
+                val newMin = minInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
+                val newMax = maxInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
+                chartMinWeight = newMin
+                chartMaxWeight = newMax
+                prefs.edit()
+                    .putFloat("chart_weight_min", newMin)
+                    .putFloat("chart_weight_max", newMax)
+                    .apply()
+                showAxisRangeDialog = false
+            },
+            neutralLabel = "Auto",
+            onNeutral = {
+                chartMinWeight = 0f
+                chartMaxWeight = 0f
+                prefs.edit().remove("chart_weight_min").remove("chart_weight_max").apply()
+                showAxisRangeDialog = false
+            }
+        ) {
                     Text(
                         "Set the min and max weight shown on the chart's vertical axis. Leave a field blank for automatic.",
                         style = MaterialTheme.typography.bodySmall,
@@ -448,65 +467,26 @@ fun WeightTrackingPage(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-                }
-            },
-            confirmButton = {
-                val saveInteraction = remember { MutableInteractionSource() }
-                Button(
-                    onClick = {
-                        val newMin = minInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
-                        val newMax = maxInput.toLeadFloat()?.takeIf { it > 0f } ?: 0f
-                        chartMinWeight = newMin
-                        chartMaxWeight = newMax
-                        prefs.edit()
-                            .putFloat("chart_weight_min", newMin)
-                            .putFloat("chart_weight_max", newMax)
-                            .apply()
-                        showAxisRangeDialog = false
-                    },
-                    enabled = rangeValid,
-                    interactionSource = saveInteraction,
-                    modifier = Modifier.bounceClick(saveInteraction),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = MaterialTheme.colorScheme.surface
-                    )
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                Row {
-                    val resetInteraction = remember { MutableInteractionSource() }
-                    TextButton(
-                        onClick = {
-                            chartMinWeight = 0f
-                            chartMaxWeight = 0f
-                            prefs.edit().remove("chart_weight_min").remove("chart_weight_max").apply()
-                            showAxisRangeDialog = false
-                        },
-                        interactionSource = resetInteraction,
-                        modifier = Modifier.bounceClick(resetInteraction)
-                    ) { Text("Auto") }
-                    val cancelInteraction = remember { MutableInteractionSource() }
-                    TextButton(
-                        onClick = { showAxisRangeDialog = false },
-                        interactionSource = cancelInteraction,
-                        modifier = Modifier.bounceClick(cancelInteraction)
-                    ) { Text("Cancel") }
-                }
-            }
-        )
+        }
     }
 
     if (showHeightDialog) {
         var heightInput by remember {
             mutableStateOf(if (heightCm > 0f) heightCm.toInt().toString() else "")
         }
-        AlertDialog(
-            onDismissRequest = { showHeightDialog = false },
-            modifier = Modifier.fillMaxWidth(),
-            title = { Text("Set Height", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val heightValid = heightInput.toIntOrNull()?.let { it in 100..250 } == true
+        TrackerDialog(
+            title = "Set height",
+            onDismiss = { showHeightDialog = false },
+            confirmLabel = "Save",
+            confirmEnabled = heightValid,
+            onConfirm = {
+                val h = heightInput.toInt()
+                prefs.edit().putFloat("height_cm", h.toFloat()).apply()
+                heightCm = h.toFloat()
+                showHeightDialog = false
+            }
+        ) {
                     OutlinedTextField(
                         value = heightInput,
                         onValueChange = { v ->
@@ -554,37 +534,7 @@ fun WeightTrackingPage(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
-                }
-            },
-            confirmButton = {
-                val saveInteraction = remember { MutableInteractionSource() }
-                Button(
-                    onClick = {
-                        val h = heightInput.toIntOrNull()
-                        if (h != null && h in 100..250) {
-                            prefs.edit().putFloat("height_cm", h.toFloat()).apply()
-                            heightCm = h.toFloat()
-                            showHeightDialog = false
-                        }
-                    },
-                    interactionSource = saveInteraction,
-                    modifier = Modifier.bounceClick(saveInteraction),
-                    enabled = heightInput.toIntOrNull()?.let { it in 100..250 } == true,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = MaterialTheme.colorScheme.surface
-                    )
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                val cancelInteraction = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showHeightDialog = false },
-                    interactionSource = cancelInteraction,
-                    modifier = Modifier.bounceClick(cancelInteraction)
-                ) { Text("Cancel") }
-            }
-        )
+        }
     }
 }
 
@@ -921,7 +871,7 @@ fun WeightChart(
     }
 }
 
-// ── Body weight dialog ────────────────────────────────────────────────────────
+// ── Body weight form (bottom sheet) ───────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -931,6 +881,7 @@ fun BodyWeightDialog(
     onDismiss: () -> Unit,
     onConfirm: (Float, Long, String) -> Unit
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     var weight by remember(bodyWeight, initialWeight) {
         mutableStateOf(bodyWeight?.weight?.let { formatWeight(it) } ?: initialWeight)
     }
@@ -938,84 +889,41 @@ fun BodyWeightDialog(
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = bodyWeight?.date ?: System.currentTimeMillis()
     )
-    var showDatePicker by remember { mutableStateOf(false) }
+    val parsedWeight = weight.toLeadFloat() ?: 0f
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                val okInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showDatePicker = false },
-                    interactionSource = okInteractionSource,
-                    modifier = Modifier.bounceClick(okInteractionSource)
-                ) { Text("OK") }
-            }
-        ) { DatePicker(state = datePickerState) }
+    FormSheet(
+        title = if (bodyWeight == null) "Add Weight" else "Edit Weight",
+        primaryColor = primaryColor,
+        onDismiss = onDismiss,
+        confirmEnabled = parsedWeight > 0f,
+        onConfirm = {
+            onConfirm(parsedWeight, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), notes)
+        }
+    ) {
+        NumericInput(
+            value = weight,
+            onValueChange = { weight = it },
+            label = "Weight (kg)",
+            modifier = Modifier.fillMaxWidth(),
+            step = 1f,                 // −/+ buttons: 1 kg jumps
+            allowDecimal = true
+        )
+        // Fine adjustment: ±1 kg around the value in 0.1 kg steps
+        StepSlider(
+            value = weight,
+            onValueChange = { weight = it },
+            step = 0.1f,
+            span = 2f,
+            primaryColor = primaryColor
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text("Notes") },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 2,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+        )
+        SheetDateRow(state = datePickerState, primaryColor = primaryColor)
     }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (bodyWeight == null) "Add Weight" else "Edit Weight") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                NumericInput(
-                    value = weight,
-                    onValueChange = { weight = it },
-                    label = "Weight (kg)",
-                    modifier = Modifier.fillMaxWidth(),
-                    step = 0.1f
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                )
-                OutlinedTextField(
-                    value = formatDate(datePickerState.selectedDateMillis ?: System.currentTimeMillis()),
-                    onValueChange = {},
-                    label = { Text("Date") },
-                    readOnly = true,
-                    trailingIcon = {
-                        val dateInteractionSource = remember { MutableInteractionSource() }
-                        IconButton(
-                            onClick = { showDatePicker = true },
-                            interactionSource = dateInteractionSource,
-                            modifier = Modifier.bounceClick(dateInteractionSource)
-                        ) {
-                            Icon(Icons.Default.DateRange, null)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            val cancelInteractionSource = remember { MutableInteractionSource() }
-            val saveInteractionSource = remember { MutableInteractionSource() }
-            Row {
-                TextButton(
-                    onClick = onDismiss,
-                    interactionSource = cancelInteractionSource,
-                    modifier = Modifier.bounceClick(cancelInteractionSource)
-                ) { Text("Cancel") }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        val w = weight.toLeadFloat() ?: 0f
-                        if (w > 0) onConfirm(w, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), notes)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        contentColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    interactionSource = saveInteractionSource,
-                    modifier = Modifier.bounceClick(saveInteractionSource)
-                ) { Text("Save") }
-            }
-        },
-        dismissButton = null
-    )
 }

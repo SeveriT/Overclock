@@ -597,30 +597,13 @@ fun SettingsPage(
     }
 
     if (showDeleteConfirmDialog) {
-        val deleteInteractionSource = remember { MutableInteractionSource() }
-        val cancelInteractionSource = remember { MutableInteractionSource() }
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            icon = {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(48.dp)
-                )
-            },
-            title = {
-                Text("Delete All Data?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text(
-                    "This will permanently delete:\n\n• All workouts\n• All body weight entries\n• All notes\n• Step counter history\n\nThis action cannot be undone!",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
+        TrackerDialog(
+            title = "Delete all data?",
+            onDismiss = { showDeleteConfirmDialog = false },
+            confirmLabel = "Delete all",
+            destructive = true,
+            icon = Icons.Default.Warning,
+            onConfirm = {
                         coroutineScope.launch {
                             try {
                                 withContext(Dispatchers.IO) {
@@ -645,20 +628,11 @@ fun SettingsPage(
                                 Toast.makeText(context, "Error deleting data: ${e.message}", Toast.LENGTH_LONG).show()
                             }
                         }
-                    },
-                    interactionSource = deleteInteractionSource,
-                    modifier = Modifier.bounceClick(deleteInteractionSource),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete All", color = Color.White) }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteConfirmDialog = false },
-                    interactionSource = cancelInteractionSource,
-                    modifier = Modifier.bounceClick(cancelInteractionSource)
-                ) { Text("Cancel") }
             }
-        )
+        ) {
+            Text("This will permanently delete all workouts, body weight entries, sessions, notes, and step counter history.")
+            Text("This can't be undone.", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+        }
     }
 
     if (showUserGuide) {
@@ -668,11 +642,13 @@ fun SettingsPage(
 
 @Composable
 fun UserGuideDialog(onDismiss: () -> Unit) {
-    val gotItInteractionSource = remember { MutableInteractionSource() }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("User Guide", fontWeight = FontWeight.Bold) },
-        text = {
+    TrackerDialog(
+        title = "User Guide",
+        onDismiss = onDismiss,
+        confirmLabel = "Got it",
+        onConfirm = onDismiss,
+        dismissLabel = null
+    ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -680,40 +656,34 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                GuideSection("1. Navigation", "Swipe horizontally to glide between screens. The bottom navbar hides when scrolling down and reappears when scrolling up.")
+                GuideSection("1. Navigation", "Swipe horizontally between the five navbar tabs: Timer, Workouts, Home, Weight and Calendar. Everything else opens from the top bar: Tools (wrench), Notes (pencil), Settings, plus Workout Stats on Workouts and Sessions on Calendar. The navbar hides when scrolling down and reappears when scrolling up.")
                 GuideSection("2. Demo Mode", "First-time users can tap 'Try with demo data' on the welcome screen to load ~4 weeks of realistic sample workouts, body weight entries, sessions, notes, and step history. Wipe it anytime from Settings → Clear All Data.")
-                GuideSection("3. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap.")
-                GuideSection("4. Logging Workouts", "Add sets and reps using the (+) button. Suggestions from your history appear as you type. Each row has Duplicate (instant copy with today's date) and Copy (edit then save) buttons; tap the row for Edit, toggle PB, or Delete. Entries are grouped by day — tap a day header to expand or collapse it.")
-                GuideSection("5. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, last-7-days totals, recent activity, and this week's exercises. Tap the eye-off icon on a section to hide it — a matching icon appears in the top bar to bring it back.")
-                GuideSection("6. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal, and add steps manually for any of the last 7 days. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition and Unrestricted Battery in Settings → Permissions.")
-                GuideSection("7. Weight Tracking", "Log body weight entries with optional notes. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height. The prediction projects your weight to a date you pick (tap it to change), weighting recent weigh-ins most, and is drawn as a dashed line on the chart — scroll the chart right to see it. Tap the weight labels on the left to set the chart's range.")
-                GuideSection("8. Schedule", "Open the Tools screen (wrench icon in the top bar) and expand Schedule. Add the workouts you plan to do, tick them off as you train, and tap Reset to start a new week. Long-press an item to rename it.")
-                GuideSection("9. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Tap 'See all' on the Home screen to jump here.")
-                GuideSection("10. Calendar", "A year-at-a-glance overview of compact month grids. Days with a logged session or workout are marked with an accent circle; today gets a ring. Shows the last 12 months back from the current month.")
-                GuideSection("11. Notes", "Open from the pencil icon in the top bar. Keep program plans, technique cues, and anything else you want to remember.")
-                GuideSection("12. Pace Calculator", "Open the Tools screen (wrench icon in the top bar) and expand Pace Calculator. Drag either slider — min/km or km/h — and the other follows; use − / + for fine steps. Shows min/mile and mph, finish times for 400 m, 5K, 10K, half marathon and marathon, and the distance you'd cover in a 12-minute Cooper test.")
-                GuideSection("13. Music Widget", "Control Spotify or YouTube Music directly. The progress bar waves while music plays. Tap to open the player. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
-                GuideSection("14. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. Local backups are a single .zip bundle containing your database and step history. Premium feature.")
-                GuideSection("15. Permissions", "Manage Notifications, Notification Listener (music widget), Activity Recognition (step counter), and Unrestricted Battery (keeps step counting alive in the background) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
-                GuideSection("16. Clear All Data", "Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
-                GuideSection("17. Customization", "Change your primary accent color using the RGB sliders in Settings and darken or lighten the background with the brightness slider. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
+                GuideSection("3. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. When you stop, a sheet lets you name and save the session, Resume the timer, or discard it with the trash icon.")
+                GuideSection("4. Logging Workouts", "Tap (+) to open the workout sheet. Pick a recent exercise chip or type a name — suggestions from your history appear as you type, and the 'Last time' chip refills your previous sets, reps and weight. The weight − / + buttons jump 5 kg; the slider below fine-tunes ±5 kg in 0.5 kg steps. Use the Today / Yesterday chips or tap the date for any day, and toggle Personal best. Each logged row has Duplicate (instant copy with today's date) and Copy (edit then save) buttons; tap the row for Edit, toggle PB, or Delete. Entries are grouped by day — tap a day header to expand or collapse it.")
+                GuideSection("5. Workout Stats", "Open from the chart icon on the Workouts screen. Shows total volume lifted and every exercise ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart — tap a bar to read that week, the dashed line is your 12-week average. Long-press an exercise to hide it from the list and the total; restore it from the Hidden section at the bottom.")
+                GuideSection("6. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, last-7-days totals, recent activity, and this week's exercises. Tap the eye-off icon on a section to hide it — a matching icon appears in the top bar to bring it back.")
+                GuideSection("7. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal, and long-press the bar chart to add steps manually for any of the last 7 days. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition and Unrestricted Battery in Settings → Permissions.")
+                GuideSection("8. Weight Tracking", "Log body weight with optional notes: the − / + buttons jump 1 kg and the slider fine-tunes ±1 kg in 0.1 kg steps. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height. The prediction projects your weight to a date you pick (tap it to change), weighting recent weigh-ins most, and is drawn as a dashed line on the chart — scroll the chart right to see it. Tap the weight labels on the left to set the chart's range.")
+                GuideSection("9. Tools", "Open from the wrench icon in the top bar. Tap a tool to expand it — one is open at a time, and the app remembers which one you used last.")
+                GuideSection("10. Schedule", "In Tools, expand Schedule. Add the workouts you plan to do, tick them off as you train, and tap Reset to start a new week. Long-press an item to rename it.")
+                GuideSection("11. Pace Calculator", "In Tools, expand Pace Calculator. Drag either slider — min/km or km/h — and the other follows; use − / + for fine steps. Shows min/mile and mph, finish times for 400 m, 5K, 10K, half marathon and marathon, and the distance you'd cover in a 12-minute Cooper test.")
+                GuideSection("12. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Open from the history icon on the Calendar screen or 'See all' on Home.")
+                GuideSection("13. Calendar", "A year-at-a-glance overview of compact month grids. Days with a logged session or workout are marked with an accent circle; today gets a ring. Shows the last 12 months back from the current month.")
+                GuideSection("14. Notes", "Open from the pencil icon in the top bar. Keep program plans, technique cues, and anything else you want to remember. Open a note to edit it, or delete it with the trash icon in the sheet.")
+                GuideSection("15. Music Widget", "Control Spotify or YouTube Music directly. The progress bar waves while music plays. Tap to open the player. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
+                GuideSection("16. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. Local backups are a single .zip bundle containing your database and step history. Premium feature.")
+                GuideSection("17. Permissions", "Manage Notifications, Notification Listener (music widget), Activity Recognition (step counter), and Unrestricted Battery (keeps step counting alive in the background) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
+                GuideSection("18. Undo & Clear All Data", "Deleting a workout, weight, note or session shows an Undo button for a few seconds. Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
+                GuideSection("19. Customization", "Change your primary accent color using the RGB sliders in Settings and darken or lighten the background with the brightness slider. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss,
-                interactionSource = gotItInteractionSource,
-                modifier = Modifier.bounceClick(gotItInteractionSource)
-            ) { Text("Got it") }
-        }
-    )
+    }
 }
 
 @Composable
 private fun GuideSection(title: String, description: String) {
     Column {
         Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(description, style = MaterialTheme.typography.bodyMedium)
+        Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

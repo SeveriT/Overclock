@@ -25,7 +25,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -100,7 +99,7 @@ fun NotesPage(
     }
 }
 
-// ── Note dialog ───────────────────────────────────────────────────────────────
+// ── Note form (bottom sheet) ──────────────────────────────────────────────────
 
 @Composable
 fun NoteDialog(
@@ -109,107 +108,40 @@ fun NoteDialog(
     onConfirm: (String, String, Long) -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     var title by remember { mutableStateOf(note?.title ?: "") }
     var content by remember { mutableStateOf(note?.content ?: "") }
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = note?.date ?: System.currentTimeMillis()
     )
-    var showDatePicker by remember { mutableStateOf(false) }
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                val okInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showDatePicker = false },
-                    interactionSource = okInteractionSource,
-                    modifier = Modifier.bounceClick(okInteractionSource)
-                ) { Text("OK") }
-            }
-        ) { DatePicker(state = datePickerState) }
+    FormSheet(
+        title = if (note == null) "Add Note" else "Edit Note",
+        primaryColor = primaryColor,
+        onDismiss = onDismiss,
+        confirmEnabled = content.isNotBlank(),
+        onConfirm = {
+            onConfirm(title, content, datePickerState.selectedDateMillis ?: System.currentTimeMillis())
+        },
+        onDelete = if (note != null) onDelete else null
+    ) {
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Title") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+        )
+        OutlinedTextField(
+            value = content,
+            onValueChange = { content = it },
+            label = { Text("Content") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 4,
+            maxLines = 25,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+        )
+        SheetDateRow(state = datePickerState, primaryColor = primaryColor)
     }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        title = { Text(if (note == null) "Add Note" else "Edit Note") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                )
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("Content") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 25,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-                )
-                OutlinedTextField(
-                    value = formatDate(datePickerState.selectedDateMillis ?: System.currentTimeMillis()),
-                    onValueChange = {},
-                    label = { Text("Date") },
-                    readOnly = true,
-                    trailingIcon = {
-                        val dateInteractionSource = remember { MutableInteractionSource() }
-                        IconButton(
-                            onClick = { showDatePicker = true },
-                            interactionSource = dateInteractionSource,
-                            modifier = Modifier.bounceClick(dateInteractionSource)
-                        ) {
-                            Icon(Icons.Default.DateRange, null)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (note != null && onDelete != null) {
-                    val deleteInteractionSource = remember { MutableInteractionSource() }
-                    IconButton(
-                        onClick = onDelete,
-                        interactionSource = deleteInteractionSource,
-                        modifier = Modifier.bounceClick(deleteInteractionSource)
-                    ) {
-                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                val cancelInteractionSource = remember { MutableInteractionSource() }
-                val saveInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = onDismiss,
-                    interactionSource = cancelInteractionSource,
-                    modifier = Modifier.bounceClick(cancelInteractionSource)
-                ) { Text("Cancel") }
-                Button(
-                    onClick = {
-                        if (content.isNotEmpty()) {
-                            onConfirm(title, content, datePickerState.selectedDateMillis ?: System.currentTimeMillis())
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        contentColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    interactionSource = saveInteractionSource,
-                    modifier = Modifier.bounceClick(saveInteractionSource)
-                ) { Text("Save") }
-            }
-        },
-        dismissButton = null
-    )
 }

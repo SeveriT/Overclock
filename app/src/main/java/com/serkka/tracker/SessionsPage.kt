@@ -198,148 +198,24 @@ private fun SessionRow(
     )
 }
 
+// ── Session forms (bottom sheet) ──────────────────────────────────────────────
+
 @Composable
 internal fun AddSessionDialog(
     primaryColor: Color,
     onDismiss: () -> Unit,
     onSave: (name: String, type: String, dateEpochMs: Long, durationSeconds: Int) -> Unit
 ) {
-    var selectedType by remember { mutableStateOf(workoutActivityTypes.first()) }
-    var datePickerOpen by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
-    val selectedDateText = remember(datePickerState.selectedDateMillis) {
-        datePickerState.selectedDateMillis?.let {
-            val date = Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate()
-            date.format(DateTimeFormatter.ofPattern("EEEE d.M.yyyy"))
-        } ?: "Select date"
-    }
-    fun autoName(type: WorkoutActivityType, dateMs: Long?): String {
-        val date = (dateMs?.let { Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate() }
-            ?: java.time.LocalDate.now())
-        return "${type.label} – ${date.format(DateTimeFormatter.ofPattern("MMM d"))}"
-    }
-    var name by remember { mutableStateOf(autoName(selectedType, datePickerState.selectedDateMillis)) }
-    var hours by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf("") }
-    LaunchedEffect(selectedType, datePickerState.selectedDateMillis) {
-        val autoForAny = workoutActivityTypes.any { name.startsWith("${it.label} – ") }
-        if (name.isBlank() || autoForAny) {
-            name = autoName(selectedType, datePickerState.selectedDateMillis)
-        }
-    }
-
-    if (datePickerOpen) {
-        DatePickerDialog(
-            onDismissRequest = { datePickerOpen = false },
-            confirmButton = {
-                val confirmInteraction = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { datePickerOpen = false },
-                    interactionSource = confirmInteraction,
-                    modifier = Modifier.bounceClick(confirmInteraction)
-                ) { Text("OK") }
-            },
-            dismissButton = {
-                val dismissInteraction = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { datePickerOpen = false },
-                    interactionSource = dismissInteraction,
-                    modifier = Modifier.bounceClick(dismissInteraction)
-                ) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Session", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Session Name") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    workoutActivityTypes.forEach { type ->
-                        FilterChip(
-                            selected = selectedType == type,
-                            onClick = { selectedType = type },
-                            label = { Text(type.label) },
-                            leadingIcon = {
-                                Icon(getIconForActivity(type.typeId, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = primaryColor.copy(alpha = 0.2f),
-                                selectedLabelColor = primaryColor,
-                                selectedLeadingIconColor = primaryColor
-                            )
-                        )
-                    }
-                }
-
-                val dateInteraction = remember { MutableInteractionSource() }
-                OutlinedButton(
-                    onClick = { datePickerOpen = true },
-                    interactionSource = dateInteraction,
-                    modifier = Modifier.fillMaxWidth().bounceClick(dateInteraction)
-                ) {
-                    Text(selectedDateText)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = hours,
-                        onValueChange = { hours = it.filter { c -> c.isDigit() } },
-                        label = { Text("Hours") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = minutes,
-                        onValueChange = { minutes = it.filter { c -> c.isDigit() } },
-                        label = { Text("Minutes") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            val saveInteraction = remember { MutableInteractionSource() }
-            val totalSeconds = (hours.toIntOrNull() ?: 0) * 3600 + (minutes.toIntOrNull() ?: 0) * 60
-            Button(
-                onClick = {
-                    onSave(
-                        name,
-                        selectedType.typeId,
-                        datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
-                        totalSeconds
-                    )
-                },
-                interactionSource = saveInteraction,
-                modifier = Modifier.bounceClick(saveInteraction),
-                enabled = name.isNotBlank() && totalSeconds > 0
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            val cancelInteraction = remember { MutableInteractionSource() }
-            TextButton(
-                onClick = onDismiss,
-                interactionSource = cancelInteraction,
-                modifier = Modifier.bounceClick(cancelInteraction)
-            ) { Text("Cancel") }
-        }
+    SessionFormSheet(
+        title = "Add Session",
+        primaryColor = primaryColor,
+        initialName = null,
+        initialType = workoutActivityTypes.first(),
+        initialDateMs = System.currentTimeMillis(),
+        initialSeconds = 0,
+        initialNotes = null,
+        onDismiss = onDismiss,
+        onSave = { name, type, dateMs, seconds, _ -> onSave(name, type, dateMs, seconds) }
     )
 }
 
@@ -350,151 +226,129 @@ internal fun EditSessionDialog(
     onDismiss: () -> Unit,
     onSave: (WorkoutSession) -> Unit
 ) {
-    var name by remember { mutableStateOf(session.name) }
-    var selectedType by remember {
-        mutableStateOf(
-            workoutActivityTypes.firstOrNull { it.typeId == session.type } ?: workoutActivityTypes.first()
-        )
-    }
-    var hours by remember {
-        mutableStateOf(if (session.durationSeconds / 3600 > 0) (session.durationSeconds / 3600).toString() else "")
-    }
-    var minutes by remember {
-        mutableStateOf(((session.durationSeconds % 3600) / 60).toString())
-    }
-    var notes by remember { mutableStateOf(session.notes) }
-    var datePickerOpen by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = session.date)
-    val selectedDateText = remember(datePickerState.selectedDateMillis) {
-        datePickerState.selectedDateMillis?.let {
-            val date = Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate()
-            date.format(DateTimeFormatter.ofPattern("EEEE d.M.yyyy"))
-        } ?: "Select date"
-    }
-
-    if (datePickerOpen) {
-        DatePickerDialog(
-            onDismissRequest = { datePickerOpen = false },
-            confirmButton = {
-                val confirmInteraction = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { datePickerOpen = false },
-                    interactionSource = confirmInteraction,
-                    modifier = Modifier.bounceClick(confirmInteraction)
-                ) { Text("OK") }
-            },
-            dismissButton = {
-                val dismissInteraction = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { datePickerOpen = false },
-                    interactionSource = dismissInteraction,
-                    modifier = Modifier.bounceClick(dismissInteraction)
-                ) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Session", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Session Name") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    workoutActivityTypes.forEach { type ->
-                        FilterChip(
-                            selected = selectedType == type,
-                            onClick = { selectedType = type },
-                            label = { Text(type.label) },
-                            leadingIcon = {
-                                Icon(getIconForActivity(type.typeId, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = primaryColor.copy(alpha = 0.2f),
-                                selectedLabelColor = primaryColor,
-                                selectedLeadingIconColor = primaryColor
-                            )
-                        )
-                    }
-                }
-
-                val dateInteraction = remember { MutableInteractionSource() }
-                OutlinedButton(
-                    onClick = { datePickerOpen = true },
-                    interactionSource = dateInteraction,
-                    modifier = Modifier.fillMaxWidth().bounceClick(dateInteraction)
-                ) {
-                    Text(selectedDateText)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = hours,
-                        onValueChange = { hours = it.filter { c -> c.isDigit() } },
-                        label = { Text("Hours") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = minutes,
-                        onValueChange = { minutes = it.filter { c -> c.isDigit() } },
-                        label = { Text("Minutes") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4
-                )
-            }
-        },
-        confirmButton = {
-            val saveInteraction = remember { MutableInteractionSource() }
-            val totalSeconds = (hours.toIntOrNull() ?: 0) * 3600 + (minutes.toIntOrNull() ?: 0) * 60
-            Button(
-                onClick = {
-                    onSave(
-                        session.copy(
-                            name = name,
-                            type = selectedType.typeId,
-                            date = datePickerState.selectedDateMillis ?: session.date,
-                            durationSeconds = totalSeconds,
-                            notes = notes
-                        )
-                    )
-                },
-                interactionSource = saveInteraction,
-                modifier = Modifier.bounceClick(saveInteraction),
-                enabled = name.isNotBlank() && totalSeconds > 0
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            val cancelInteraction = remember { MutableInteractionSource() }
-            TextButton(
-                onClick = onDismiss,
-                interactionSource = cancelInteraction,
-                modifier = Modifier.bounceClick(cancelInteraction)
-            ) { Text("Cancel") }
+    SessionFormSheet(
+        title = "Edit Session",
+        primaryColor = primaryColor,
+        initialName = session.name,
+        initialType = workoutActivityTypes.firstOrNull { it.typeId == session.type } ?: workoutActivityTypes.first(),
+        initialDateMs = session.date,
+        initialSeconds = session.durationSeconds,
+        initialNotes = session.notes,
+        onDismiss = onDismiss,
+        onSave = { name, type, dateMs, seconds, notes ->
+            onSave(session.copy(name = name, type = type, date = dateMs, durationSeconds = seconds, notes = notes ?: session.notes))
         }
     )
+}
+
+/**
+ * Shared add/edit session form. [initialName] null = new session: the name auto-fills as
+ * "<Type> – <MMM d>" and follows type/date changes until the user types their own.
+ * [initialNotes] null hides the notes field (add flow has no notes).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SessionFormSheet(
+    title: String,
+    primaryColor: Color,
+    initialName: String?,
+    initialType: WorkoutActivityType,
+    initialDateMs: Long,
+    initialSeconds: Int,
+    initialNotes: String?,
+    onDismiss: () -> Unit,
+    onSave: (name: String, type: String, dateMs: Long, seconds: Int, notes: String?) -> Unit
+) {
+    var selectedType by remember { mutableStateOf(initialType) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMs)
+    val selectedDateMs = datePickerState.selectedDateMillis ?: initialDateMs
+
+    fun autoName(type: WorkoutActivityType, dateMs: Long): String =
+        "${type.label} – ${pickerMillisToLocalDate(dateMs).format(DateTimeFormatter.ofPattern("MMM d"))}"
+
+    var name by remember { mutableStateOf(initialName ?: autoName(initialType, initialDateMs)) }
+    if (initialName == null) {
+        LaunchedEffect(selectedType, selectedDateMs) {
+            val isAutoName = workoutActivityTypes.any { name.startsWith("${it.label} – ") }
+            if (name.isBlank() || isAutoName) name = autoName(selectedType, selectedDateMs)
+        }
+    }
+
+    var hours by remember { mutableStateOf(if (initialSeconds / 3600 > 0) (initialSeconds / 3600).toString() else "") }
+    var minutes by remember {
+        mutableStateOf(if (initialSeconds > 0) ((initialSeconds % 3600) / 60).toString() else "")
+    }
+    var notes by remember { mutableStateOf(initialNotes ?: "") }
+    val totalSeconds = (hours.toIntOrNull() ?: 0) * 3600 + (minutes.toIntOrNull() ?: 0) * 60
+
+    FormSheet(
+        title = title,
+        primaryColor = primaryColor,
+        onDismiss = onDismiss,
+        confirmEnabled = name.isNotBlank() && totalSeconds > 0,
+        onConfirm = {
+            onSave(name, selectedType.typeId, selectedDateMs, totalSeconds, if (initialNotes != null) notes else null)
+        }
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Session Name") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            workoutActivityTypes.forEach { type ->
+                FilterChip(
+                    selected = selectedType == type,
+                    onClick = { selectedType = type },
+                    label = { Text(type.label) },
+                    leadingIcon = {
+                        Icon(getIconForActivity(type.typeId, type.label), contentDescription = null, modifier = Modifier.size(19.dp))
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = primaryColor.copy(alpha = 0.2f),
+                        selectedLabelColor = primaryColor,
+                        selectedLeadingIconColor = primaryColor
+                    )
+                )
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumericInput(
+                value = hours,
+                onValueChange = { hours = it },
+                label = "Hours",
+                modifier = Modifier.weight(1f)
+            )
+            NumericInput(
+                value = minutes,
+                onValueChange = { minutes = it },
+                label = "Minutes",
+                modifier = Modifier.weight(1f),
+                step = 5f
+            )
+        }
+
+        if (initialNotes != null) {
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+            )
+        }
+
+        SheetDateRow(state = datePickerState, primaryColor = primaryColor)
+    }
 }

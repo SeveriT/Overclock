@@ -136,7 +136,9 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
             QueryProductDetailsParams.newBuilder()
                 .setProductList(productList)
                 .build()
-        ) { result, detailsList ->
+        ) { result, detailsResult ->
+            // Billing 8+: products come wrapped in QueryProductDetailsResult
+            val detailsList = detailsResult.productDetailsList
             if (result.responseCode == BillingClient.BillingResponseCode.OK && detailsList.isNotEmpty()) {
                 productDetails = detailsList.first()
             }

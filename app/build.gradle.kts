@@ -25,8 +25,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = "2.2.1"
+        versionCode = 51
+        versionName = "2.3.0"
 
         buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
 
@@ -61,6 +61,11 @@ android {
             excludes += "META-INF/INDEX.LIST"
         }
     }
+}
+
+// APK file name, e.g. Overclock-v2.3.0-release.apk — follows versionName so it never goes stale.
+base {
+    archivesName.set("Overclock-v${android.defaultConfig.versionName}")
 }
 
 // AGP 9 compiles Kotlin itself (built-in Kotlin), so there's no kotlin-android plugin.

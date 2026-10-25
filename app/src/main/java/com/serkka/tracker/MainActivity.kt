@@ -97,36 +97,14 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showExitDialog) {
-                    val exitInteractionSource = remember { MutableInteractionSource() }
-                    val cancelInteractionSource = remember { MutableInteractionSource() }
-                    
-                    AlertDialog(
-                        onDismissRequest = { showExitDialog = false },
-                        title = { Text("Exit App") },
-                        text  = { Text("Are you sure you want to exit?") },
-                        confirmButton = {
-                            Button(
-                                onClick = { finishAffinity() },
-                                interactionSource = exitInteractionSource,
-                                modifier = Modifier.bounceClick(exitInteractionSource),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = primaryColor,
-                                    contentColor = MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                Text("Exit")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { showExitDialog = false },
-                                interactionSource = cancelInteractionSource,
-                                modifier = Modifier.bounceClick(cancelInteractionSource)
-                            ) {
-                                Text("Cancel")
-                            }
-                        }
-                    )
+                    TrackerDialog(
+                        title = "Exit app?",
+                        onDismiss = { showExitDialog = false },
+                        confirmLabel = "Exit",
+                        onConfirm = { finishAffinity() }
+                    ) {
+                        Text("Are you sure you want to exit?")
+                    }
                 }
 
                 // 5. Launch the UI

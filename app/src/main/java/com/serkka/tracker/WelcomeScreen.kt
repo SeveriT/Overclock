@@ -61,26 +61,17 @@ fun WelcomeScreen(
     var showDemoConfirm by remember { mutableStateOf(false) }
 
     if (showDemoConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDemoConfirm = false },
-            title = { Text("Load demo data?") },
-            text = { Text("This will add ~4 weeks of sample workouts, body weight entries, timer sessions, notes, and step history so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDemoConfirm = false
-                        onTryDemo(dontShowAgain)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = MaterialTheme.colorScheme.surface
-                    )
-                ) { Text("Load demo") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDemoConfirm = false }) { Text("Cancel") }
+        TrackerDialog(
+            title = "Load demo data?",
+            onDismiss = { showDemoConfirm = false },
+            confirmLabel = "Load demo",
+            onConfirm = {
+                showDemoConfirm = false
+                onTryDemo(dontShowAgain)
             }
-        )
+        ) {
+            Text("This will add ~4 weeks of sample workouts, body weight entries, timer sessions, notes, and step history so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.")
+        }
     }
 
     // Notification permission
@@ -183,12 +174,11 @@ fun WelcomeScreen(
         // Features
         FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
-        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Body weight chart with trend prediction, volume stats, and a weekly overview on Home", primaryColor)
+        FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trend with prediction, weekly reps per exercise, and a weekly overview on Home", primaryColor)
         FeatureItem(Icons.Default.CalendarMonth, "Calendar", "Year-at-a-glance view of your training days and streaks", primaryColor)
-        FeatureItem(Icons.Default.Checklist, "Schedule", "Weekly workout checklist to tick off as you train", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.AutoMirrored.Filled.Notes, "Notes", "Keep program plans, cues, and reminders in one place", primaryColor)
-        FeatureItem(Icons.Default.Speed, "Pace Calculator", "Convert min/km and km/h with sliders, plus race finish times", primaryColor)
+        FeatureItem(Icons.Default.Handyman, "Tools", "Workout schedule checklist and a running pace calculator", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
         FeatureItem(Icons.Default.CloudUpload, "Backup & Restore", "Zip bundle with workouts and step history, local or Drive", primaryColor)
 

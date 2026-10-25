@@ -143,40 +143,6 @@ fun Modifier.bounceClick(
     }
 )
 
-// ── Shared dialogs ────────────────────────────────────────────────────────────
-
-@Composable
-internal fun ConfirmDeleteDialog(
-    title: String,
-    message: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val confirmInteractionSource = remember { MutableInteractionSource() }
-    val dismissInteractionSource = remember { MutableInteractionSource() }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title   = { Text(title) },
-        text    = { Text(message) },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                interactionSource = confirmInteractionSource,
-                modifier = Modifier.bounceClick(confirmInteractionSource),
-                colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) { Text("Delete") }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                interactionSource = dismissInteractionSource,
-                modifier = Modifier.bounceClick(dismissInteractionSource)
-            ) { Text("Cancel") }
-        }
-    )
-}
-
 // ── Shimmer ──────────────────────────────────────────────────────────────────
 
 fun Modifier.shimmer(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp)): Modifier = composed {

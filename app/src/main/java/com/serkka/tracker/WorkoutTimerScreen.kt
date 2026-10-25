@@ -490,14 +490,17 @@ private fun UploadWorkoutDialog(
     onDismiss: () -> Unit,
     onDiscard: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = { onDismiss() },
-        title = { Text("Save Workout", fontWeight = FontWeight.Bold) },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-
+    // Form sheet: Save, swipe-down / "Resume" goes back to the running timer,
+    // and the delete icon next to the title discards the session.
+    FormSheet(
+        title = "Save Workout",
+        primaryColor = MaterialTheme.colorScheme.primary,
+        onDismiss = onDismiss,
+        onConfirm = onSaveLocally,
+        confirmEnabled = activityName.isNotBlank(),
+        dismissLabel = "Resume",
+        onDelete = onDiscard
+    ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -534,59 +537,5 @@ private fun UploadWorkoutDialog(
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Save locally
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val saveInteractionSource = remember { MutableInteractionSource() }
-
-                    Button(
-                        onClick = onSaveLocally,
-                        interactionSource = saveInteractionSource,
-                        enabled = activityName.isNotBlank(),
-                        modifier = Modifier.weight(1f).bounceClick(saveInteractionSource),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Text("Save")
-                    }
-                }
-
-                // Discard + Cancel row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val discardInteractionSource = remember { MutableInteractionSource() }
-                    val cancelInteractionSource = remember { MutableInteractionSource() }
-
-                    TextButton(
-                        onClick = onDiscard,
-                        interactionSource = discardInteractionSource,
-                        modifier = Modifier.weight(1f).bounceClick(discardInteractionSource)
-                    ) {
-                        Text("Discard", color = MaterialTheme.colorScheme.error)
-                    }
-                    TextButton(
-                        onClick = onDismiss,
-                        interactionSource = cancelInteractionSource,
-                        modifier = Modifier.weight(1f).bounceClick(cancelInteractionSource)
-                    ) {
-                        Text("Resume")
-                    }
-                }
-            }
-        },
-        dismissButton = {}
-    )
+    }
 }

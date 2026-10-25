@@ -531,29 +531,24 @@ fun SummaryPage(
             if (showStepGoalDialog) {
                 item {
                     var goalInput by remember { mutableStateOf(stepGoal.toString()) }
-                    AlertDialog(
-                        onDismissRequest = { showStepGoalDialog = false },
-                        title = { Text("Edit step goal") },
-                        text = {
-                            OutlinedTextField(
-                                value = goalInput,
-                                onValueChange = { input -> goalInput = input.filter { it.isDigit() }.take(6) },
-                                label = { Text("Daily step goal") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                        },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                val parsed = goalInput.toLongOrNull()?.coerceAtLeast(100L) ?: 10_000L
-                                stepsViewModel.setStepGoal(parsed)
-                                showStepGoalDialog = false
-                            }) { Text("Save", color = primaryColor) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showStepGoalDialog = false }) { Text("Cancel") }
+                    TrackerDialog(
+                        title = "Step goal",
+                        onDismiss = { showStepGoalDialog = false },
+                        confirmLabel = "Save",
+                        onConfirm = {
+                            val parsed = goalInput.toLongOrNull()?.coerceAtLeast(100L) ?: 10_000L
+                            stepsViewModel.setStepGoal(parsed)
+                            showStepGoalDialog = false
                         }
-                    )
+                    ) {
+                        OutlinedTextField(
+                            value = goalInput,
+                            onValueChange = { input -> goalInput = input.filter { it.isDigit() }.take(6) },
+                            label = { Text("Daily step goal") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
                 }
             }
 
@@ -563,10 +558,17 @@ fun SummaryPage(
                     val last7Days = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
                     var selectedDate by remember { mutableStateOf(today) }
                     val currentForDay = weeklySteps.firstOrNull { it.first == selectedDate }?.second ?: 0L
-                    AlertDialog(
-                        onDismissRequest = { showAddStepsDialog = false },
-                        title = { Text("Add steps") },
-                        text = {
+                    val addAmount = addInput.toLongOrNull() ?: 0L
+                    TrackerDialog(
+                        title = "Add steps",
+                        onDismiss = { showAddStepsDialog = false },
+                        confirmLabel = "Add",
+                        confirmEnabled = addAmount > 0,
+                        onConfirm = {
+                            stepsViewModel.addStepsManually(addAmount, selectedDate)
+                            showAddStepsDialog = false
+                        }
+                    ) {
                             Column {
                                 Text(
                                     "Day",
@@ -617,19 +619,7 @@ fun SummaryPage(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                addInput.toLongOrNull()
-                                    ?.takeIf { it > 0 }
-                                    ?.let { stepsViewModel.addStepsManually(it, selectedDate) }
-                                showAddStepsDialog = false
-                            }) { Text("Add", color = primaryColor) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showAddStepsDialog = false }) { Text("Cancel") }
-                        }
-                    )
+                    }
                 }
             }
 
