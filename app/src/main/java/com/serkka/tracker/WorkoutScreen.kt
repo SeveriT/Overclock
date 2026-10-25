@@ -224,7 +224,7 @@ fun WorkoutScreen(
     val summaryListState  = rememberLazyListState()
     val weightListState   = rememberLazyListState()
     val notesListState    = rememberLazyListState()
-    val scheduleListState = rememberLazyListState()
+    val toolsListState    = rememberLazyListState()
     val sessionsListState = rememberLazyListState()
     val calendarListState = rememberLazyListState()
 
@@ -552,28 +552,21 @@ fun WorkoutScreen(
                         )
                     }
                 }
-                composable(Screen.Schedule.name) {
+                composable(Screen.Tools.name) {
                     ElasticColumnWrapper {
-                        SchedulePage(
-                            items = scheduleItems,
+                        ToolsPage(
+                            scheduleItems = scheduleItems,
                             primaryColor = primaryColor,
-                            onAdd = { viewModel.addScheduleItem(it) },
-                            onToggle = { viewModel.toggleScheduleItem(it) },
-                            onRename = { item, text -> viewModel.renameScheduleItem(item, text) },
-                            onDelete = { viewModel.deleteScheduleItem(it) },
-                            onResetAll = { viewModel.resetSchedule() },
-                            listState = scheduleListState,
+                            onAddScheduleItem = { viewModel.addScheduleItem(it) },
+                            onToggleScheduleItem = { viewModel.toggleScheduleItem(it) },
+                            onRenameScheduleItem = { item, text -> viewModel.renameScheduleItem(item, text) },
+                            onDeleteScheduleItem = { viewModel.deleteScheduleItem(it) },
+                            onResetSchedule = { viewModel.resetSchedule() },
+                            listState = toolsListState,
                             topPadding = totalTopPadding,
                             bottomPadding = contentBottomPadding
                         )
                     }
-                }
-                composable(Screen.PaceCalculator.name) {
-                    PaceCalculatorPage(
-                        primaryColor = primaryColor,
-                        topPadding = totalTopPadding,
-                        bottomPadding = contentBottomPadding
-                    )
                 }
                 composable(Screen.Settings.name) {
                     SettingsPage(
@@ -798,28 +791,13 @@ fun WorkoutScreen(
                                 Icon(Icons.Default.History, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
-                        AnimatedVisibility(
-                            visible = currentRoute == Screen.Summary.name,
-                            enter   = fadeIn() + slideInHorizontally { it },
-                            exit    = fadeOut() + slideOutHorizontally { it }
-                        ) {
-                            val paceInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = { navigate(Screen.PaceCalculator.name) },
-                                interactionSource = paceInteractionSource,
-                                modifier = Modifier.size(42.dp).bounceClick(paceInteractionSource)
-                            ) {
-                                Icon(Icons.Default.Speed, contentDescription = "Pace calculator", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-
-                        val scheduleInteractionSource = remember { MutableInteractionSource() }
+                        val toolsInteractionSource = remember { MutableInteractionSource() }
                         IconButton(
-                            onClick = { navigate(Screen.Schedule.name) },
-                            interactionSource = scheduleInteractionSource,
-                            modifier = Modifier.size(42.dp).bounceClick(scheduleInteractionSource)
+                            onClick = { navigate(Screen.Tools.name) },
+                            interactionSource = toolsInteractionSource,
+                            modifier = Modifier.size(42.dp).bounceClick(toolsInteractionSource)
                         ) {
-                            Icon(Icons.Default.Checklist, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.Handyman, contentDescription = "Tools", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         val notesInteractionSource = remember { MutableInteractionSource() }

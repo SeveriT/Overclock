@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     id("com.google.gms.google-services")
@@ -17,7 +16,7 @@ val premiumEmails = localProperties.getProperty("PREMIUM_EMAILS") ?: ""
 
 android {
     namespace = "com.serkka.tracker"
-    compileSdk = 36
+    compileSdk = 37
     buildFeatures {
         buildConfig = true
     }
@@ -26,8 +25,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 49
-        versionName = "2.1.1"
+        versionCode = 50
+        versionName = "2.2.1"
 
         buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
 
@@ -52,9 +51,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
     }
@@ -64,6 +60,13 @@ android {
             excludes += "META-INF/DEPENDENCIES"
             excludes += "META-INF/INDEX.LIST"
         }
+    }
+}
+
+// AGP 9 compiles Kotlin itself (built-in Kotlin), so there's no kotlin-android plugin.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
@@ -79,16 +82,16 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
-    implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation(libs.androidx.navigation.compose)
     
     // Room Database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // Lifecycle components - using stable version to avoid lint bugs
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    // Lifecycle components
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Google Drive and Auth
     implementation(libs.play.services.auth)
@@ -98,28 +101,19 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 
-    // Networking (Strava)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.gson)
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
-    
     // Coil for Image Loading
     implementation(libs.coil.compose)
 
     // Palette for extracting colors from album art
-    implementation("androidx.palette:palette-ktx:1.0.0")
-
-    // Encrypted SharedPreferences for API key storage
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation(libs.androidx.palette.ktx)
 
     // Google Play Billing
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    implementation(libs.billing.ktx)
 
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-config-ktx")
+    // Firebase (BOM 34+ folded the -ktx modules into the main artifacts)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.config)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

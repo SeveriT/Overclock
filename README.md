@@ -20,15 +20,16 @@ Overclock is an Android app for lifters who want full control over their trainin
 
 - **Workout logging** — log sets, reps and weight with auto-fill from history, and personal best tracking
 - **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed. Save each session locally with a name, activity type, and date
-- **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
+- **Tools** — one screen, opened from the wrench icon in the top bar, collecting small utilities in expandable sections (one open at a time, remembered between launches):
+  - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
+  - **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
 - **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Configurable axis range
-- **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Summary page
+- **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Home page
 - **Home** — weekly activity count, streaks, recent sessions and last-7-days totals, latest weight, steps, and this week's exercises, with individually hideable sections
 - **Calendar** — a year-at-a-glance overview of compact month grids; days you trained are marked with an accent circle and today gets a ring
 - **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes
-- **Volume stats** — total volume lifted broken down per exercise with animated progress bars
+- **Workout stats** — total volume lifted plus a per-exercise breakdown ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart with a 12-week average line; long-press to hide it from the list and the total
 - **Notes** — a dedicated training journal for freeform, date-organized notes
-- **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
 - **Music widget** — integrated Spotify controller with progress bar, album art accent color, and swipe gesture playback controls
 - **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors, a background brightness slider, a font-size slider, and edge-to-edge display
 - **Cloud sync & backup** — automated Google Drive backups via WorkManager plus manual local backup/restore; backups are self-contained zip bundles that include both the workout database and step history

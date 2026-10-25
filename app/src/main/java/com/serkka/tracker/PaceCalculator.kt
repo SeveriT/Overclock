@@ -4,8 +4,6 @@ package com.serkka.tracker
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -17,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -42,12 +39,9 @@ private val finishDistances = listOf(
     "Marathon" to 42.195f
 )
 
+/** Pace calculator body, embedded in the Tools screen (no own scrolling or page padding). */
 @Composable
-fun PaceCalculatorPage(
-    primaryColor: Color,
-    topPadding: Dp,
-    bottomPadding: Dp = 16.dp
-) {
+fun PaceCalculatorContent(primaryColor: Color) {
     val context = LocalContext.current
     val prefs = remember { PreferencesManager.getInstance(context).tracker }
 
@@ -62,12 +56,7 @@ fun PaceCalculatorPage(
 
     val sliderColors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(top = topPadding + 12.dp, bottom = bottomPadding)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
         // ── Hero readout ──────────────────────────────────────────────────────
         FlatSection(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
             Row(modifier = Modifier.fillMaxWidth()) {
