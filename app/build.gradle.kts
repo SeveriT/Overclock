@@ -35,6 +35,8 @@ android {
 
     buildTypes {
         release {
+            // Android Studio picks this variant by default (Build Variants panel can still switch)
+            isDefault = true
             // R8/ProGuard disabled — not publishing, so skip minification/shrinking to
             // avoid obfuscation-related crashes and speed up release builds.
             isMinifyEnabled = false
