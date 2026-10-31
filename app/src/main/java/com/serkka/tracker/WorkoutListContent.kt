@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -41,7 +42,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.serkka.tracker.ui.theme.PersonalBestGold
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -61,7 +66,10 @@ fun WorkoutListContent(
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp,
     bottomPadding: Dp = 170.dp,
-    searchBar: (@Composable () -> Unit)? = null
+    searchBar: (@Composable () -> Unit)? = null,
+    // Active search text (the list is already filtered by the caller). While searching,
+    // every matching day opens by default so sets/reps show without tapping each one.
+    searchQuery: String = ""
 ) {
     // Group by day, then sort each day's workouts by id DESC so the latest
     // insertion is always on top — regardless of whether `date` came from the
@@ -71,6 +79,10 @@ fun WorkoutListContent(
         .mapValues { (_, list) -> list.sortedByDescending { it.id } }
     val todayKey = remember { formatDate(System.currentTimeMillis()) }
     val expandedDays = remember { mutableStateMapOf(todayKey to true) }
+    // Search has its own expansion state (open by default, collapsible), reset per query,
+    // so searching never disturbs which days you had open in the normal list.
+    val searching = searchQuery.isNotBlank()
+    val searchCollapsedDays = remember(searchQuery) { mutableStateMapOf<String, Boolean>() }
 
     Column(modifier = Modifier.fillMaxSize().padding(top = topPadding)) {
         searchBar?.invoke()
@@ -83,17 +95,50 @@ fun WorkoutListContent(
         ) {
             if (groupedWorkouts.isEmpty()) {
                 item {
-                    EmptyState(
-                        icon = ImageVector.vectorResource(R.drawable.ic_weight_training),
-                        message = "No workouts yet.\nTap + to log your first set.",
-                        primaryColor = primaryColor
-                    )
+                    if (searching) {
+                        EmptyState(
+                            icon = Icons.Default.Search,
+                            message = "No exercises match \"${searchQuery.trim()}\".",
+                            primaryColor = primaryColor
+                        )
+                    } else {
+                        EmptyState(
+                            icon = ImageVector.vectorResource(R.drawable.ic_weight_training),
+                            message = "No workouts yet.\nTap + to log your first set.",
+                            primaryColor = primaryColor
+                        )
+                    }
                 }
             }
 
             val dayEntries = groupedWorkouts.entries.toList()
+            // Monday of each day's ISO week, for the week headers between days
+            val dayWeekStarts = dayEntries.map { (_, list) -> weekStartOf(list.first().date) }
+            val daysPerWeek = dayWeekStarts.groupingBy { it }.eachCount()
+            val thisWeekStart = weekStartOf(System.currentTimeMillis())
+
             dayEntries.forEachIndexed { dayIndex, (date, workoutsInDay) ->
-                val isExpanded = expandedDays[date] ?: false
+                val isExpanded = if (searching) searchCollapsedDays[date] != true
+                                 else expandedDays[date] ?: false
+                val weekStart = dayWeekStarts[dayIndex]
+
+                // ── Week header where the week changes (list is newest first) ──
+                if (dayIndex == 0 || dayWeekStarts[dayIndex - 1] != weekStart) {
+                    // Gap before a new week is its own item so it doesn't stick with the header
+                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(16.dp)) }
+                    // Sticky: stays pinned under the top bar while scrolling through its week,
+                    // and the next week's header pushes it off — so the week change is obvious.
+                    stickyHeader(key = "week_$weekStart") {
+                        WorkoutWeekHeader(
+                            weekStart = weekStart,
+                            gymDays = daysPerWeek[weekStart] ?: 0,
+                            isCurrentWeek = weekStart == thisWeekStart,
+                            primaryColor = primaryColor
+                        )
+                    }
+                }
+                // Divider only between days of the same week; a new week gets its header instead
+                val nextDaySameWeek = dayIndex < dayEntries.lastIndex && dayWeekStarts[dayIndex + 1] == weekStart
 
                 item(key = "day_$date") {
                     Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
@@ -101,7 +146,11 @@ fun WorkoutListContent(
                             workoutsInDay = workoutsInDay,
                             isExpanded = isExpanded,
                             primaryColor = primaryColor,
-                            onToggle = { expandedDays[date] = !isExpanded }
+                            onToggle = {
+                                if (searching) searchCollapsedDays[date] = isExpanded
+                                else expandedDays[date] = !isExpanded
+                            },
+                            showDate = false   // the sticky week header carries the dates
                         )
 
                         // ── Expanded movements: flat, grouped by indent only ─
@@ -122,11 +171,69 @@ fun WorkoutListContent(
                             }
                         }
 
-                        if (dayIndex < dayEntries.lastIndex) WorkoutDayDivider()
+                        if (nextDaySameWeek) WorkoutDayDivider()
                     }
                 }
             }
         }
+    }
+}
+
+/** Monday of the ISO week containing [epochMs], in the device zone (matches the day grouping). */
+private fun weekStartOf(epochMs: Long): LocalDate =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalDate()
+        .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+
+/**
+ * Sticky week separator: filled "W44" badge, date range (or "This week"), gym-day count,
+ * and an accent rule underneath. Opaque background so rows scroll cleanly beneath it.
+ */
+@Composable
+private fun WorkoutWeekHeader(
+    weekStart: LocalDate,
+    gymDays: Int,
+    isCurrentWeek: Boolean,
+    primaryColor: Color
+) {
+    val weekNumber = weekStart.get(WeekFields.ISO.weekOfWeekBasedYear())
+    val rangeFormat = DateTimeFormatter.ofPattern("d.M")
+    val subtitle = if (isCurrentWeek) "This week"
+                   else "${weekStart.format(rangeFormat)} – ${weekStart.plusDays(6).format(rangeFormat)}"
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PageGutter, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "W$weekNumber",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .background(primaryColor, RoundedCornerShape(50))
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                if (gymDays == 1) "1 gym day" else "$gymDays gym days",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        HorizontalDivider(thickness = 1.dp, color = primaryColor.copy(alpha = 0.5f))
     }
 }
 
@@ -161,7 +268,9 @@ internal fun WorkoutDayHeader(
     workoutsInDay: List<Workout>,
     isExpanded: Boolean,
     primaryColor: Color,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    // false = weekday only ("Tuesday"), for lists where a week header already gives the dates
+    showDate: Boolean = true
 ) {
     val exercises = workoutsInDay.map { it.exerciseName }.distinct()
     val hasPB = workoutsInDay.any { it.isPersonalBest }
@@ -176,7 +285,8 @@ internal fun WorkoutDayHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 // Label only; callers group by the full date (incl. year).
-                text = formatDateNoYear(workoutsInDay.first().date),
+                text = if (showDate) formatDateNoYear(workoutsInDay.first().date)
+                       else formatWeekday(workoutsInDay.first().date),
                 style = MaterialTheme.typography.bodyLarge,
                 color = primaryColor,
                 fontWeight = FontWeight.SemiBold

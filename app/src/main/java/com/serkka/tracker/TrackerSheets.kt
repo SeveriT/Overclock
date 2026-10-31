@@ -2,6 +2,7 @@
 
 package com.serkka.tracker
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -14,7 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -182,41 +186,71 @@ internal fun StepSlider(
     val current = value.toLeadFloat() ?: 0f
     fun windowStartFor(v: Float) = (((v - span / 2f) / step).roundToInt() * step).coerceAtLeast(0f)
 
-    var windowStart by remember { mutableFloatStateOf(windowStartFor(current)) }
+    // Window bookkeeping lives in a plain holder and is updated during composition, so a −/+
+    // press renders the re-centred window in its very first frame. (Doing it in a
+    // LaunchedEffect drew one frame with the old window first — thumb pinned to an edge,
+    // track full/empty — which showed up as a colour flash on every press.)
     // Compare the exact text the slider sent, not floats: 0.1-steps don't round-trip
     // through text (40.1 → "40.1" → 40.099998), which used to look like an outside change
     // and re-centre mid-drag. A new valueRange also recreates the Slider and kills the drag,
     // so never re-centre while the finger is down.
-    var lastSentText by remember { mutableStateOf<String?>(null) }
-    var dragging by remember { mutableStateOf(false) }
-    LaunchedEffect(value) {
-        if (!dragging && value != lastSentText) windowStart = windowStartFor(current)
+    val window = remember {
+        object {
+            var start = windowStartFor(current)
+            var seenValue = value
+            var lastSentText: String? = null
+            var dragging = false
+        }
     }
+    if (value != window.seenValue) {
+        if (!window.dragging && value != window.lastSentText) window.start = windowStartFor(current)
+        window.seenValue = value
+    }
+    val windowStart = window.start
 
     val colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor)
+    val sliderValue = current.coerceIn(windowStart, windowStart + span)
+    val tickCount = (span / step).roundToInt()          // intervals; ticks = tickCount + 1
+    val firstTickIndex = (windowStart / step).roundToInt()
+    val idleTickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)   // breathing room between the field above and the ticks
+            // The 48dp Slider leaves 16dp of empty touch area under the 16dp thumb; report
+            // 10dp less height so the next field sits closer. Touch area is unchanged.
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val trim = SLIDER_BOTTOM_TRIM.roundToPx()
+                layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) {
+                    placeable.place(0, 0)
+                }
+            }
+    ) {
     Slider(
-        value = current.coerceIn(windowStart, windowStart + span),
+        value = sliderValue,
         onValueChange = { raw ->
-            dragging = true
+            window.dragging = true
             // Work in whole step indices so the comparison can't drift
             val index = (raw / step).roundToInt()
             if (index != (current / step).roundToInt()) {
                 val text = formatWeight(index * step)
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                lastSentText = text
+                window.lastSentText = text
                 onValueChange(text)
             }
         },
-        onValueChangeFinished = { dragging = false },
+        onValueChangeFinished = { window.dragging = false },
         valueRange = windowStart..(windowStart + span),
         colors = colors,
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         // Same compact thumb + slim track as the Settings sliders
         thumb = {
             SliderDefaults.Thumb(
                 interactionSource = remember { MutableInteractionSource() },
                 colors = colors,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(THUMB_SIZE)
             )
         },
         track = { sliderState ->
@@ -228,7 +262,41 @@ internal fun StepSlider(
             )
         }
     )
+
+    // Tick marks in the empty space above the thumb (the Slider is 48dp tall for touch; the
+    // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a thumb
+    // in from each edge, so the ticks use the same inset to line up with snap positions.
+    // Every 5th step (by absolute value, e.g. each 2.5 kg) gets a taller tick; ticks up to
+    // the thumb take the accent colour like the active track.
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = THUMB_SIZE / 2)
+            .padding(top = 1.dp)
+            .height(8.dp)
+    ) {
+        val stroke = 1.5.dp.toPx()
+        val majorH = size.height
+        val minorH = size.height * 0.5f
+        val activeUpTo = ((sliderValue - windowStart) / step).roundToInt()
+        for (i in 0..tickCount) {
+            val x = size.width * i / tickCount
+            val major = (firstTickIndex + i) % 5 == 0
+            val h = if (major) majorH else minorH
+            drawLine(
+                color = if (i <= activeUpTo) primaryColor else idleTickColor,
+                start = Offset(x, size.height - h),
+                end = Offset(x, size.height),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+    }
 }
+
+private val THUMB_SIZE = 16.dp
+private val SLIDER_BOTTOM_TRIM = 10.dp
 
 /**
  * Calendar date of a DatePicker value. Picked dates are UTC midnight; untouched defaults

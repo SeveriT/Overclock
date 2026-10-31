@@ -294,6 +294,17 @@ fun WorkoutScreen(
     )
 
     val workouts        by viewModel.allWorkouts.collectAsState()
+
+    // Jump the Workouts list to the top once a just-added entry arrives (copy/duplicate).
+    // requestScrollToItem beats LazyColumn's keep-position-by-key behaviour, which would
+    // otherwise hold the old first row in view and leave the new entry above it.
+    var scrollWorkoutsToTopOnChange by remember { mutableStateOf(false) }
+    LaunchedEffect(workouts) {
+        if (scrollWorkoutsToTopOnChange) {
+            workoutsListState.requestScrollToItem(0)
+            scrollWorkoutsToTopOnChange = false
+        }
+    }
     val bodyWeights     by viewModel.allBodyWeights.collectAsState()
     val notesList       by viewModel.allNotes.collectAsState()
     val workoutSessions by viewModel.allSessions.collectAsState()
@@ -463,8 +474,19 @@ fun WorkoutScreen(
                                         primaryColor = primaryColor,
                                         onDelete  = { workoutToDelete = it },
                                         onEdit    = { editingWorkout = it },
-                                        onCopy    = { copyingWorkout = it },
+                                        // Copy / Duplicate from search results also closes the search,
+                                        // so you land back on the full list with the new entry on top.
+                                        onCopy    = {
+                                            copyingWorkout = it
+                                            searchQuery = ""
+                                            searchExpanded = false
+                                            workoutsListState.requestScrollToItem(0)
+                                        },
                                         onDuplicate = { w ->
+                                            searchQuery = ""
+                                            searchExpanded = false
+                                            workoutsListState.requestScrollToItem(0)
+                                            scrollWorkoutsToTopOnChange = true
                                             viewModel.addWorkout(
                                                 w.exerciseName, w.sets, w.reps, w.weight,
                                                 System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes
@@ -473,7 +495,8 @@ fun WorkoutScreen(
                                         onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
                                         listState = workoutsListState,
                                         topPadding = totalTopPadding,
-                                        bottomPadding = contentBottomPadding
+                                        bottomPadding = contentBottomPadding,
+                                        searchQuery = searchQuery
                                     )
                                 }
                             }
@@ -905,6 +928,7 @@ fun WorkoutScreen(
                     titleOverride = "Copy Workout",
                     onDismiss = { copyingWorkout = null },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
+                        scrollWorkoutsToTopOnChange = true
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)
                         if (isPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         copyingWorkout = null
