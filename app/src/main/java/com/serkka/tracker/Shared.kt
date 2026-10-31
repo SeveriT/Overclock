@@ -72,6 +72,9 @@ internal fun formatDateShort(epochMs: Long): String = shortDateFormat.format(jav
 private val dateNoYearFormat = java.text.SimpleDateFormat("EEEE d.M", java.util.Locale.getDefault())
 /** formatDate() without the year, e.g. "Tuesday 14.10". Display only — never a grouping key. */
 internal fun formatDateNoYear(epochMs: Long): String = dateNoYearFormat.format(java.util.Date(epochMs))
+private val weekdayFormat = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
+/** Weekday only, e.g. "Tuesday". Display only. */
+internal fun formatWeekday(epochMs: Long): String = weekdayFormat.format(java.util.Date(epochMs))
 internal fun formatBackupDate(epochMs: Long): String = backupDateFormat.format(java.util.Date(epochMs))
 internal fun formatChartDate(epochMs: Long): String = chartDateFormat.format(java.util.Date(epochMs))
 
