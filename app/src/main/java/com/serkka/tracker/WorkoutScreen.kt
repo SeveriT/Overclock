@@ -489,7 +489,7 @@ fun WorkoutScreen(
                                             scrollWorkoutsToTopOnChange = true
                                             viewModel.addWorkout(
                                                 w.exerciseName, w.sets, w.reps, w.weight,
-                                                System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes
+                                                System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes, w.rpe
                                             )
                                         },
                                         onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
@@ -589,6 +589,20 @@ fun WorkoutScreen(
                             onRenameScheduleItem = { item, text -> viewModel.renameScheduleItem(item, text) },
                             onDeleteScheduleItem = { viewModel.deleteScheduleItem(it) },
                             onResetSchedule = { viewModel.resetSchedule() },
+                            workouts = workouts,
+                            onRenameExercise = { oldName, newName ->
+                                // Keep a Workout Stats "hidden" mark attached to the renamed exercise
+                                val hiddenBefore = trackerPrefs.getStringSet(PREF_HIDDEN_STATS_EXERCISES, null)?.toSet() ?: emptySet()
+                                if (oldName in hiddenBefore) {
+                                    trackerPrefs.edit().putStringSet(PREF_HIDDEN_STATS_EXERCISES, hiddenBefore - oldName + newName).apply()
+                                }
+                                viewModel.renameExercise(oldName, newName) { ids ->
+                                    showUndoSnackbar("Renamed \"$oldName\" → \"$newName\" (${ids.size})") {
+                                        viewModel.undoRenameExercise(ids, oldName)
+                                        trackerPrefs.edit().putStringSet(PREF_HIDDEN_STATS_EXERCISES, hiddenBefore).apply()
+                                    }
+                                }
+                            },
                             listState = toolsListState,
                             topPadding = totalTopPadding,
                             bottomPadding = contentBottomPadding
@@ -862,8 +876,8 @@ fun WorkoutScreen(
                 WorkoutDialog(
                     history = workoutHistory,
                     onDismiss = { showAddWorkoutDialog = false },
-                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
-                        viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)
+                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe ->
+                        viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe)
                         if (isPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showAddWorkoutDialog = false
                     }
@@ -907,11 +921,11 @@ fun WorkoutScreen(
                     workout = workout,
                     history = workoutHistory,
                     onDismiss = { editingWorkout = null },
-                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
+                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe ->
                         val wasPB = workout.isPersonalBest
                         viewModel.updateWorkout(workout.copy(
                             exerciseName = exercise, sets = sets, reps = reps, weight = weight,
-                            date = dateMillis, isPersonalBest = isPB, weightUnit = weightUnit, notes = notes
+                            date = dateMillis, isPersonalBest = isPB, weightUnit = weightUnit, notes = notes, rpe = rpe
                         ))
                         if (isPB && !wasPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         editingWorkout = null
@@ -927,9 +941,9 @@ fun WorkoutScreen(
                     history = workoutHistory,
                     titleOverride = "Copy Workout",
                     onDismiss = { copyingWorkout = null },
-                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes ->
+                    onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe ->
                         scrollWorkoutsToTopOnChange = true
-                        viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes)
+                        viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe)
                         if (isPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         copyingWorkout = null
                     }

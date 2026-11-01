@@ -50,7 +50,7 @@ class WorkoutViewModel(
             initialValue = emptyList()
         )
 
-    fun addWorkout(exercise: String, sets: Int, reps: Int, weight: Float, dateMillis: Long, isPersonalBest: Boolean, weightUnit: String = "kg", notes: String = "") {
+    fun addWorkout(exercise: String, sets: Int, reps: Int, weight: Float, dateMillis: Long, isPersonalBest: Boolean, weightUnit: String = "kg", notes: String = "", rpe: Float? = null) {
         viewModelScope.launch {
             val newWorkout = Workout(
                 exerciseName = exercise,
@@ -60,10 +60,22 @@ class WorkoutViewModel(
                 date = dateMillis,
                 isPersonalBest = isPersonalBest,
                 weightUnit = weightUnit,
-                notes = notes
+                notes = notes,
+                rpe = rpe
             )
             repository.addWorkout(newWorkout)
         }
+    }
+
+    /** Bulk rename; [onDone] gets the changed ids so the caller can offer Undo. */
+    fun renameExercise(oldName: String, newName: String, onDone: (List<Int>) -> Unit = {}) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty() || trimmed == oldName) return
+        viewModelScope.launch { onDone(repository.renameExercise(oldName, trimmed)) }
+    }
+
+    fun undoRenameExercise(ids: List<Int>, oldName: String) {
+        viewModelScope.launch { repository.setExerciseName(ids, oldName) }
     }
 
     fun updateWorkout(workout: Workout) {

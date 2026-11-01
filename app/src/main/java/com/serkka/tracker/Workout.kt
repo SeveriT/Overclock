@@ -13,5 +13,7 @@ data class Workout(
     val weight: Float,
     val isPersonalBest: Boolean = false,
     val weightUnit: String = "kg",
-    val notes: String = ""
+    val notes: String = "",
+    /** Rate of perceived exertion, 5–10 in 0.5 steps; null = not recorded. Added in DB v9. */
+    val rpe: Float? = null
 )

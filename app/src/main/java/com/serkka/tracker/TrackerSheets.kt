@@ -208,28 +208,8 @@ internal fun StepSlider(
     }
     val windowStart = window.start
 
-    val colors = SliderDefaults.colors(thumbColor = primaryColor, activeTrackColor = primaryColor)
-    val sliderValue = current.coerceIn(windowStart, windowStart + span)
-    val tickCount = (span / step).roundToInt()          // intervals; ticks = tickCount + 1
-    val firstTickIndex = (windowStart / step).roundToInt()
-    val idleTickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp)   // breathing room between the field above and the ticks
-            // The 48dp Slider leaves 16dp of empty touch area under the 16dp thumb; report
-            // 10dp less height so the next field sits closer. Touch area is unchanged.
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                val trim = SLIDER_BOTTOM_TRIM.roundToPx()
-                layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) {
-                    placeable.place(0, 0)
-                }
-            }
-    ) {
-    Slider(
-        value = sliderValue,
+    TickedSlider(
+        value = current.coerceIn(windowStart, windowStart + span),
         onValueChange = { raw ->
             window.dragging = true
             // Work in whole step indices so the comparison can't drift
@@ -243,55 +223,179 @@ internal fun StepSlider(
         },
         onValueChangeFinished = { window.dragging = false },
         valueRange = windowStart..(windowStart + span),
-        colors = colors,
-        modifier = Modifier.fillMaxWidth(),
-        // Same compact thumb + slim track as the Settings sliders
-        thumb = {
-            SliderDefaults.Thumb(
-                interactionSource = remember { MutableInteractionSource() },
-                colors = colors,
-                modifier = Modifier.size(THUMB_SIZE)
-            )
-        },
-        track = { sliderState ->
-            SliderDefaults.Track(
-                sliderState = sliderState,
-                colors = colors,
-                modifier = Modifier.height(4.dp),
-                thumbTrackGapSize = 4.dp
-            )
-        }
+        step = step,
+        primaryColor = primaryColor,
+        modifier = modifier.padding(top = 10.dp)   // breathing room between the field above and the ticks
     )
+}
 
-    // Tick marks in the empty space above the thumb (the Slider is 48dp tall for touch; the
-    // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a thumb
-    // in from each edge, so the ticks use the same inset to line up with snap positions.
-    // Every 5th step (by absolute value, e.g. each 2.5 kg) gets a taller tick; ticks up to
-    // the thumb take the accent colour like the active track.
-    Canvas(
-        modifier = Modifier
+/**
+ * Settings-style slider (16dp thumb, 4dp track) with little tick marks ABOVE it at every
+ * [step] — not in the track. Every [majorEvery]-th tick by absolute value (e.g. each 2.5 kg,
+ * or each whole RPE) is taller; ticks up to the thumb take the accent colour like the active
+ * track. [active] = false greys thumb/track/ticks for an unset value but stays draggable.
+ */
+@Composable
+private fun TickedSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    step: Float,
+    primaryColor: Color,
+    modifier: Modifier = Modifier,
+    majorEvery: Int = 5,
+    active: Boolean = true
+) {
+    val accent = if (active) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val colors = if (active) {
+        SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+    } else {
+        SliderDefaults.colors(
+            thumbColor = accent,
+            activeTrackColor = accent,
+            inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+        )
+    }
+    val tickCount = ((valueRange.endInclusive - valueRange.start) / step).roundToInt()  // intervals
+    val firstTickIndex = (valueRange.start / step).roundToInt()
+    val idleTickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = THUMB_SIZE / 2)
-            .padding(top = 1.dp)
-            .height(8.dp)
+            // The 48dp Slider leaves 16dp of empty touch area under the 16dp thumb; report
+            // 10dp less height so the next field sits closer. Touch area is unchanged.
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val trim = SLIDER_BOTTOM_TRIM.roundToPx()
+                layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) {
+                    placeable.place(0, 0)
+                }
+            }
     ) {
-        val stroke = 1.5.dp.toPx()
-        val majorH = size.height
-        val minorH = size.height * 0.5f
-        val activeUpTo = ((sliderValue - windowStart) / step).roundToInt()
-        for (i in 0..tickCount) {
-            val x = size.width * i / tickCount
-            val major = (firstTickIndex + i) % 5 == 0
-            val h = if (major) majorH else minorH
-            drawLine(
-                color = if (i <= activeUpTo) primaryColor else idleTickColor,
-                start = Offset(x, size.height - h),
-                end = Offset(x, size.height),
-                strokeWidth = stroke,
-                cap = StrokeCap.Round
-            )
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = valueRange,
+            colors = colors,
+            modifier = Modifier.fillMaxWidth(),
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = remember { MutableInteractionSource() },
+                    colors = colors,
+                    modifier = Modifier.size(THUMB_SIZE)
+                )
+            },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    colors = colors,
+                    modifier = Modifier.height(4.dp),
+                    thumbTrackGapSize = 4.dp
+                )
+            }
+        )
+
+        // Ticks in the empty space above the thumb (the Slider is 48dp tall for touch; the
+        // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a
+        // thumb in from each edge, so the ticks use the same inset to line up with snap points.
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = THUMB_SIZE / 2)
+                .padding(top = 1.dp)
+                .height(8.dp)
+        ) {
+            val stroke = 1.5.dp.toPx()
+            val activeUpTo = if (active) ((value - valueRange.start) / step).roundToInt() else -1
+            for (i in 0..tickCount) {
+                val x = size.width * i / tickCount
+                val major = (firstTickIndex + i) % majorEvery == 0
+                val h = if (major) size.height else size.height * 0.5f
+                drawLine(
+                    color = if (i <= activeUpTo) primaryColor else idleTickColor,
+                    start = Offset(x, size.height - h),
+                    end = Offset(x, size.height),
+                    strokeWidth = stroke,
+                    cap = StrokeCap.Round
+                )
+            }
         }
     }
+}
+
+// ── RPE ───────────────────────────────────────────────────────────────────────
+
+private const val RPE_MIN = 5f
+private const val RPE_MAX = 10f
+private const val RPE_STEP = 0.5f
+
+/** RPE → reps in reserve, e.g. 8 → "2 reps left", 8.5 → "1–2 reps left", 10 → "max effort". */
+internal fun rpeDescription(rpe: Float): String {
+    val rir = RPE_MAX - rpe
+    return when {
+        rpe >= 10f -> "max effort"
+        rpe >= 9.5f -> "maybe 1 more"
+        rir >= 5f -> "5+ reps left"
+        rir % 1f == 0f -> if (rir == 1f) "1 rep left" else "${rir.toInt()} reps left"
+        else -> "${rir.toInt()}–${rir.toInt() + 1} reps left"
+    }
+}
+
+/** "8" / "8.5" for display. */
+internal fun formatRpe(rpe: Float): String = formatWeight(rpe)
+
+/**
+ * Optional RPE (rate of perceived exertion) 5–10 in 0.5 steps. Starts unset (greyed,
+ * "Not set"); dragging sets it; Clear unsets it again. Label shows reps in reserve.
+ */
+@Composable
+internal fun RpeSlider(
+    rpe: Float?,
+    onRpeChange: (Float?) -> Unit,
+    primaryColor: Color
+) {
+    val haptic = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.heightIn(min = 40.dp),   // Clear button height: no jump when it appears
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "RPE",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (rpe == null) "Not set" else "${formatRpe(rpe)} · ${rpeDescription(rpe)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (rpe == null) MaterialTheme.colorScheme.onSurfaceVariant else primaryColor,
+                modifier = Modifier.weight(1f)
+            )
+            if (rpe != null) {
+                TextButton(onClick = { onRpeChange(null) }) { Text("Clear") }
+            }
+        }
+        TickedSlider(
+            value = rpe ?: RPE_MIN,
+            onValueChange = { raw ->
+                val snapped = (raw / RPE_STEP).roundToInt() * RPE_STEP
+                if (snapped != rpe) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onRpeChange(snapped)
+                }
+            },
+            onValueChangeFinished = {},
+            valueRange = RPE_MIN..RPE_MAX,
+            step = RPE_STEP,
+            primaryColor = primaryColor,
+            majorEvery = 2,          // taller tick on every whole RPE
+            active = rpe != null
+        )
     }
 }
 

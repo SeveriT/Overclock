@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Workout::class, BodyWeight::class, Note::class, WorkoutSession::class, ScheduleItem::class], version = 8, exportSchema = false)
+@Database(entities = [Workout::class, BodyWeight::class, Note::class, WorkoutSession::class, ScheduleItem::class], version = 9, exportSchema = false)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
     abstract fun bodyWeightDao(): BodyWeightDao
@@ -78,10 +78,20 @@ abstract class WorkoutDatabase : RoomDatabase() {
             }
         }
 
+        // Optional RPE per workout entry. Nullable REAL with no default = existing rows read as
+        // "not recorded" (matches Workout.rpe: Float? = null).
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workouts ADD COLUMN rpe REAL")
+            }
+        }
+
         fun getDatabase(context: Context): WorkoutDatabase {
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(context, WorkoutDatabase::class.java, "workout_db")
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    // Every version step needs a migration here: the destructive fallback
+                    // below would otherwise wipe all data on upgrade.
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it }

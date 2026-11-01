@@ -21,6 +21,17 @@ class WorkoutRepository(
         workoutDao.updateWorkout(workout)
     }
 
+    /** Renames every entry of [oldName] to [newName]; returns the ids changed (for undo). */
+    suspend fun renameExercise(oldName: String, newName: String): List<Int> {
+        val ids = workoutDao.getWorkoutIdsForExercise(oldName)
+        if (ids.isNotEmpty()) workoutDao.setExerciseName(ids, newName)
+        return ids
+    }
+
+    suspend fun setExerciseName(ids: List<Int>, name: String) {
+        if (ids.isNotEmpty()) workoutDao.setExerciseName(ids, name)
+    }
+
     suspend fun deleteWorkout(workout: Workout) {
         workoutDao.deleteWorkout(workout)
     }

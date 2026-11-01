@@ -18,10 +18,11 @@ Overclock is an Android app for lifters who want full control over their trainin
 
 ## Features
 
-- **Workout logging** — a bottom-sheet form with recent-exercise chips, history auto-complete and a tap-to-reuse "Last time" chip. Weight uses ±5 kg buttons for big jumps plus a fine-tune slider (±5 kg in 0.5 kg steps), dates have Today / Yesterday quick picks, and personal bests are one toggle away
+- **Workout logging** — a bottom-sheet form with recent-exercise chips, history auto-complete and a tap-to-reuse "Last time" chip. Weight uses ±5 kg buttons for big jumps plus a fine-tune slider (±5 kg in 0.5 kg steps), an optional RPE slider (5–10, shown as reps in reserve) rates effort, dates have Today / Yesterday quick picks, and personal bests are one toggle away
 - **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed. When you stop, save the session with a name and activity type, resume, or discard it
 - **Tools** — one screen, opened from the wrench icon in the top bar, collecting small utilities in expandable sections (one open at a time, remembered between launches):
   - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
+  - **Exercise names** — bulk-rename an exercise across every logged entry, or merge spelling variants into one name, with Undo
   - **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
 - **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Configurable axis range, and quick weigh-ins with ±1 kg buttons and a 0.1 kg fine-tune slider
 - **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Home page

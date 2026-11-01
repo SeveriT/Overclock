@@ -21,6 +21,14 @@ interface WorkoutDao {
     @Delete
     suspend fun deleteWorkout(workout: Workout)
 
+    // Bulk exercise rename (Tools → Exercise names). Works on ids so a rename that merges
+    // into an existing name can still be undone exactly.
+    @Query("SELECT id FROM workouts WHERE exerciseName = :name")
+    suspend fun getWorkoutIdsForExercise(name: String): List<Int>
+
+    @Query("UPDATE workouts SET exerciseName = :newName WHERE id IN (:ids)")
+    suspend fun setExerciseName(ids: List<Int>, newName: String)
+
     // Notes
     @Query("SELECT * FROM notes ORDER BY date DESC")
     fun getAllNotes(): Flow<List<Note>>

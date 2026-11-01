@@ -245,7 +245,7 @@ private fun WorkoutWeekHeader(
 /** "Sets x reps @ weight" detail line; cardio entries show minutes instead. */
 internal fun workoutDetailsText(workout: Workout): String {
     val isCardio = workout.exerciseName.trim().equals("Cardio", ignoreCase = true)
-    return buildString {
+    val base = buildString {
         if (isCardio) {
             if (workout.weight > 0) append("${formatWeight(workout.weight)} min")
         } else {
@@ -256,7 +256,9 @@ internal fun workoutDetailsText(workout: Workout): String {
             }
             if (workout.weight > 0) append("@ ${formatWeight(workout.weight)}${workout.weightUnit}")
         }
-    }
+    }.trim()
+    val rpe = workout.rpe?.let { "RPE ${formatRpe(it)}" } ?: return base
+    return if (base.isEmpty()) rpe else "$base · $rpe"
 }
 
 /**
@@ -465,7 +467,8 @@ fun WorkoutDialog(
     history: List<Workout> = emptyList(),
     titleOverride: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (String, Int, Int, Float, Long, Boolean, String, String) -> Unit,
+    // exercise, sets, reps, weight, date, isPB, unit, notes, rpe (null = not recorded)
+    onConfirm: (String, Int, Int, Float, Long, Boolean, String, String, Float?) -> Unit,
     onDelete: (() -> Unit)? = null,
     onCopy: (() -> Unit)? = null
 ) {
@@ -478,6 +481,7 @@ fun WorkoutDialog(
     val weightUnit = "kg"
     var notes by remember { mutableStateOf(workout?.notes ?: "") }
     var isPB by remember { mutableStateOf(workout?.isPersonalBest ?: false) }
+    var rpe by remember { mutableStateOf(workout?.rpe) }
     val dialogHaptic = LocalHapticFeedback.current
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = workout?.date ?: System.currentTimeMillis()
@@ -529,7 +533,8 @@ fun WorkoutDialog(
                 datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
                 isPB,
                 weightUnit,
-                notes
+                notes,
+                rpe
             )
         }
     ) {
@@ -603,9 +608,12 @@ fun WorkoutDialog(
             AssistChip(
                 onClick = { fillFrom(last) },
                 label = {
+                    // Show last time's RPE too (for reference only — reusing doesn't copy it,
+                    // since RPE rates the set being logged now)
+                    val lastRpe = last.rpe?.let { " · RPE ${formatRpe(it)}" } ?: ""
                     Text(
-                        if (lastIsCardio) "Last time: ${formatWeight(last.weight)} min · tap to reuse"
-                        else "Last time: ${last.sets}×${last.reps} @ ${formatWeight(last.weight)}${last.weightUnit} · tap to reuse"
+                        if (lastIsCardio) "Last time: ${formatWeight(last.weight)} min$lastRpe · tap to reuse"
+                        else "Last time: ${last.sets}×${last.reps} @ ${formatWeight(last.weight)}${last.weightUnit}$lastRpe · tap to reuse"
                     )
                 },
                 leadingIcon = { Icon(Icons.Default.History, null, modifier = Modifier.size(18.dp)) },
@@ -645,6 +653,9 @@ fun WorkoutDialog(
             span = 10f,
             primaryColor = primaryColor
         )
+
+        // Optional effort rating — starts "Not set"; Clear unsets it
+        RpeSlider(rpe = rpe, onRpeChange = { rpe = it }, primaryColor = primaryColor)
 
         OutlinedTextField(
             value = notes,

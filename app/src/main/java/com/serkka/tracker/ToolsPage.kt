@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
@@ -30,7 +31,7 @@ import androidx.compose.ui.unit.dp
 // Accordion of small utilities. One tool is open at a time; the open one is
 // remembered across launches.
 
-private enum class Tool { Schedule, PaceCalculator }
+private enum class Tool { Schedule, PaceCalculator, ExerciseNames }
 
 private const val PREF_OPEN_TOOL = "tools_open_tool"
 
@@ -43,6 +44,8 @@ fun ToolsPage(
     onRenameScheduleItem: (ScheduleItem, String) -> Unit,
     onDeleteScheduleItem: (ScheduleItem) -> Unit,
     onResetSchedule: () -> Unit,
+    workouts: List<Workout>,
+    onRenameExercise: (oldName: String, newName: String) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp,
     bottomPadding: Dp = 16.dp
@@ -59,6 +62,10 @@ fun ToolsPage(
 
     var editingScheduleItem by remember { mutableStateOf<ScheduleItem?>(null) }
     val doneCount = scheduleItems.count { it.isDone }
+
+    val exerciseInfos = remember(workouts) { exerciseNameInfos(workouts) }
+    var exerciseFilter by remember { mutableStateOf("") }
+    var renamingExercise by remember { mutableStateOf<ExerciseNameInfo?>(null) }
 
     LazyColumn(
         state = listState,
@@ -109,6 +116,39 @@ fun ToolsPage(
             }
         }
         item(key = "tool_divider_pace") { ListRowDivider(modifier = Modifier.animateItem(), inset = 0.dp) }
+
+        // ── Exercise names (bulk rename / merge) ───────────────────────────────
+        item(key = "tool_exnames") {
+            ToolHeader(
+                icon = Icons.Default.DriveFileRenameOutline,
+                title = "Exercise Names",
+                subtitle = if (exerciseInfos.isEmpty()) "Rename or merge exercises"
+                           else "${exerciseInfos.size} exercises · rename or merge",
+                expanded = openTool == Tool.ExerciseNames,
+                primaryColor = primaryColor,
+                onClick = { toggle(Tool.ExerciseNames) },
+                modifier = Modifier.animateItem()
+            )
+        }
+        if (openTool == Tool.ExerciseNames) {
+            exerciseNameItems(
+                infos = exerciseInfos,
+                filter = exerciseFilter,
+                onFilterChange = { exerciseFilter = it },
+                onPick = { renamingExercise = it }
+            )
+        }
+        item(key = "tool_divider_exnames") { ListRowDivider(modifier = Modifier.animateItem(), inset = 0.dp) }
+    }
+
+    renamingExercise?.let { info ->
+        ExerciseRenameDialog(
+            info = info,
+            allInfos = exerciseInfos,
+            primaryColor = primaryColor,
+            onRename = { newName -> onRenameExercise(info.name, newName) },
+            onDismiss = { renamingExercise = null }
+        )
     }
 
     editingScheduleItem?.let { item ->

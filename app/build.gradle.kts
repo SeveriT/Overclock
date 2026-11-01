@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,28 +5,20 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(localPropertiesFile.inputStream())
-}
-val premiumEmails = localProperties.getProperty("PREMIUM_EMAILS") ?: ""
+// Premium whitelist lives only in Firebase Remote Config ("premium_emails"). Never bake
+// emails into BuildConfig: release APKs are published on GitHub and R8 is off, so any
+// string compiled in is readable by anyone who downloads the APK.
 
 android {
     namespace = "com.serkka.tracker"
     compileSdk = 37
-    buildFeatures {
-        buildConfig = true
-    }
 
     defaultConfig {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 52
-        versionName = "2.4.0"
-
-        buildConfigField("String", "PREMIUM_EMAILS", "\"$premiumEmails\"")
+        versionCode = 53
+        versionName = "2.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

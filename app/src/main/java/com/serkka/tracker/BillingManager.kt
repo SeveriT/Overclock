@@ -13,7 +13,18 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
 
     companion object {
         const val PRODUCT_ID = "premium_monthly"
-        private const val RC_KEY_PREMIUM_EMAILS = "premium_emails"
+        // Remote Config values are readable by anyone holding the APK (its Firebase API key
+        // fetches the whole template), so the whitelist holds salted SHA-256 hashes, never
+        // addresses. Comma/space separated, 64 lowercase hex chars each. Generate one with
+        // premiumEmailHash("someone@example.com").
+        private const val RC_KEY_PREMIUM_EMAIL_HASHES = "premium_email_hashes"
+        private const val PREMIUM_HASH_SALT = "overclock-premium:"
+
+        /** Salted SHA-256 (hex) of a normalised email — the value to put in Remote Config. */
+        fun premiumEmailHash(email: String): String =
+            java.security.MessageDigest.getInstance("SHA-256")
+                .digest((PREMIUM_HASH_SALT + email.trim().lowercase()).toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
 
         @Volatile
         private var instance: BillingManager? = null
@@ -29,7 +40,7 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
     private val remoteConfig = FirebaseRemoteConfig.getInstance().apply {
         setConfigSettingsAsync(remoteConfigSettings { minimumFetchIntervalInSeconds = 1800 })
         setDefaultsAsync(mapOf(
-            RC_KEY_PREMIUM_EMAILS to ""
+            RC_KEY_PREMIUM_EMAIL_HASHES to ""
         ))
     }
 
@@ -39,18 +50,20 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
     private val _isSubscribed = MutableStateFlow(false)
     val isSubscribed: StateFlow<Boolean> = _isSubscribed
 
-    private fun getPremiumEmails(): Set<String> {
-        return remoteConfig.getString(RC_KEY_PREMIUM_EMAILS)
-            .split(",")
+    private fun getPremiumEmailHashes(): Set<String> {
+        return remoteConfig.getString(RC_KEY_PREMIUM_EMAIL_HASHES)
+            .split(',', ' ', '\n')
             .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
+            .filter { it.length == 64 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
             .toSet()
     }
 
     private fun checkWhitelist(): Boolean {
         return try {
+            val hashes = getPremiumEmailHashes()
+            if (hashes.isEmpty()) return false
             val accounts = AccountManager.get(appContext).getAccountsByType("com.google")
-            accounts.any { it.name.lowercase() in getPremiumEmails() }
+            accounts.any { premiumEmailHash(it.name) in hashes }
         } catch (_: Exception) { false }
     }
 

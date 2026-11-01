@@ -48,7 +48,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private const val REP_CHART_WEEKS = 12
-private const val PREF_HIDDEN_STATS_EXERCISES = "stats_hidden_exercises"
+internal const val PREF_HIDDEN_STATS_EXERCISES = "stats_hidden_exercises"
 
 @Composable
 fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: Dp, bottomPadding: Dp = 16.dp) {
