@@ -67,8 +67,19 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         } catch (_: Exception) { false }
     }
 
-    private fun fetchRemoteEmails() {
-        remoteConfig.fetchAndActivate().addOnCompleteListener {
+    /**
+     * Fetch the whitelist and re-evaluate. Normally Remote Config serves a cached copy for up to
+     * 30 min, but [forceFresh] (manual recheck) — or a cached copy that has no hash list at all,
+     * e.g. one fetched before `premium_email_hashes` existed — bypasses the cache, so a config
+     * change takes effect on the next launch instead of half an hour later.
+     */
+    private fun fetchRemoteEmails(forceFresh: Boolean = false) {
+        // ensureInitialized: the cached (activated) config loads from disk asynchronously, so
+        // wait for it before deciding whether it's missing the hash list.
+        remoteConfig.ensureInitialized().continueWithTask {
+            val needsFresh = forceFresh || getPremiumEmailHashes().isEmpty()
+            if (needsFresh) remoteConfig.fetch(0) else remoteConfig.fetch()
+        }.continueWithTask { remoteConfig.activate() }.addOnCompleteListener {
             _isWhitelisted.value = checkWhitelist()
             if (_isWhitelisted.value) {
                 _isSubscribed.value = true
@@ -204,8 +215,9 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         }
     }
 
+    /** Manual recheck (Settings → Sign in with Google): always fetch fresh, never the cache. */
     fun recheckWhitelist() {
-        fetchRemoteEmails()
+        fetchRemoteEmails(forceFresh = true)
     }
 
     fun getFormattedPrice(): String? {
