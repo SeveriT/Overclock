@@ -302,6 +302,9 @@ fun WorkoutScreen(
 
     // PB "peak moment" banner (PbCelebration.kt); null = hidden
     var pbCelebration by remember { mutableStateOf<PbCelebrationData?>(null) }
+
+    // In-app updater: check GitHub for a newer release at most once a day (AppUpdater.kt)
+    LaunchedEffect(Unit) { AppUpdater.autoCheck(ctx) }
     LaunchedEffect(workouts) {
         if (scrollWorkoutsToTopOnChange) {
             workoutsListState.requestScrollToItem(0)
@@ -894,6 +897,9 @@ fun WorkoutScreen(
                     .align(Alignment.TopCenter)
                     .padding(top = totalTopPadding + 8.dp)
             )
+
+            // In-app update dialogs (available / downloading / install permission / up to date)
+            AppUpdateHost()
 
             // ── Dialogs ───────────────────────────────────────────────────────
 

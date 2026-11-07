@@ -562,6 +562,15 @@ fun SettingsPage(
                     primaryColor = primaryColor,
                     onClick = { showUserGuide = true }
                 )
+                val updateState by AppUpdater.state.collectAsState()
+                SettingsRow(
+                    icon = Icons.Default.SystemUpdate,
+                    title = "Check for updates",
+                    subtitle = if (updateState is UpdateState.Checking) "Checking GitHub…"
+                               else "Version ${AppUpdater.installedVersion(context)}",
+                    primaryColor = primaryColor,
+                    onClick = { AppUpdater.checkNow(context) }
+                )
                 SettingsRow(
                     icon = Icons.Default.Email,
                     title = "Contact support",

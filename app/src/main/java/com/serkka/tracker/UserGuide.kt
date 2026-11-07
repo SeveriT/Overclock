@@ -132,6 +132,12 @@ private val guideGroups = listOf(
             "Google Drive backups run automatically once a week (Premium). Settings shows the countdown.",
             "Restore from backup replaces your current data with a backup file."
         )),
+        GuideTopic(Icons.Default.SystemUpdate, "Updates", "New versions straight from GitHub", listOf(
+            "The app checks for a new release once a day and offers it with Update, Later or Skip.",
+            "Check any time in Settings → Help → Check for updates.",
+            "Updates install over the current app and keep all your data.",
+            "The first time, Android asks you to allow installing apps from Overclock."
+        )),
         GuideTopic(Icons.Default.Security, "Permissions", "What the app needs and why", listOf(
             "Notifications: timer and step-goal alerts.",
             "Notification Listener: the music widget.",
