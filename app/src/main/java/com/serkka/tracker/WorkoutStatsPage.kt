@@ -119,7 +119,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
                     Spacer(modifier = Modifier.height(8.dp))
                     val animatedWeight by animateFloatAsState(
                         targetValue = totalWeightLifted.toFloat(),
-                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = Motion.LONG, easing = FastOutSlowInEasing),
                         label = "TotalWeightAnimation"
                     )
                     Text(
@@ -179,7 +179,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
                     val progress = if (totalRecentReps > 0) recentReps(exercise) / totalRecentReps.toFloat() else 0f
                     val animatedProgress by animateFloatAsState(
                         targetValue = progress,
-                        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = Motion.LONG, easing = FastOutSlowInEasing),
                         label = "ProgressAnimation"
                     )
                     LinearProgressIndicator(
@@ -267,7 +267,7 @@ private fun weeklyReps(workouts: List<Workout>): Map<String, List<Pair<LocalDate
 private fun WeeklyRepsChart(weeks: List<Pair<LocalDate, Int>>, primaryColor: Color) {
     var selected by remember(weeks) { mutableIntStateOf(weeks.lastIndex) }
     val grow = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { grow.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(Unit) { grow.animateTo(1f, tween(Motion.LONG, easing = FastOutSlowInEasing)) }
 
     val maxReps = weeks.maxOf { it.second }.coerceAtLeast(1)
     val avg = weeks.sumOf { it.second } / weeks.size.toFloat()

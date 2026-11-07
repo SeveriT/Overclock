@@ -153,8 +153,8 @@ internal fun PbCelebrationBanner(
 
     AnimatedVisibility(
         visible = data != null,
-        enter = slideInVertically(tween(280)) { -it } + fadeIn(tween(200)),
-        exit = slideOutVertically(tween(220)) { -it } + fadeOut(tween(180)),
+        enter = slideInVertically(tween(Motion.MEDIUM)) { -it } + fadeIn(tween(Motion.SHORT)),
+        exit = slideOutVertically(tween(Motion.SHORT)) { -it } + fadeOut(tween(Motion.SHORT)),
         modifier = modifier
     ) {
         val pb = shown ?: return@AnimatedVisibility

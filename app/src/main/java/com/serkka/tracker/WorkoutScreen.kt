@@ -289,7 +289,7 @@ fun WorkoutScreen(
     val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val navBarOffsetY by animateDpAsState(
         targetValue = if (isNavBarVisible) 0.dp else 100.dp + systemNavBarHeight,
-        animationSpec = tween(200),
+        animationSpec = tween(Motion.MEDIUM),
         label = "navBarOffset"
     )
 
@@ -359,7 +359,7 @@ fun WorkoutScreen(
                 }
             }
             coroutineScope.launch {
-                pagerState.animateScrollToPage(targetPage, animationSpec = tween(300))
+                pagerState.animateScrollToPage(targetPage, animationSpec = tween(Motion.MEDIUM))
             }
         } else {
             navController.navigate(route) {
@@ -392,7 +392,7 @@ fun WorkoutScreen(
             val totalTopPadding = topBarBaseHeight + statusBarHeight
             val contentBottomPadding by animateDpAsState(
                 targetValue = if (isNavBarVisible) 190.dp else 140.dp,
-                animationSpec = tween(300),
+                animationSpec = tween(Motion.MEDIUM),
                 label = "contentBottom"
             )
 
@@ -418,13 +418,13 @@ fun WorkoutScreen(
                     val to = swipeScreens.indexOf(targetState.destination.route)
                     when {
                         from == -1 || to == -1 ->
-                            fadeIn(animationSpec = tween(260))
+                            fadeIn(animationSpec = tween(Motion.MEDIUM))
                         to > from ->
-                            slideInHorizontally(animationSpec = tween(260)) { it / 6 } +
-                                fadeIn(animationSpec = tween(260))
+                            slideInHorizontally(animationSpec = tween(Motion.MEDIUM)) { it / 6 } +
+                                fadeIn(animationSpec = tween(Motion.MEDIUM))
                         else ->
-                            slideInHorizontally(animationSpec = tween(260)) { -it / 6 } +
-                                fadeIn(animationSpec = tween(260))
+                            slideInHorizontally(animationSpec = tween(Motion.MEDIUM)) { -it / 6 } +
+                                fadeIn(animationSpec = tween(Motion.MEDIUM))
                     }
                 },
                 exitTransition = {
@@ -432,13 +432,13 @@ fun WorkoutScreen(
                     val to = swipeScreens.indexOf(targetState.destination.route)
                     when {
                         from == -1 || to == -1 ->
-                            fadeOut(animationSpec = tween(200))
+                            fadeOut(animationSpec = tween(Motion.SHORT))
                         to > from ->
-                            slideOutHorizontally(animationSpec = tween(260)) { -it / 6 } +
-                                fadeOut(animationSpec = tween(200))
+                            slideOutHorizontally(animationSpec = tween(Motion.SHORT)) { -it / 6 } +
+                                fadeOut(animationSpec = tween(Motion.SHORT))
                         else ->
-                            slideOutHorizontally(animationSpec = tween(260)) { it / 6 } +
-                                fadeOut(animationSpec = tween(200))
+                            slideOutHorizontally(animationSpec = tween(Motion.SHORT)) { it / 6 } +
+                                fadeOut(animationSpec = tween(Motion.SHORT))
                     }
                 }
             ) {
@@ -450,7 +450,7 @@ fun WorkoutScreen(
                         userScrollEnabled = !chartInteracting,
                         flingBehavior = PagerDefaults.flingBehavior(
                             state = pagerState,
-                            snapAnimationSpec = tween(225)
+                            snapAnimationSpec = tween(Motion.SHORT)
                         )
                     ) { page ->
                         when (swipeScreens[page]) {
@@ -1065,7 +1065,7 @@ fun WorkoutScreen(
 
             val widgetBottomPadding by animateDpAsState(
                 targetValue = if (isNavBarVisible) 80.dp else 16.dp,
-                animationSpec = tween(300),
+                animationSpec = tween(Motion.MEDIUM),
                 label = "widgetBottom"
             )
             Box(
@@ -1183,7 +1183,7 @@ fun WorkoutScreen(
                         }
                         val musicAccent by animateColorAsState(
                             targetValue = albumAccent ?: primaryColor,
-                            animationSpec = tween(600),
+                            animationSpec = tween(Motion.LONG),
                             label = "musicAccent"
                         )
 
@@ -1237,7 +1237,7 @@ fun WorkoutScreen(
                                         AnimatedContent(
                                             targetState = displayedKey,
                                             transitionSpec = {
-                                                fadeIn(tween(600)) togetherWith fadeOut(tween(600))
+                                                fadeIn(tween(Motion.LONG)) togetherWith fadeOut(tween(Motion.LONG))
                                             },
                                             label = "AlbumArt"
                                         ) { key ->

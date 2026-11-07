@@ -475,7 +475,7 @@ fun SummaryPage(
                                 if (weeklySteps.isNotEmpty()) {
                                     val stepsBarAnim = remember { Animatable(0f) }
                                     LaunchedEffect(weeklySteps) {
-                                        stepsBarAnim.animateTo(1f, animationSpec = tween(500, easing = FastOutSlowInEasing))
+                                        stepsBarAnim.animateTo(1f, animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing))
                                     }
                                     val canvasInteractionSource = remember { MutableInteractionSource() }
                                     Box(
@@ -702,7 +702,7 @@ fun SummaryPage(
                                     LaunchedEffect(Unit) {
                                         animationProgress.animateTo(
                                             1f,
-                                            animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     androidx.compose.foundation.Canvas(

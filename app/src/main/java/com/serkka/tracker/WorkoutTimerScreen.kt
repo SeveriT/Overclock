@@ -310,7 +310,7 @@ fun WorkoutTimerScreen(
             // Floating hint — overlays above the lap time without shifting layout
             val hintAlpha by animateFloatAsState(
                 targetValue = if (showDurationHint) 1f else 0f,
-                animationSpec = tween(durationMillis = 220),
+                animationSpec = tween(durationMillis = Motion.SHORT),
                 label = "durationHintAlpha"
             )
             if (hintAlpha > 0f) {
@@ -343,12 +343,12 @@ fun WorkoutTimerScreen(
             // Fixed-width left slot — Stop (paused) / -30 (running) / empty. Pure alpha fade.
             val stopAlpha by animateFloatAsState(
                 targetValue = if (hasStarted && !isRunning) 1f else 0f,
-                animationSpec = tween(200),
+                animationSpec = tween(Motion.SHORT),
                 label = "stopAlpha"
             )
             val minusAlpha by animateFloatAsState(
                 targetValue = if (isRunning) 1f else 0f,
-                animationSpec = tween(200),
+                animationSpec = tween(Motion.SHORT),
                 label = "minusAlpha"
             )
             Box(
@@ -425,7 +425,7 @@ fun WorkoutTimerScreen(
             // Fixed-width right slot — +30 when running, empty otherwise
             val plusAlpha by animateFloatAsState(
                 targetValue = if (isRunning) 1f else 0f,
-                animationSpec = tween(200),
+                animationSpec = tween(Motion.SHORT),
                 label = "plusAlpha"
             )
             Box(

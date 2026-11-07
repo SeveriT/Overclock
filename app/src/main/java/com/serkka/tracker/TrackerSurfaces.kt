@@ -47,6 +47,21 @@ internal object TrackerShapes {
     val Pill = RoundedCornerShape(50)
 }
 
+/**
+ * The app's three animation speeds (tween default easing is FastOutSlowIn). Use these for any
+ * new animation so motion feels the same everywhere:
+ *   SHORT  — fades, toggles and every exit
+ *   MEDIUM — enters, layout moves (navbar + everything that moves with it), screen changes, banners
+ *   LONG   — charts drawing in, counters ticking up, colour crossfades
+ * Deliberate exceptions: the timer ring (synced to the 1 s clock), the music widget's swipe
+ * snap/text slide and its 1 s progress bar, and endless loops (shimmer, pulse, waveform).
+ */
+internal object Motion {
+    const val SHORT = 200
+    const val MEDIUM = 300
+    const val LONG = 600
+}
+
 /** Horizontal page gutter for anything that isn't a full-bleed list row. */
 internal val PageGutter: Dp = 16.dp
 

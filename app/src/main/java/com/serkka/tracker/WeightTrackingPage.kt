@@ -577,7 +577,7 @@ fun WeightChart(
 
     val animationProgress = remember { Animatable(0f) }
     LaunchedEffect(weights) {
-        animationProgress.animateTo(1f, animationSpec = tween(600, easing = FastOutSlowInEasing))
+        animationProgress.animateTo(1f, animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing))
     }
 
     // Open with the latest real weigh-in at the right edge of the viewport. The forecast

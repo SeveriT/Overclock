@@ -99,12 +99,12 @@ fun CalendarPage(
                         ) {
                             val animatedStreak by animateIntAsState(
                                 targetValue = streak,
-                                animationSpec = tween(durationMillis = 700),
+                                animationSpec = tween(durationMillis = Motion.LONG),
                                 label = "streak"
                             )
                             val animatedTotal by animateIntAsState(
                                 targetValue = totalActivities,
-                                animationSpec = tween(durationMillis = 700),
+                                animationSpec = tween(durationMillis = Motion.LONG),
                                 label = "totalActivities"
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

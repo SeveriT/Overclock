@@ -49,7 +49,7 @@ fun WelcomeScreen(
     val context = LocalContext.current
     val fadeIn = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        fadeIn.animateTo(1f, animationSpec = tween(600))
+        fadeIn.animateTo(1f, animationSpec = tween(Motion.LONG))
     }
 
     var showUserGuide by remember { mutableStateOf(false) }
