@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Collections
 
-private const val BACKUP_INTERVAL_MS = 24L * 60 * 60 * 1000  // 24 hours
+private const val BACKUP_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000  // 1 week (matches MainActivity.scheduleBackup)
 
 // ── Settings page ─────────────────────────────────────────────────────────────
 
@@ -661,7 +661,7 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                 GuideSection("3. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. When you stop, a sheet lets you name and save the session, Resume the timer, or discard it with the trash icon.")
                 GuideSection("4. Logging Workouts", "Tap (+) to open the workout sheet. Pick a recent exercise chip or type a name — suggestions from your history appear as you type, and the 'Last time' chip refills your previous sets, reps and weight. The weight − / + buttons jump 5 kg; the slider below fine-tunes ±5 kg in 0.5 kg steps. Optionally rate the set with the RPE slider (5–10 in half steps, shown as reps left; Clear removes it). Use the Today / Yesterday chips or tap the date for any day, and toggle Personal best. Each logged row has Duplicate (instant copy with today's date) and Copy (edit then save) buttons; tap the row for Edit, toggle PB, or Delete. Entries are grouped by day — tap a day header to expand or collapse it.")
                 GuideSection("5. Workout Stats", "Open from the chart icon on the Workouts screen. Shows total volume lifted and every exercise ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart — tap a bar to read that week, the dashed line is your 12-week average. Long-press an exercise to hide it from the list and the total; restore it from the Hidden section at the bottom.")
-                GuideSection("6. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, last-7-days totals, recent activity, and this week's exercises. Tap the eye-off icon on a section to hide it — a matching icon appears in the top bar to bring it back.")
+                GuideSection("6. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, this week's exercises, and a Last 30 Days panel — gym days, average RPE, sets × reps and volume, each compared with the previous 30 days. Tap the eye-off icon on a section to hide it — a matching icon appears in the top bar to bring it back.")
                 GuideSection("7. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal, and long-press the bar chart to add steps manually for any of the last 7 days. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition and Unrestricted Battery in Settings → Permissions.")
                 GuideSection("8. Weight Tracking", "Log body weight with optional notes: the − / + buttons jump 1 kg and the slider fine-tunes ±1 kg in 0.1 kg steps. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height. The prediction projects your weight to a date you pick (tap it to change), weighting recent weigh-ins most, and is drawn as a dashed line on the chart — scroll the chart right to see it. Tap the weight labels on the left to set the chart's range.")
                 GuideSection("9. Tools", "Open from the wrench icon in the top bar. Tap a tool to expand it — one is open at a time, and the app remembers which one you used last. Exercise Names lists every exercise you have logged: tap one to rename it everywhere at once, or rename it to an existing name to merge the two. An Undo button appears after each rename.")
@@ -671,7 +671,7 @@ fun UserGuideDialog(onDismiss: () -> Unit) {
                 GuideSection("13. Calendar", "A year-at-a-glance overview of compact month grids. Days with a logged session or workout are marked with an accent circle; today gets a ring. Shows the last 12 months back from the current month.")
                 GuideSection("14. Notes", "Open from the pencil icon in the top bar. Keep program plans, technique cues, and anything else you want to remember. Open a note to edit it, or delete it with the trash icon in the sheet.")
                 GuideSection("15. Music Widget", "Control Spotify or YouTube Music directly. The progress bar waves while music plays. Tap to open the player. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
-                GuideSection("16. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run every 24 hours when signed in. Local backups are a single .zip bundle containing your database and step history. Premium feature.")
+                GuideSection("16. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run once a week when signed in (Settings shows the countdown to the next one). Local backups are a single .zip bundle containing your database and step history. Premium feature.")
                 GuideSection("17. Permissions", "Manage Notifications, Notification Listener (music widget), Activity Recognition (step counter), and Unrestricted Battery (keeps step counting alive in the background) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
                 GuideSection("18. Undo & Clear All Data", "Deleting a workout, weight, note or session shows an Undo button for a few seconds. Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
                 GuideSection("19. Customization", "Change your primary accent color using the RGB sliders in Settings and darken or lighten the background with the brightness slider. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
@@ -740,7 +740,8 @@ private fun NextBackupCountdown(primaryColor: Color) {
     val remainingMs = (lastBackupMs + BACKUP_INTERVAL_MS - now).coerceAtLeast(0L)
     val isDue = lastBackupMs == 0L || remainingMs == 0L
 
-    val h = remainingMs / 3_600_000
+    val d = remainingMs / 86_400_000
+    val h = (remainingMs % 86_400_000) / 3_600_000
     val m = (remainingMs % 3_600_000) / 60_000
     val s = (remainingMs % 60_000) / 1_000
 
@@ -768,7 +769,9 @@ private fun NextBackupCountdown(primaryColor: Color) {
                 )
                 if (!isDue) {
                     Text(
-                        text = String.format("%02d:%02d:%02d", h, m, s),
+                        // e.g. "6d 23:59:59", or "23:59:59" on the last day
+                        text = if (d > 0) String.format("%dd %02d:%02d:%02d", d, h, m, s)
+                               else String.format("%02d:%02d:%02d", h, m, s),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = primaryColor

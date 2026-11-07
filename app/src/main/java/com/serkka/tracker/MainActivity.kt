@@ -153,13 +153,16 @@ class MainActivity : ComponentActivity() {
             .setRequiresBatteryNotLow(true)
             .build()
 
-        val backupRequest = PeriodicWorkRequestBuilder<BackupWorker>(24, TimeUnit.HOURS)
+        // Weekly Drive backup (keep in sync with BACKUP_INTERVAL_MS in SettingsPage.kt)
+        val backupRequest = PeriodicWorkRequestBuilder<BackupWorker>(7, TimeUnit.DAYS)
             .setConstraints(constraints)
             .build()
 
+        // UPDATE (not KEEP) so an already-scheduled job picks up interval changes on the next
+        // launch, while keeping its schedule position instead of restarting the period.
         WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
             "AutoBackupWork",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             backupRequest
         )
     }

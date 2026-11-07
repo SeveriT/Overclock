@@ -60,6 +60,7 @@ import com.serkka.tracker.ui.theme.PersonalBestGold
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
+import kotlin.math.roundToInt
 import java.time.ZoneId
 import java.util.*
 
@@ -183,37 +184,27 @@ fun SummaryPage(
         count
     }
 
-    // Recent local sessions (last 7 days)
-    data class RecentItem(
-        val name: String,
-        val type: String,
-        val date: Long,          // epoch ms
-        val durationSeconds: Int
-    )
-
-    val recentItems = remember(workoutSessions) {
-        val sevenDaysAgo = today.minusDays(6)
-        workoutSessions.mapNotNull { session ->
-            val d = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            if (d.isBefore(sevenDaysAgo) || d.isAfter(today)) return@mapNotNull null
-            RecentItem(session.name, session.type, session.date, session.durationSeconds)
-        }.sortedByDescending { it.date }
-    }
-
-    val recentItemsGrouped = remember(recentItems) {
-        recentItems.groupBy { formatDate(it.date) }
-    }
-
-    // Aggregate totals for the last-7-days summary card.
-    data class WeeklyTotals(
-        val activityCount: Int,
-        val totalSeconds: Int
-    )
-    val weeklyTotals = remember(recentItems) {
-        WeeklyTotals(
-            activityCount = recentItems.size,
-            totalSeconds = recentItems.sumOf { it.durationSeconds }
-        )
+    // Last 30 days vs the 30 days before (local sessions + workouts)
+    val periodComparison = remember(workouts, workoutSessions, today) {
+        val zone = ZoneId.systemDefault()
+        fun dateOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+        fun isCardio(w: Workout) = w.exerciseName.trim().equals("Cardio", ignoreCase = true)
+        fun stats(from: LocalDate, to: LocalDate): PeriodStats {
+            val w = workouts.filter { dateOf(it.date) in from..to }
+            val s = workoutSessions.filter { dateOf(it.date) in from..to }
+            val strength = w.filterNot(::isCardio)
+            return PeriodStats(
+                // Same "active day" rule as the streaks: any workout entry or session
+                gymDays = (w.map { dateOf(it.date) } + s.map { dateOf(it.date) }).toSet().size,
+                // Mean of rated sets only (RPE is optional); null when nothing was rated
+                avgRpe = w.mapNotNull { it.rpe }.takeIf { it.isNotEmpty() }?.average(),
+                reps = strength.sumOf { if (it.reps > 0) (if (it.sets > 0) it.sets else 1) * it.reps else 0 },
+                volumeKg = strength.filter { it.weightUnit == "kg" }.sumOf {
+                    (if (it.sets > 0) it.sets else 1) * (if (it.reps > 0) it.reps else 1) * it.weight.toDouble()
+                }
+            )
+        }
+        stats(today.minusDays(29), today) to stats(today.minusDays(59), today.minusDays(30))
     }
 
     val expandedDays = remember { mutableStateMapOf<String, Boolean>() }
@@ -882,109 +873,138 @@ fun SummaryPage(
                     }
                 }
             }
-            // ── Recent Activity (local sessions, last 7 days) ───────────────
+            // ── Last 30 days vs the previous 30 ─────────────────────────────
             item {
                 SectionHeader(
-                    title = "Recent Activity (Last 7 Days)",
+                    title = "Last 30 Days",
                     actionLabel = "See all",
                     onAction = onNavigateToSessions
                 )
             }
-
-            // ── Last 7 days totals ────────────────────────────────────────────
-            if (recentItems.isNotEmpty()) {
-                item {
-                    val totalMinutes = weeklyTotals.totalSeconds / 60
-                    val timeText = when {
-                        totalMinutes < 60      -> "${totalMinutes}m"
-                        totalMinutes % 60 == 0 -> "${totalMinutes / 60}h"
-                        else                   -> "${totalMinutes / 60}h ${totalMinutes % 60}m"
-                    }
-                    FlatSection(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            WeeklyStatCell(Icons.Default.Schedule, timeText, "Time", primaryColor, Modifier.weight(1f))
-                            WeeklyStatCell(Icons.Default.FitnessCenter, "${weeklyTotals.activityCount}", "Activities", primaryColor, Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
-            if (recentItems.isEmpty()) {
-                item {
+            item(key = "summary_30d_stats") {
+                val (current, previous) = periodComparison
+                if (current.isEmpty && previous.isEmpty) {
                     EmptyState(
                         icon = Icons.Default.Schedule,
-                        message = "No activity in the past 7 days."
+                        message = "No activity in the past 60 days."
                     )
-                }
-            } else {
-                // All rows in one item so the list's item spacing doesn't gap the flat rows.
-                item(key = "summary_recent_rows") {
-                    Column(Modifier.fillMaxWidth()) {
-                        recentItems.forEachIndexed { index, item ->
-                            val totalMinutes = item.durationSeconds / 60
-                            val durationText = when {
-                                totalMinutes < 60      -> "$totalMinutes min"
-                                totalMinutes % 60 == 0 -> "${totalMinutes / 60} h"
-                                else                   -> "${totalMinutes / 60} h ${totalMinutes % 60} min"
-                            }
-                            ListItem(
-                                colors = flatListItemColors(),
-                                leadingContent = { ActivityAvatar(item.type, item.name, primaryColor) },
-                                headlineContent = {
-                                    Text(
-                                        item.name,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                },
-                                supportingContent = {
-                                    Text("${formatDate(item.date)}  ·  $durationText")
-                                }
+                } else {
+                    FlatSection(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
+                        Text(
+                            "Compared with the previous 30 days",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        Row(Modifier.fillMaxWidth()) {
+                            PeriodStatCell(
+                                icon = Icons.Default.CalendarMonth, label = "Gym days",
+                                current = current.gymDays.toDouble(), previous = previous.gymDays.toDouble(),
+                                format = { "%d".format(it.toInt()) },
+                                primaryColor = primaryColor, modifier = Modifier.weight(1f)
                             )
-                            if (index < recentItems.lastIndex) ListRowDivider()
+                            PeriodStatCell(
+                                icon = Icons.Default.Speed, label = "Avg RPE",
+                                current = current.avgRpe, previous = previous.avgRpe,
+                                format = { String.format(Locale.getDefault(), "%.1f", it) },
+                                absoluteDelta = true,   // "▲ 0.4" reads better than a % for a 5–10 scale
+                                neutralDelta = true,    // harder isn't good or bad, so no green/red
+                                primaryColor = primaryColor, modifier = Modifier.weight(1f)
+                            )
                         }
+                        Spacer(Modifier.height(16.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            PeriodStatCell(
+                                icon = Icons.Default.Repeat, label = "Sets × reps",
+                                current = current.reps.toDouble(), previous = previous.reps.toDouble(),
+                                format = { String.format(Locale.getDefault(), "%,d", it.toInt()) },
+                                primaryColor = primaryColor, modifier = Modifier.weight(1f)
+                            )
+                            PeriodStatCell(
+                                icon = Icons.Default.FitnessCenter, label = "Volume",
+                                current = current.volumeKg, previous = previous.volumeKg,
+                                format = { String.format(Locale.getDefault(), "%,.0f kg", it) },
+                                primaryColor = primaryColor, modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
         }
     }
 
-// ── Weekly totals stat cell ───────────────────────────────────────────────────
-@Composable
-private fun WeeklyStatCell(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    accent: Color,
-    modifier: Modifier = Modifier
+/** Totals for one 30-day window on the Home screen. */
+private data class PeriodStats(
+    val gymDays: Int,
+    val avgRpe: Double?,
+    val reps: Int,
+    val volumeKg: Double
 ) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+    val isEmpty get() = gymDays == 0 && reps == 0 && volumeKg == 0.0
+}
+
+// ── 30-day stat cell with change vs previous period ───────────────────────────
+@Composable
+private fun PeriodStatCell(
+    icon: ImageVector,
+    label: String,
+    current: Double?,          // null = no data for this stat (e.g. no rated sets)
+    previous: Double?,
+    format: (Double) -> String,
+    primaryColor: Color,
+    modifier: Modifier = Modifier,
+    absoluteDelta: Boolean = false,   // show "▲ 0.4" instead of "▲ 12%"
+    neutralDelta: Boolean = false     // accent colour instead of green/red
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val up = if (neutralDelta) primaryColor else Color(0xFF4AC067)
+    val down = if (neutralDelta) primaryColor else MaterialTheme.colorScheme.error
+    val cur = current ?: 0.0
+    val prev = previous ?: 0.0
+    // Change vs previous 30 days: "New" when there was nothing before, "—" when there's nothing now
+    val (deltaText, deltaColor) = when {
+        current == null || (cur == 0.0 && prev == 0.0) -> "—" to muted
+        previous == null || prev == 0.0 -> "New" to up
+        absoluteDelta -> {
+            val diff = Math.round((cur - prev) * 10) / 10.0
+            when {
+                diff > 0 -> "▲ ${String.format(Locale.getDefault(), "%.1f", diff)}" to up
+                diff < 0 -> "▼ ${String.format(Locale.getDefault(), "%.1f", -diff)}" to down
+                else -> "± 0" to muted
+            }
+        }
+        else -> {
+            val pct = ((cur - prev) / prev * 100).roundToInt()
+            when {
+                pct > 0 -> "▲ $pct%" to up
+                pct < 0 -> "▼ ${-pct}%" to down
+                else -> "± 0%" to muted
+            }
+        }
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1)
+        }
         Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
+            current?.let(format) ?: "—",
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            textAlign = TextAlign.Center
+            maxLines = 1
         )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            textAlign = TextAlign.Center
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(deltaText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = deltaColor)
+            Text(
+                "  ·  was ${previous?.let(format) ?: "—"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = muted,
+                maxLines = 1
+            )
+        }
     }
 }
+
