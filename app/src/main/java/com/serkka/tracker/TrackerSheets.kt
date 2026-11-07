@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -138,31 +139,53 @@ internal fun TrackerDialog(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val accent = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    // M3 centres the title under an icon, so icon dialogs (update, delete all, premium) centre
+    // their body and buttons too — otherwise they look lopsided. Plain dialogs keep M3's
+    // left-aligned body and right-aligned buttons.
+    val centered = icon != null
+    val confirm: @Composable () -> Unit = {
+        TextButton(onClick = onConfirm, enabled = confirmEnabled) {
+            Text(
+                confirmLabel,
+                fontWeight = FontWeight.SemiBold,
+                color = if (confirmEnabled) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
+        }
+    }
+    val secondary: @Composable () -> Unit = {
+        if (neutralLabel != null) TextButton(onClick = onNeutral) { Text(neutralLabel) }
+        if (dismissLabel != null) TextButton(onClick = onDismiss) { Text(dismissLabel) }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = icon?.let { { Icon(it, contentDescription = null, tint = accent) } },
         title = { Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) },
         text = {
-            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = confirmEnabled) {
-                Text(
-                    confirmLabel,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (confirmEnabled) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            CompositionLocalProvider(
+                LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant,
+                LocalTextStyle provides if (centered) LocalTextStyle.current.copy(textAlign = TextAlign.Center)
+                                        else LocalTextStyle.current
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+                    content = content
                 )
             }
         },
-        dismissButton = if (dismissLabel == null && neutralLabel == null) null else {
+        // Centred: all buttons in one full-width centred row in the confirm slot (M3's own
+        // button row is end-aligned and can't be centred). Otherwise: standard M3 slots.
+        confirmButton = if (centered) {
             {
-                Row {
-                    if (neutralLabel != null) TextButton(onClick = onNeutral) { Text(neutralLabel) }
-                    if (dismissLabel != null) TextButton(onClick = onDismiss) { Text(dismissLabel) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    secondary()
+                    confirm()
                 }
             }
+        } else confirm,
+        dismissButton = if (centered || (dismissLabel == null && neutralLabel == null)) null else {
+            { Row { secondary() } }
         }
     )
 }

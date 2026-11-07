@@ -29,7 +29,6 @@ import java.net.URL
 private const val RELEASES_API = "https://api.github.com/repos/SeveriT/Overclock/releases/latest"
 private const val PREF_LAST_CHECK = "update_last_check_ms"
 private const val PREF_SKIPPED = "update_skipped_version"
-private const val AUTO_CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000
 
 /** A newer release found on GitHub. */
 data class UpdateInfo(
@@ -45,6 +44,8 @@ sealed interface UpdateState {
     data class UpToDate(val currentVersion: String) : UpdateState
     data class Available(val info: UpdateInfo, val currentVersion: String) : UpdateState
     data class Downloading(val info: UpdateInfo, val progress: Float, val downloadedBytes: Long) : UpdateState
+    /** Downloaded in the background on app open; waiting for the user to tap Install. */
+    data class ReadyToInstall(val info: UpdateInfo, val apk: File, val currentVersion: String) : UpdateState
     data class NeedsInstallPermission(val apk: File) : UpdateState
     data class Failed(val message: String) : UpdateState
 }
@@ -59,20 +60,30 @@ object AppUpdater {
     fun installedVersion(context: Context): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
 
+    // One automatic check per app launch (this object lives as long as the process)
+    private var checkedThisLaunch = false
+
     /**
-     * Automatic check on app start: at most once a day, silent on errors and "up to date",
-     * and quiet about a version the user chose to skip.
+     * Automatic check every time the app is opened (once per launch, not on every screen
+     * rebuild). Silent on errors and "up to date", and quiet about a skipped version.
      */
     fun autoCheck(context: Context) {
+        if (checkedThisLaunch) return
+        checkedThisLaunch = true
         val prefs = PreferencesManager.getInstance(context).tracker
         val now = System.currentTimeMillis()
-        if (now - prefs.getLong(PREF_LAST_CHECK, 0L) < AUTO_CHECK_INTERVAL_MS) return
         scope.launch {
             val info = runCatching { fetchLatest() }.getOrNull() ?: return@launch
             prefs.edit().putLong(PREF_LAST_CHECK, now).apply()
             val current = installedVersion(context)
-            if (isNewer(info.version, current) && prefs.getString(PREF_SKIPPED, null) != info.version) {
-                _state.value = UpdateState.Available(info, current)
+            if (!isNewer(info.version, current) || prefs.getString(PREF_SKIPPED, null) == info.version) return@launch
+            // Auto-download on any network (user's choice: unlimited mobile data)
+            try {
+                val apk = downloadApk(context.applicationContext, info, reportProgress = false)
+                _state.value = UpdateState.ReadyToInstall(info, apk, current)
+            } catch (e: Exception) {
+                Log.e("AppUpdater", "Background update download failed", e)
+                _state.value = UpdateState.Available(info, current)   // fall back to asking
             }
         }
     }
@@ -112,38 +123,57 @@ object AppUpdater {
         downloadJob = scope.launch {
             try {
                 _state.value = UpdateState.Downloading(info, 0f, 0L)
-                val dir = File(appContext.cacheDir, "updates").apply { mkdirs() }
-                dir.listFiles()?.forEach { it.delete() }          // drop older downloads
-                val apk = File(dir, "Overclock-${info.version}.apk")
-
-                val conn = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
-                    setRequestProperty("User-Agent", "Overclock-Android")
-                    connectTimeout = 15_000
-                    readTimeout = 30_000
-                }
-                val total = conn.contentLengthLong.takeIf { it > 0 } ?: info.apkSizeBytes
-                conn.inputStream.use { input ->
-                    apk.outputStream().use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        var done = 0L
-                        while (isActive) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            done += n
-                            _state.value = UpdateState.Downloading(
-                                info, if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f, done
-                            )
-                        }
-                    }
-                }
+                val apk = downloadApk(appContext, info, reportProgress = true)
                 if (!isActive) return@launch
                 install(appContext, apk)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("AppUpdater", "Update download failed", e)
                 _state.value = UpdateState.Failed("Download failed. Try again in a moment.")
             }
         }
+    }
+
+    /**
+     * Downloads the release APK into cache/updates (older downloads are removed). An already
+     * complete download of the same version is reused, so "Later" doesn't mean re-downloading.
+     */
+    private suspend fun downloadApk(context: Context, info: UpdateInfo, reportProgress: Boolean): File {
+        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val apk = File(dir, "Overclock-${info.version}.apk")
+        if (apk.exists() && info.apkSizeBytes > 0 && apk.length() == info.apkSizeBytes) return apk
+        dir.listFiles()?.forEach { it.delete() }
+        val part = File(dir, apk.name + ".part")
+
+        val conn = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
+            setRequestProperty("User-Agent", "Overclock-Android")
+            connectTimeout = 15_000
+            readTimeout = 30_000
+        }
+        val total = conn.contentLengthLong.takeIf { it > 0 } ?: info.apkSizeBytes
+        val ctx = kotlin.coroutines.coroutineContext
+        conn.inputStream.use { input ->
+            part.outputStream().use { output ->
+                val buf = ByteArray(64 * 1024)
+                var done = 0L
+                while (ctx.isActive) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    output.write(buf, 0, n)
+                    done += n
+                    if (reportProgress) {
+                        _state.value = UpdateState.Downloading(
+                            info, if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f, done
+                        )
+                    }
+                }
+            }
+        }
+        if (!ctx.isActive) { part.delete(); throw kotlinx.coroutines.CancellationException("Download cancelled") }
+        // Only a complete file gets the final name, so a half download is never offered for install
+        if (!part.renameTo(apk)) error("Couldn't finish saving the update")
+        return apk
     }
 
     /** Opens Android's installer for [apk]; if installs from this app aren't allowed yet, says so. */

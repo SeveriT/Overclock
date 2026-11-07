@@ -133,7 +133,8 @@ private val guideGroups = listOf(
             "Restore from backup replaces your current data with a backup file."
         )),
         GuideTopic(Icons.Default.SystemUpdate, "Updates", "New versions straight from GitHub", listOf(
-            "The app checks for a new release once a day and offers it with Update, Later or Skip.",
+            "Every time you open the app it checks for a new release, downloads it in the background and shows an Update ready prompt.",
+            "Android always asks you to confirm the install itself.",
             "Check any time in Settings → Help → Check for updates.",
             "Updates install over the current app and keep all your data.",
             "The first time, Android asks you to allow installing apps from Overclock."
@@ -239,9 +240,11 @@ private fun GuideTopicRow(
             )
         }
         if (expanded) {
-            // Tips line up with the title text (past the 40dp icon)
+            // Breathing room between the topic row and its tips
+            Spacer(Modifier.height(8.dp))
+            // Tips indented halfway between the icon edge (16 dp) and the title text (72 dp)
             Column(
-                modifier = Modifier.padding(start = ListDividerInset, end = PageGutter, bottom = 16.dp),
+                modifier = Modifier.padding(start = 44.dp, end = PageGutter, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 topic.tips.forEach { tip ->

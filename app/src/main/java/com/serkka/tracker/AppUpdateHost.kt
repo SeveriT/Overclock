@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 
@@ -54,12 +55,14 @@ fun AppUpdateHost() {
                 "Version ${s.info.version} · you have ${s.currentVersion}",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
             )
             if (s.info.notes.isNotBlank()) {
                 Text(
                     s.info.notes,
                     style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())
                 )
             }
@@ -85,6 +88,34 @@ fun AppUpdateHost() {
                 else "${mb(s.downloadedBytes)} MB",
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        // Auto-downloaded in the background on app open: one tap to Android's installer
+        is UpdateState.ReadyToInstall -> TrackerDialog(
+            title = "Update ready",
+            icon = Icons.Default.SystemUpdate,
+            onDismiss = AppUpdater::dismiss,
+            confirmLabel = "Install",
+            onConfirm = { AppUpdater.install(context, s.apk) },
+            dismissLabel = "Later",
+            neutralLabel = "Skip",
+            onNeutral = { AppUpdater.skip(context, s.info.version) }
+        ) {
+            Text(
+                "Version ${s.info.version} is downloaded · you have ${s.currentVersion}",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+            if (s.info.notes.isNotBlank()) {
+                Text(
+                    s.info.notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())
+                )
+            }
         }
 
         is UpdateState.NeedsInstallPermission -> TrackerDialog(
