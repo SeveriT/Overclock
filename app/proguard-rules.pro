@@ -1,75 +1,26 @@
-# ── Stack traces ──────────────────────────────────────────────────────────────
+# R8 is currently OFF for release builds (isMinifyEnabled = false in app/build.gradle.kts),
+# so these rules are not applied today. They are kept minimal and correct so that turning
+# minification on later works without broad "keep everything" rules.
+#
+# Not needed here: Room, Firebase, Google Play Billing, Compose, Coil and Kotlin ship their
+# own consumer rules inside their AARs.
+
+# ── Readable stack traces ─────────────────────────────────────────────────────
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# ── Kotlin ────────────────────────────────────────────────────────────────────
--keep class kotlin.Metadata { *; }
--keepclassmembers class kotlin.Metadata { *; }
-
-# ── Retrofit + Gson ───────────────────────────────────────────────────────────
--keepattributes Signature
--keepattributes *Annotation*
-
--keep class com.google.gson.** { *; }
--keep class com.google.gson.stream.** { *; }
--keepclassmembers,allowobfuscation class * {
-    @com.google.gson.annotations.SerializedName <fields>;
+# ── Google Drive API client (backups) ─────────────────────────────────────────
+# The client maps JSON to fields annotated with @Key via reflection, using generic type
+# info, so keep those fields and the signatures/annotations they rely on.
+-keepattributes Signature,*Annotation*,EnclosingMethod,InnerClasses
+-keepclassmembers class * {
+    @com.google.api.client.util.Key <fields>;
 }
-# Preserve generic type info on TypeToken<T>() {} anonymous subclasses we use
-# to deserialize List<...> from cached JSON.
--keep class * extends com.google.gson.reflect.TypeToken
--keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
 
--keepclasseswithmembers class * {
-    @retrofit2.http.* <methods>;
-}
--keep,allowobfuscation interface * extends retrofit2.Call
--dontwarn retrofit2.**
--dontwarn okhttp3.**
--dontwarn okio.**
-
-# ── OkHttp ────────────────────────────────────────────────────────────────────
--dontwarn org.conscrypt.**
--dontwarn org.bouncycastle.**
--dontwarn org.openjsse.**
-
-# ── App data models (Gson deserializes these) ─────────────────────────────────
--keep class com.serkka.tracker.Workout { *; }
--keep class com.serkka.tracker.BodyWeight { *; }
--keep class com.serkka.tracker.Note { *; }
--keep class com.serkka.tracker.WorkoutSession { *; }
-
-# ── Room ──────────────────────────────────────────────────────────────────────
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
--dontwarn androidx.room.paging.**
-
-# ── Firebase ──────────────────────────────────────────────────────────────────
--keep class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
-
-# ── Google Play Billing ───────────────────────────────────────────────────────
--keep class com.android.vending.billing.** { *; }
--keep class com.android.billingclient.** { *; }
-
-# ── Google Drive / Auth ───────────────────────────────────────────────────────
--keep class com.google.api.services.drive.** { *; }
--keep class com.google.api.client.** { *; }
--dontwarn com.google.api.client.**
--dontwarn com.google.api.services.**
-
-# ── Encrypted SharedPreferences ───────────────────────────────────────────────
--keep class androidx.security.crypto.** { *; }
-
-# ── Compose ───────────────────────────────────────────────────────────────────
--dontwarn androidx.compose.**
-
-# ── Coil ──────────────────────────────────────────────────────────────────────
--dontwarn coil.**
-
-# ── R8 full mode compatibility ────────────────────────────────────────────────
--dontwarn java.lang.invoke.StringConcatFactory
-
-# ── Apache HTTP / Google API Client (javax.naming not on Android) ─────────────
+# Optional JVM-only dependencies of the Google API / HTTP client that don't exist on Android
 -dontwarn javax.naming.**
 -dontwarn org.ietf.jgss.**
+-dontwarn com.google.api.client.extensions.appengine.**
+
+# ── R8 full mode ──────────────────────────────────────────────────────────────
+-dontwarn java.lang.invoke.StringConcatFactory

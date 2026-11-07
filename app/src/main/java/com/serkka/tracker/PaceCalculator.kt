@@ -144,7 +144,7 @@ private fun PaceReadout(value: String, unit: String, sub: String, color: Color, 
                 fontWeight = FontWeight.Bold,
                 color = color
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 unit,
                 style = MaterialTheme.typography.titleMedium,

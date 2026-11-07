@@ -7,6 +7,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -69,7 +75,12 @@ fun WorkoutListContent(
     searchBar: (@Composable () -> Unit)? = null,
     // Active search text (the list is already filtered by the caller). While searching,
     // every matching day opens by default so sets/reps show without tapping each one.
-    searchQuery: String = ""
+    searchQuery: String = "",
+    // Search is open but nothing typed yet: show "most logged" chips instead of a blank start
+    searchOpen: Boolean = false,
+    onPickSearch: (String) -> Unit = {},
+    // Pull down past the top of the list to open search (keeps it in thumb reach)
+    onPullToSearch: (() -> Unit)? = null
 ) {
     // Group by day, then sort each day's workouts by id DESC so the latest
     // insertion is always on top — regardless of whether `date` came from the
@@ -84,15 +95,74 @@ fun WorkoutListContent(
     val searching = searchQuery.isNotBlank()
     val searchCollapsedDays = remember(searchQuery) { mutableStateMapOf<String, Boolean>() }
 
+    // Most-logged exercises, offered as one-tap filters when search opens empty
+    val topExercises = remember(workouts) {
+        workouts.groupingBy { it.exerciseName.trim() }.eachCount()
+            .entries.sortedByDescending { it.value }.take(8).map { it.key }
+    }
+
+    // ── Pull-to-search: overscroll past the top of the list opens search ───────
+    val pullThresholdPx = with(LocalDensity.current) { 96.dp.toPx() }
+    var pullDistance by remember { mutableFloatStateOf(0f) }
+    val pullConnection = remember(onPullToSearch, pullThresholdPx) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (onPullToSearch == null || source != NestedScrollSource.UserInput) return Offset.Zero
+                if (available.y > 0f) {
+                    // Only leftover downward drag reaches here, i.e. the list is already at the top
+                    pullDistance += available.y
+                    if (pullDistance >= pullThresholdPx) {
+                        pullDistance = 0f
+                        onPullToSearch()
+                    }
+                } else if (consumed.y < 0f) {
+                    pullDistance = 0f
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                pullDistance = 0f   // finger lifted before the threshold: cancel
+                return Velocity.Zero
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(top = topPadding)) {
         searchBar?.invoke()
 
+        Box(Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().nestedScroll(pullConnection),
             // Full-bleed flat rows — no horizontal page padding.
             contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding)
         ) {
+            // ── Search opened but empty: most-logged exercises as quick filters ──
+            if (searchOpen && !searching && topExercises.isNotEmpty()) {
+                item(key = "search_suggestions") {
+                    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Text(
+                            "Most logged",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = PageGutter, vertical = 4.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = PageGutter),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            topExercises.forEach { name ->
+                                SuggestionChip(onClick = { onPickSearch(name) }, label = { Text(name) })
+                            }
+                        }
+                    }
+                }
+            }
+
             if (groupedWorkouts.isEmpty()) {
                 item {
                     if (searching) {
@@ -176,6 +246,16 @@ fun WorkoutListContent(
                 }
             }
         }
+        // Pull-to-search hint: fades in with the pull, under the top of the list
+        if (onPullToSearch != null && pullDistance > 0f) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = (pullDistance / pullThresholdPx).coerceIn(0f, 1f)),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(24.dp)
+            )
+        }
+        }
     }
 }
 
@@ -207,7 +287,7 @@ private fun WorkoutWeekHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = PageGutter, vertical = 10.dp),
+                .padding(horizontal = PageGutter, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -216,10 +296,10 @@ private fun WorkoutWeekHeader(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
-                    .background(primaryColor, RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
+                    .background(primaryColor, TrackerShapes.Pill)
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Text(
                 subtitle,
                 style = MaterialTheme.typography.titleSmall,

@@ -316,7 +316,7 @@ fun WorkoutTimerScreen(
             if (hintAlpha > 0f) {
                 Text(
                     text = "Ring: ${formatElapsed(lapDurationSeconds)}",
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 1.sp,
@@ -503,7 +503,7 @@ private fun UploadWorkoutDialog(
     ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text("Duration: ${formatElapsed(elapsedSeconds)}", style = MaterialTheme.typography.bodyMedium)
                 }
 

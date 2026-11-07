@@ -36,11 +36,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -235,7 +238,7 @@ fun SummaryPage(
                     modifier = Modifier.fillMaxWidth().animateContentSize()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Flame + week-streak counter
@@ -254,7 +257,7 @@ fun SummaryPage(
                                     text = weekStreak.toString(),
                                     color = MaterialTheme.colorScheme.surface,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
+                                    style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.padding(top = 12.dp)
                                 )
                             }
@@ -279,7 +282,7 @@ fun SummaryPage(
                                 val activityCount = weeklyActivityCount[date] ?: 0
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
                                         text = date.dayOfWeek.getDisplayName(
@@ -341,7 +344,7 @@ fun SummaryPage(
                                                 Text(
                                                     text = activityCount.toString(),
                                                     color = MaterialTheme.colorScheme.surface,
-                                                    fontSize = 9.sp,
+                                                    fontSize = 9.sp,   // deliberate exception: count badge inside a small day circle
                                                     lineHeight = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     textAlign = TextAlign.Center,
@@ -566,7 +569,7 @@ fun SummaryPage(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier
@@ -892,7 +895,7 @@ fun SummaryPage(
                     FlatSection(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
                         Text(
                             "Compared with the previous 30 days",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
@@ -958,7 +961,7 @@ private fun PeriodStatCell(
     neutralDelta: Boolean = false     // accent colour instead of green/red
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val up = if (neutralDelta) primaryColor else Color(0xFF4AC067)
+    val up = if (neutralDelta) primaryColor else TrackerColors.Green
     val down = if (neutralDelta) primaryColor else MaterialTheme.colorScheme.error
     val cur = current ?: 0.0
     val prev = previous ?: 0.0
@@ -985,9 +988,9 @@ private fun PeriodStatCell(
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = muted, maxLines = 1)
+            Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = muted, maxLines = 1)
         }
         Text(
             current?.let(format) ?: "—",
@@ -997,12 +1000,13 @@ private fun PeriodStatCell(
             maxLines = 1
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(deltaText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = deltaColor)
+            Text(deltaText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = deltaColor)
             Text(
                 "  ·  was ${previous?.let(format) ?: "—"}",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = muted,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

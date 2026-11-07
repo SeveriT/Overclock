@@ -132,7 +132,7 @@ fun Modifier.bounceClick(
 ): Modifier = this.then(
     if (onClick != null || onLongClick != null) {
         Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(TrackerShapes.Medium)
             .combinedClickable(
                 interactionSource = interactionSource as MutableInteractionSource,
                 indication = ripple(),
@@ -142,13 +142,13 @@ fun Modifier.bounceClick(
             )
     } else {
         // If used for visual feedback on an existing clickable, we clip to ensure the ripple is rounded
-        Modifier.clip(RoundedCornerShape(12.dp))
+        Modifier.clip(TrackerShapes.Medium)
     }
 )
 
 // ── Shimmer ──────────────────────────────────────────────────────────────────
 
-fun Modifier.shimmer(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp)): Modifier = composed {
+fun Modifier.shimmer(shape: androidx.compose.ui.graphics.Shape = TrackerShapes.Small): Modifier = composed {
     val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "shimmer")
     val translate by transition.animateFloat(
         initialValue = 0f,

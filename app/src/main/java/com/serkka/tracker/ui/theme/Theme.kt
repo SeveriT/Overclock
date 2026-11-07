@@ -37,11 +37,19 @@ object TrackerColors {
     // Accents
     val Lime              = Color(0xFFECFE72)   // lime yellow — used for highlights
     val Cyan              = Color(0xFF72FEED)   // cyan accent
-    val Green             = Color(0xFF4AC067)   // success / positive
+    val Green             = Color(0xFF4AC067)   // success / positive — the only green
     val Blue              = Color(0xFF6693EB)   // info / tertiary
 
+    // Charts (used inside Canvas draw blocks, where MaterialTheme can't be read)
+    val ChartGrid         = Color(0xFF424349)
+    val ChartDot          = Color(0xFF24252B)   // hollow-centre of chart points
+
+    // Third-party brand colours (music widget)
+    val SpotifyGreen      = Color(0xFF1DB954)
+    val SpotifyBlack      = Color(0xFF191414)
+
     // Semantic
-    val Error             = Color(0xFFFF7043)   // orange-red error
+    val Error             = Color(0xFFFF7043)   // orange-red error — the only red (negative / destructive)
     val ErrorContainer    = Color(0xFF3A1E16)
     val OnError           = Color(0xFFFFFFFF)
 
@@ -109,91 +117,43 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 
+// ── Type scale ────────────────────────────────────────────────────────────────
+// Four working sizes (+ one display size for a single focal number per screen). Every M3
+// role maps onto a tier, so screens can keep using semantic roles (titleSmall, bodySmall…)
+// and still land on the same few sizes:
+//   Display 45  — display*                       focal readout (pace calculator)
+//   Number  24  — headline*, titleLarge          stat values, weight, sheet/dialog titles
+//   Title   16  — titleMedium, bodyLarge         day headers, row titles
+//   Body    14  — titleSmall, bodyMedium, labelLarge   details, buttons
+//   Caption 12  — bodySmall, labelMedium, labelSmall   labels, dates, captions
+// Tabular figures ("tnum") everywhere: digits share one width, so ticking timers, animated
+// counters and number columns don't jitter or shift.
+private const val TNUM = "tnum"
+
+private fun tier(size: Int, line: Int, weight: FontWeight, tracking: Float = 0f) = TextStyle(
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = line.sp,
+    letterSpacing = tracking.sp,
+    fontFeatureSettings = TNUM
+)
+
 private val TrackerTypography = Typography(
-    displayLarge = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize   = 57.sp,
-        lineHeight = 64.sp,
-        letterSpacing = (-0.25).sp
-    ),
-    displayMedium = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize   = 45.sp,
-        lineHeight = 52.sp
-    ),
-    displaySmall = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 36.sp,
-        lineHeight = 44.sp
-    ),
-    headlineLarge = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize   = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    headlineMedium = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize   = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.3).sp
-    ),
-    headlineSmall = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 24.sp,
-        lineHeight = 32.sp
-    ),
-    titleLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 20.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.2).sp
-    ),
-    titleMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize   = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.1.sp
-    ),
-    titleSmall = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize   = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize   = 16.sp,
-        lineHeight = 24.sp
-    ),
-    bodyMedium = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize   = 14.sp,
-        lineHeight = 20.sp
-    ),
-    bodySmall = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize   = 12.sp,
-        lineHeight = 16.sp
-    ),
-    labelLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize   = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize   = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    labelSmall = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize   = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
+    displayLarge   = tier(45, 52, FontWeight.Bold, -0.25f),
+    displayMedium  = tier(45, 52, FontWeight.Bold, -0.25f),
+    displaySmall   = tier(45, 52, FontWeight.SemiBold, -0.25f),
+    headlineLarge  = tier(24, 32, FontWeight.Bold, -0.2f),
+    headlineMedium = tier(24, 32, FontWeight.Bold, -0.2f),
+    headlineSmall  = tier(24, 32, FontWeight.SemiBold, -0.2f),
+    titleLarge     = tier(24, 32, FontWeight.SemiBold, -0.2f),
+    titleMedium    = tier(16, 24, FontWeight.Medium, 0.1f),
+    bodyLarge      = tier(16, 24, FontWeight.Normal),
+    titleSmall     = tier(14, 20, FontWeight.Medium, 0.1f),
+    bodyMedium     = tier(14, 20, FontWeight.Normal),
+    labelLarge     = tier(14, 20, FontWeight.SemiBold, 0.1f),
+    bodySmall      = tier(12, 16, FontWeight.Normal),
+    labelMedium    = tier(12, 16, FontWeight.Medium, 0.4f),
+    labelSmall     = tier(12, 16, FontWeight.Medium, 0.4f)
 )
 
 

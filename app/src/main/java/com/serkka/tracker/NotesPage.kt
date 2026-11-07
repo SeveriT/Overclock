@@ -57,7 +57,7 @@ fun NotesPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onNoteClick(note) }
-                            .padding(horizontal = PageGutter, vertical = 14.dp),
+                            .padding(horizontal = PageGutter, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {

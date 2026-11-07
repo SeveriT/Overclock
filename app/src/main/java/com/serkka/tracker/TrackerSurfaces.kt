@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +35,17 @@ import androidx.compose.ui.unit.dp
 // content is flat, full-width list rows with dividers; hero/summary blocks sit
 // directly on the background in a FlatSection; structure comes from SectionHeaders
 // and spacing. Never use elevation shadows (invisible on the near-black background).
+
+/**
+ * The app's three corner shapes — use these instead of ad-hoc RoundedCornerShape values.
+ * Small: thumbnails, chips, tiny badges · Medium: banners, blocks, ripple clips · Pill: tags,
+ * progress tracks, buttons (M3 buttons are already pill-shaped by default).
+ */
+internal object TrackerShapes {
+    val Small = RoundedCornerShape(8.dp)
+    val Medium = RoundedCornerShape(16.dp)
+    val Pill = RoundedCornerShape(50)
+}
 
 /** Horizontal page gutter for anything that isn't a full-bleed list row. */
 internal val PageGutter: Dp = 16.dp
@@ -64,12 +79,14 @@ internal fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    /** Trailing icon buttons (e.g. Home's edit-goal / hide), instead of or next to the text action. */
+    actions: (@Composable RowScope.() -> Unit)? = null
 ) {
     // The action TextButton keeps M3's 48dp touch target, which makes the row ~14dp taller
     // above (and below) the title. Trim the padding by that much so every header's title
     // sits the same 16dp below the content above it, with or without an action.
-    val hasAction = actionLabel != null && onAction != null
+    val hasAction = (actionLabel != null && onAction != null) || actions != null
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -91,6 +108,20 @@ internal fun SectionHeader(
         if (actionLabel != null && onAction != null) {
             TextButton(onClick = onAction) { Text(actionLabel) }
         }
+        actions?.invoke(this)
+    }
+}
+
+/** Compact muted icon button for [SectionHeader] actions (edit, hide…). */
+@Composable
+internal fun HeaderIconAction(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

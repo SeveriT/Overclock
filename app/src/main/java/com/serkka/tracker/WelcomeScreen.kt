@@ -243,30 +243,24 @@ fun WelcomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Subscription info
-        Surface(
-            color = primaryColor.copy(alpha = 0.1f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
+        // Subscription info — flat, no tinted panel
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "Free to use",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "Unlock Cloud Backup with Premium",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
+            Text(
+                "Free to use",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Unlock Cloud Backup with Premium",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -298,10 +292,9 @@ fun WelcomeScreen(
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryColor,
                 contentColor = MaterialTheme.colorScheme.surface
-            ),
-            shape = RoundedCornerShape(14.dp)
+            )
         ) {
-            Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Get Started", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
 
         if (demoAvailable) {
@@ -315,7 +308,7 @@ fun WelcomeScreen(
                     tint = primaryColor,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Try with demo data", color = primaryColor, fontWeight = FontWeight.Bold)
             }
         }
@@ -330,7 +323,7 @@ fun WelcomeScreen(
                 tint = primaryColor,
                 modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text("View User Guide", color = primaryColor, fontWeight = FontWeight.Bold)
         }
 
@@ -344,7 +337,7 @@ private fun FeatureItem(icon: ImageVector, title: String, description: String, p
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -368,14 +361,14 @@ private fun PermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = if (granted) Color(0xFF4AC067) else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (granted) TrackerColors.Green else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -383,7 +376,7 @@ private fun PermissionRow(
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (granted) {
-            Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = Color(0xFF4AC067), modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = TrackerColors.Green, modifier = Modifier.size(24.dp))
         } else {
             TextButton(onClick = onEnable) {
                 Text("Enable", color = primaryColor, fontWeight = FontWeight.Bold)

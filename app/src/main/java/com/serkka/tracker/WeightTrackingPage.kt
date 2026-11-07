@@ -187,11 +187,11 @@ fun WeightTrackingPage(
                                         else       -> "Slender"
                                     }
                                     val rpiColor = when {
-                                        rpi < 38f  -> Color(0xFFFF7043)
-                                        rpi < 41f  -> Color(0xFFECFE72)
-                                        rpi < 44f  -> Color(0xFF4AC067)
-                                        rpi < 46f  -> Color(0xFF6693EB)
-                                        else       -> Color(0xFF6693EB)
+                                        rpi < 38f  -> TrackerColors.Error
+                                        rpi < 41f  -> TrackerColors.Lime
+                                        rpi < 44f  -> TrackerColors.Green
+                                        rpi < 46f  -> TrackerColors.Blue
+                                        else       -> TrackerColors.Blue
                                     }
                                     Text(
                                         "RPI ${String.format(Locale.getDefault(), "%.1f", rpi)} · $rpiCategory",
@@ -243,7 +243,7 @@ fun WeightTrackingPage(
                                     val sign = if (rate >= 0) "+" else ""
                                     Text(
                                         "$sign${String.format(Locale.getDefault(), "%.2f", rate)} kg/week",
-                                        color = if (rate <= 0) Color(0xFF46CE46).copy(alpha = 0.8f) else Color(0xFFEE3E3E).copy(alpha = 0.8f),
+                                        color = if (rate <= 0) TrackerColors.Green.copy(alpha = 0.8f) else TrackerColors.Error.copy(alpha = 0.8f),
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -258,7 +258,7 @@ fun WeightTrackingPage(
                                     Text(
                                         "${String.format(Locale.getDefault(), "%.1f", pred)} kg",
                                         style = MaterialTheme.typography.titleMedium,
-                                        color = if (pred > sortedWeights.last().weight) Color(0xFFEE3E3E).copy(alpha = 0.8f) else Color(0xFF46CE46).copy(alpha = 0.8f),
+                                        color = if (pred > sortedWeights.last().weight) TrackerColors.Error.copy(alpha = 0.8f) else TrackerColors.Green.copy(alpha = 0.8f),
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.clickable { showPredictionDatePicker = true }
                                     )
@@ -553,7 +553,7 @@ fun WeightChart(
 ) {
     if (weights.isEmpty()) return
 
-    val gridLineColor  = Color(0xFF424349)
+    val gridLineColor  = TrackerColors.ChartGrid
     val labelColor     = Color.White
     val gridLineStroke = 1.dp
     val yLabelCount    = 4
@@ -822,7 +822,7 @@ fun WeightChart(
                     // ── Data point dots ───────────────────────────────────────
                     points.forEach { pt ->
                         drawCircle(color = color, radius = 4.dp.toPx() * animationProgress.value, center = pt)
-                        drawCircle(color = Color(0xFF24252B), radius = 2.dp.toPx() * animationProgress.value, center = pt)
+                        drawCircle(color = TrackerColors.ChartDot, radius = 2.dp.toPx() * animationProgress.value, center = pt)
                     }
 
                     // ── Prediction projection (dashed line to the forecast point) ──
@@ -865,6 +865,7 @@ fun WeightChart(
                             )
                         }
                     }
+
                 }
             }
         }

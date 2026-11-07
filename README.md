@@ -18,7 +18,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 
 ## Features
 
-- **Workout logging** — a bottom-sheet form with recent-exercise chips, history auto-complete and a tap-to-reuse "Last time" chip. Weight uses ±5 kg buttons for big jumps plus a fine-tune slider (±5 kg in 0.5 kg steps), an optional RPE slider (5–10, shown as reps in reserve) rates effort, dates have Today / Yesterday quick picks, and personal bests are one toggle away
+- **Workout logging** — a bottom-sheet form with recent-exercise chips, history auto-complete and a tap-to-reuse "Last time" chip. Weight uses ±5 kg buttons for big jumps plus a fine-tune slider (±5 kg in 0.5 kg steps), an optional RPE slider (5–10, shown as reps in reserve) rates effort, dates have Today / Yesterday quick picks, and personal bests are one toggle away — and celebrated with a banner showing what you beat. Pull down on the list to search, with your most-logged exercises as quick filters
 - **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed. When you stop, save the session with a name and activity type, resume, or discard it
 - **Tools** — one screen, opened from the wrench icon in the top bar, collecting small utilities in expandable sections (one open at a time, remembered between launches):
   - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
@@ -32,7 +32,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 - **Workout stats** — total volume lifted plus a per-exercise breakdown ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart with a 12-week average line; long-press to hide it from the list and the total
 - **Notes** — a dedicated training journal for freeform, date-organized notes
 - **Music widget** — integrated Spotify / YouTube Music controller with progress bar, album art accent color, and swipe gesture playback controls
-- **Material 3, container-free design** — flat lists and sections instead of cards; every add/edit form opens as a bottom sheet and quick questions share one dialog style. Deletes come with an Undo snackbar
+- **Material 3, container-free design** — flat lists and sections instead of cards, one consistent type scale with tabular numbers, named colour and shape tokens; every add/edit form opens as a bottom sheet and quick questions share one dialog style. Deletes come with an Undo snackbar
 - **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors, a background brightness slider, a font-size slider, and edge-to-edge display
 - **Cloud sync & backup** — automated Google Drive backups via WorkManager plus manual local backup/restore; backups are self-contained zip bundles that include both the workout database and step history
 - **Demo mode** — one-tap "Try with demo data" on the welcome screen seeds ~4 weeks of realistic workouts, body weight, sessions, notes, and step history

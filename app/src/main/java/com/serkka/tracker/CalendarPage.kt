@@ -107,14 +107,14 @@ fun CalendarPage(
                                 animationSpec = tween(durationMillis = 700),
                                 label = "totalActivities"
                             )
-                            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Column(horizontalAlignment = Alignment.Start) {
-                                    Text("Streak", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                    Text("$animatedStreak Weeks", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Streak", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                                    Text("$animatedStreak Weeks", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                                 }
                                 Column(horizontalAlignment = Alignment.Start) {
-                                    Text("Total activities", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                    Text("$animatedTotal", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Total activities", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                                    Text("$animatedTotal", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
@@ -189,7 +189,7 @@ private fun MiniMonth(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         )
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
@@ -197,7 +197,7 @@ private fun MiniMonth(
                     text = d,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    fontSize = 9.sp,
+                    fontSize = 9.sp,   // deliberate exception to the type scale: 2-up mini-month grid
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
@@ -223,7 +223,7 @@ private fun MiniMonth(
                             Box(modifier = cellModifier, contentAlignment = Alignment.Center) {
                                 Text(
                                     text = day.toString(),
-                                    fontSize = 10.sp,
+                                    fontSize = 10.sp,  // deliberate exception: mini-month day numbers must fit 7 columns
                                     lineHeight = 10.sp,
                                     textAlign = TextAlign.Center,
                                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Normal,

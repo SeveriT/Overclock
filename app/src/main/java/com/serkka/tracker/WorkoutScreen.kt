@@ -299,6 +299,9 @@ fun WorkoutScreen(
     // requestScrollToItem beats LazyColumn's keep-position-by-key behaviour, which would
     // otherwise hold the old first row in view and leave the new entry above it.
     var scrollWorkoutsToTopOnChange by remember { mutableStateOf(false) }
+
+    // PB "peak moment" banner (PbCelebration.kt); null = hidden
+    var pbCelebration by remember { mutableStateOf<PbCelebrationData?>(null) }
     LaunchedEffect(workouts) {
         if (scrollWorkoutsToTopOnChange) {
             workoutsListState.requestScrollToItem(0)
@@ -457,6 +460,9 @@ fun WorkoutScreen(
                                     bottomPadding   = if (musicVisible) 88.dp else 0.dp,
                                     topPadding = totalTopPadding,
                                     onSaveLocally = { name, type, startMs, duration ->
+                                        // "End" moment: short summary banner (same component as the PB one)
+                                        pbCelebration = workoutSavedSummary(duration, workouts, workoutSessions)
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.addWorkoutSession(name, type, startMs, duration)
                                     }
                                 )
@@ -492,11 +498,21 @@ fun WorkoutScreen(
                                                 System.currentTimeMillis(), w.isPersonalBest, w.weightUnit, w.notes, w.rpe
                                             )
                                         },
-                                        onTogglePB = { viewModel.updateWorkout(it.copy(isPersonalBest = !it.isPersonalBest)) },
+                                        onTogglePB = { w ->
+                                            if (!w.isPersonalBest) {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                pbCelebration = pbCelebrationFor(w.exerciseName, w.sets, w.reps, w.weight, w.weightUnit, workouts, excludeId = w.id)
+                                            }
+                                            viewModel.updateWorkout(w.copy(isPersonalBest = !w.isPersonalBest))
+                                        },
                                         listState = workoutsListState,
                                         topPadding = totalTopPadding,
                                         bottomPadding = contentBottomPadding,
-                                        searchQuery = searchQuery
+                                        searchQuery = searchQuery,
+                                        searchOpen = searchExpanded,
+                                        onPickSearch = { searchQuery = it },
+                                        // Pull down at the top of the list to open search (thumb-friendly)
+                                        onPullToSearch = if (searchExpanded) null else { { searchExpanded = true } }
                                     )
                                 }
                             }
@@ -723,7 +739,7 @@ fun WorkoutScreen(
                                     Text(
                                         text = formatElapsed(timerElapsed),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        style = MaterialTheme.typography.labelMedium
                                     )
                                 },
                                 leadingIcon = {
@@ -870,6 +886,15 @@ fun WorkoutScreen(
                 )
             }
 
+            // ── PB celebration banner (under the top bar, above content) ───────
+            PbCelebrationBanner(
+                data = pbCelebration,
+                onDismiss = { pbCelebration = null },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = totalTopPadding + 8.dp)
+            )
+
             // ── Dialogs ───────────────────────────────────────────────────────
 
             if (showAddWorkoutDialog) {
@@ -877,6 +902,7 @@ fun WorkoutScreen(
                     history = workoutHistory,
                     onDismiss = { showAddWorkoutDialog = false },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe ->
+                        if (isPB) pbCelebration = pbCelebrationFor(exercise, sets, reps, weight, weightUnit, workouts)
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe)
                         if (isPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showAddWorkoutDialog = false
@@ -927,7 +953,10 @@ fun WorkoutScreen(
                             exerciseName = exercise, sets = sets, reps = reps, weight = weight,
                             date = dateMillis, isPersonalBest = isPB, weightUnit = weightUnit, notes = notes, rpe = rpe
                         ))
-                        if (isPB && !wasPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (isPB && !wasPB) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            pbCelebration = pbCelebrationFor(exercise, sets, reps, weight, weightUnit, workouts, excludeId = workout.id)
+                        }
                         editingWorkout = null
                     },
                     onDelete = { workoutToDelete = workout; editingWorkout = null },
@@ -943,6 +972,7 @@ fun WorkoutScreen(
                     onDismiss = { copyingWorkout = null },
                     onConfirm = { exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe ->
                         scrollWorkoutsToTopOnChange = true
+                        if (isPB) pbCelebration = pbCelebrationFor(exercise, sets, reps, weight, weightUnit, workouts)
                         viewModel.addWorkout(exercise, sets, reps, weight, dateMillis, isPB, weightUnit, notes, rpe)
                         if (isPB) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         copyingWorkout = null
@@ -1059,10 +1089,10 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .padding(start = 8.dp, bottom = 11.dp, top = 6.dp)
+                            .padding(start = 8.dp, bottom = 12.dp, top = 8.dp)
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF1DB954))
+                            .background(TrackerColors.SpotifyGreen)
                             .clickable(
                                 interactionSource = noteInteractionSource,
                                 indication = ripple(bounded = true),
@@ -1090,7 +1120,7 @@ fun WorkoutScreen(
                             Icons.Default.MusicNote,
                             contentDescription = "Open Spotify",
                             modifier = Modifier.size(24.dp),
-                            tint = Color(0xFF191414)
+                            tint = TrackerColors.SpotifyBlack
                         )
                     }
                 }
@@ -1185,7 +1215,7 @@ fun WorkoutScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(64.dp)
-                                        .padding(horizontal = 10.dp),
+                                        .padding(horizontal = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
 
@@ -1212,7 +1242,7 @@ fun WorkoutScreen(
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier
                                                         .size(44.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clip(TrackerShapes.Small)
                                                 )
                                             }
                                         }
@@ -1272,7 +1302,7 @@ fun WorkoutScreen(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .padding(horizontal = 10.dp)
+                                            .padding(horizontal = 12.dp)
                                             .graphicsLayer { translationX = dragX.value * 0.4f }
                                     ) {
                                         // Outgoing layer
@@ -1343,7 +1373,7 @@ fun WorkoutScreen(
                                     progress = if (duration1 > 0) position1 / duration1 else 0f,
                                     modifier = Modifier.fillMaxWidth()
                                         .padding(horizontal = 16.dp)
-                                        .padding(bottom = 10.dp),
+                                        .padding(bottom = 12.dp),
                                     color = MaterialTheme.colorScheme.onSurface,
                                     trackColor = DarkSurfaceColor,
                                     isPlaying = currentSong.isPlaying
@@ -1358,9 +1388,9 @@ fun WorkoutScreen(
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
-                                    .padding(start = 10.dp, top = 10.dp)
+                                    .padding(start = 12.dp, top = 12.dp)
                                     .size(44.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(TrackerShapes.Small)
                                     .background(Color.Black.copy(alpha = 0.7f))
                                     .clickable(
                                         interactionSource = closeInteractionSource,

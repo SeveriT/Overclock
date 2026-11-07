@@ -24,6 +24,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -219,36 +221,6 @@ fun SettingsPage(
         contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        item {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
-                Column(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    SettingsButton(
-                        label = "User Guide",
-                        icon = Icons.AutoMirrored.Filled.HelpOutline,
-                        containerColor = primaryColor,
-                        onClick = { showUserGuide = true },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SettingsButton(
-                        label = "Contact Support",
-                        icon = Icons.Default.Email,
-                        containerColor = primaryColor,
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = "mailto:support@seppo.tech".toUri()
-                                putExtra(Intent.EXTRA_SUBJECT, "Overclock Support")
-                            }
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-
         item { SectionHeader("Appearance") }
 
         item {
@@ -455,65 +427,58 @@ fun SettingsPage(
                         }
 
                         NextBackupCountdown(primaryColor = primaryColor)
-
-                        // Drive Backup button
-                        SettingsButton(
-                            label = "Drive Backup",
-                            icon = Icons.Default.CloudUpload,
-                            containerColor = if (isSubscribed) primaryColor else primaryColor.copy(alpha = 0.4f),
-                            onClick = { if (isSubscribed) performDriveBackup() else onSubscribe() },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
-                        // ── Sign-in button ───────────────────────────
-                        SettingsButton(
-                            label = "Sign in with Google",
-                            icon = Icons.Default.AccountCircle,
-                            containerColor = if (isSubscribed) primaryColor else primaryColor.copy(alpha = 0.4f),
-                            onClick = {
-                                if (isSubscribed) googleSignInLauncher.launch(googleSignInClient.signInIntent)
-                                else onSubscribe()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    // Row 2: Local + Restore
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SettingsButton(
-                            label = "Local Backup",
-                            icon = Icons.Default.Save,
-                            containerColor = primaryColor,
-                            onClick = { backupLauncher.launch("workout_backup.zip") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        SettingsButton(
-                            label = "Restore Data",
-                            icon = Icons.Default.SettingsBackupRestore,
-                            containerColor = primaryColor,
-                            onClick = { restoreLauncher.launch(arrayOf("*/*")) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Row 3: Delete all data
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SettingsButton(
-                            label = "Clear All Data",
-                            icon = Icons.Default.DeleteForever,
-                            containerColor = Color(0xFFEE3E3E).copy(alpha = 0.8f),
-                            contentColor = Color.Black,
-                            onClick = { showDeleteConfirmDialog = true },
-                            modifier = Modifier.weight(1f)
-                        )
                     }
                 }
+            }
+        }
+
+        // Backup actions: plain settings rows, not a wall of filled buttons
+        item {
+            Column(Modifier.fillMaxWidth()) {
+                if (isGoogleSignedIn) {
+                    SettingsRow(
+                        icon = Icons.Default.CloudUpload,
+                        title = "Back up to Drive now",
+                        subtitle = if (isSubscribed) "Also runs automatically once a week" else "Premium feature",
+                        primaryColor = primaryColor,
+                        locked = !isSubscribed,
+                        onClick = { if (isSubscribed) performDriveBackup() else onSubscribe() }
+                    )
+                } else {
+                    SettingsRow(
+                        icon = Icons.Default.AccountCircle,
+                        title = "Connect Google Drive",
+                        subtitle = if (isSubscribed) "Sign in to enable weekly cloud backups" else "Premium feature",
+                        primaryColor = primaryColor,
+                        locked = !isSubscribed,
+                        onClick = {
+                            if (isSubscribed) googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                            else onSubscribe()
+                        }
+                    )
+                }
+                SettingsRow(
+                    icon = Icons.Default.Save,
+                    title = "Save local backup",
+                    subtitle = "A .zip with your workouts and step history",
+                    primaryColor = primaryColor,
+                    onClick = { backupLauncher.launch("workout_backup.zip") }
+                )
+                SettingsRow(
+                    icon = Icons.Default.SettingsBackupRestore,
+                    title = "Restore from backup",
+                    subtitle = "Replaces current data with a backup file",
+                    primaryColor = primaryColor,
+                    onClick = { restoreLauncher.launch(arrayOf("*/*")) }
+                )
+                SettingsRow(
+                    icon = Icons.Default.DeleteForever,
+                    title = "Clear all data",
+                    subtitle = "Delete everything and restart the app",
+                    primaryColor = primaryColor,
+                    destructive = true,
+                    onClick = { showDeleteConfirmDialog = true }
+                )
             }
         }
         // ── Subscription ──────────────────────────────────────────────────
@@ -531,7 +496,7 @@ fun SettingsPage(
                         Icon(
                             if (isSubscribed) Icons.Default.CheckCircle else Icons.Default.Star,
                             null,
-                            tint = if (isSubscribed) Color(0xFF4AC067) else primaryColor,
+                            tint = if (isSubscribed) TrackerColors.Green else primaryColor,
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
@@ -541,25 +506,13 @@ fun SettingsPage(
                         )
                     }
 
-                    if (isSubscribed) {
-                        val manageInteraction = remember { MutableInteractionSource() }
-                        SettingsButton(
-                            label = "Manage Subscription",
-                            icon = Icons.Default.CreditCard,
-                            containerColor = primaryColor,
-                            onClick = {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, "https://play.google.com/store/account/subscriptions".toUri())
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
+                    if (!isSubscribed) {
                         Text(
                             "Subscribe to unlock Drive backups.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        // The one filled button on this screen: it's the page's primary action
                         val subInteraction = remember { MutableInteractionSource() }
                         Button(
                             onClick = onSubscribe,
@@ -570,26 +523,58 @@ fun SettingsPage(
                                 contentColor = MaterialTheme.colorScheme.surface
                             )
                         ) { Text("Subscribe") }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-
-                        Text(
-                            "Have a premium account?",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        SettingsButton(
-                            label = "Sign in with Google",
-                            icon = Icons.Default.AccountCircle,
-                            containerColor = primaryColor,
-                            onClick = { premiumSignInLauncher.launch(premiumSignInClient.signInIntent) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
                 }
+            }
+        }
+        item {
+            if (isSubscribed) {
+                SettingsRow(
+                    icon = Icons.Default.CreditCard,
+                    title = "Manage subscription",
+                    subtitle = "Opens Google Play",
+                    primaryColor = primaryColor,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, "https://play.google.com/store/account/subscriptions".toUri())
+                        )
+                    }
+                )
+            } else {
+                SettingsRow(
+                    icon = Icons.Default.AccountCircle,
+                    title = "Have a premium account?",
+                    subtitle = "Sign in with Google to activate it",
+                    primaryColor = primaryColor,
+                    onClick = { premiumSignInLauncher.launch(premiumSignInClient.signInIntent) }
+                )
+            }
+        }
+
+        // ── Help ───────────────────────────────────────────────────────────
+        item { SectionHeader("Help") }
+        item {
+            Column(Modifier.fillMaxWidth()) {
+                SettingsRow(
+                    icon = Icons.AutoMirrored.Filled.HelpOutline,
+                    title = "User guide",
+                    subtitle = "How every screen and feature works",
+                    primaryColor = primaryColor,
+                    onClick = { showUserGuide = true }
+                )
+                SettingsRow(
+                    icon = Icons.Default.Email,
+                    title = "Contact support",
+                    subtitle = "Send feedback or report a problem",
+                    primaryColor = primaryColor,
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = "mailto:support@seppo.tech".toUri()
+                            putExtra(Intent.EXTRA_SUBJECT, "Overclock Support")
+                        }
+                        context.startActivity(intent)
+                    }
+                )
             }
         }
 
@@ -640,84 +625,59 @@ fun SettingsPage(
     }
 }
 
-@Composable
-fun UserGuideDialog(onDismiss: () -> Unit) {
-    TrackerDialog(
-        title = "User Guide",
-        onDismiss = onDismiss,
-        confirmLabel = "Got it",
-        onConfirm = onDismiss,
-        dismissLabel = null
-    ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 500.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                GuideSection("1. Navigation", "Swipe horizontally between the five navbar tabs: Timer, Workouts, Home, Weight and Calendar. Everything else opens from the top bar: Tools (wrench), Notes (pencil), Settings, plus Workout Stats on Workouts and Sessions on Calendar. The navbar hides when scrolling down and reappears when scrolling up.")
-                GuideSection("2. Demo Mode", "First-time users can tap 'Try with demo data' on the welcome screen to load ~4 weeks of realistic sample workouts, body weight entries, sessions, notes, and step history. Wipe it anytime from Settings → Clear All Data.")
-                GuideSection("3. Workout Timer", "Start/Pause with the main button. Tap the timer ring to start a new lap. When you stop, a sheet lets you name and save the session, Resume the timer, or discard it with the trash icon.")
-                GuideSection("4. Logging Workouts", "Tap (+) to open the workout sheet. Pick a recent exercise chip or type a name — suggestions from your history appear as you type, and the 'Last time' chip refills your previous sets, reps and weight. The weight − / + buttons jump 5 kg; the slider below fine-tunes ±5 kg in 0.5 kg steps. Optionally rate the set with the RPE slider (5–10 in half steps, shown as reps left; Clear removes it). Use the Today / Yesterday chips or tap the date for any day, and toggle Personal best. Each logged row has Duplicate (instant copy with today's date) and Copy (edit then save) buttons; tap the row for Edit, toggle PB, or Delete. Entries are grouped by day — tap a day header to expand or collapse it.")
-                GuideSection("5. Workout Stats", "Open from the chart icon on the Workouts screen. Shows total volume lifted and every exercise ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart — tap a bar to read that week, the dashed line is your 12-week average. Long-press an exercise to hide it from the list and the total; restore it from the Hidden section at the bottom.")
-                GuideSection("6. Home", "Weekly summary with activity count and streaks from your local sessions and workouts. Shows steps, latest weight, this week's exercises, and a Last 30 Days panel — gym days, average RPE, sets × reps and volume, each compared with the previous 30 days. Tap the eye-off icon on a section to hide it — a matching icon appears in the top bar to bring it back.")
-                GuideSection("7. Step Counter", "Daily step tracking via the device's built-in step sensor. Tap the pencil icon to edit your daily goal, and long-press the bar chart to add steps manually for any of the last 7 days. You'll get a notification when the goal is reached. A 7-day bar chart shows weekly progress. Grant Activity Recognition and Unrestricted Battery in Settings → Permissions.")
-                GuideSection("8. Weight Tracking", "Log body weight with optional notes: the − / + buttons jump 1 kg and the slider fine-tunes ±1 kg in 0.1 kg steps. Set your height to see RPI (Reciprocal Ponderal Index) and BMI. RPI is more accurate for muscular builds. Tap the metric to update your height. The prediction projects your weight to a date you pick (tap it to change), weighting recent weigh-ins most, and is drawn as a dashed line on the chart — scroll the chart right to see it. Tap the weight labels on the left to set the chart's range.")
-                GuideSection("9. Tools", "Open from the wrench icon in the top bar. Tap a tool to expand it — one is open at a time, and the app remembers which one you used last. Exercise Names lists every exercise you have logged: tap one to rename it everywhere at once, or rename it to an existing name to merge the two. An Undo button appears after each rename.")
-                GuideSection("10. Schedule", "In Tools, expand Schedule. Add the workouts you plan to do, tick them off as you train, and tap Reset to start a new week. Long-press an item to rename it.")
-                GuideSection("11. Pace Calculator", "In Tools, expand Pace Calculator. Drag either slider — min/km or km/h — and the other follows; use − / + for fine steps. Shows min/mile and mph, finish times for 400 m, 5K, 10K, half marathon and marathon, and the distance you'd cover in a 12-minute Cooper test.")
-                GuideSection("12. Sessions", "View saved workout sessions from the timer or add them manually. Sessions count toward your weekly activity streak. Open from the history icon on the Calendar screen or 'See all' on Home.")
-                GuideSection("13. Calendar", "A year-at-a-glance overview of compact month grids. Days with a logged session or workout are marked with an accent circle; today gets a ring. Shows the last 12 months back from the current month.")
-                GuideSection("14. Notes", "Open from the pencil icon in the top bar. Keep program plans, technique cues, and anything else you want to remember. Open a note to edit it, or delete it with the trash icon in the sheet.")
-                GuideSection("15. Music Widget", "Control Spotify or YouTube Music directly. The progress bar waves while music plays. Tap to open the player. Swipe left or right to skip tracks. The widget picks an accent color from the current album art.")
-                GuideSection("16. Backups", "Enable Google Drive backups in Settings to keep your data safe. Automatic backups run once a week when signed in (Settings shows the countdown to the next one). Local backups are a single .zip bundle containing your database and step history. Premium feature.")
-                GuideSection("17. Permissions", "Manage Notifications, Notification Listener (music widget), Activity Recognition (step counter), and Unrestricted Battery (keeps step counting alive in the background) from Settings → Permissions at any time. Status updates automatically when you return from system settings.")
-                GuideSection("18. Undo & Clear All Data", "Deleting a workout, weight, note or session shows an Undo button for a few seconds. Settings → Clear All Data wipes workouts, weights, notes, sessions, and steps atomically and restarts the app. Demo mode becomes available again afterwards.")
-                GuideSection("19. Customization", "Change your primary accent color using the RGB sliders in Settings and darken or lighten the background with the brightness slider. Adjust the font size slider to scale the whole UI. The entire app adapts to your choices.")
-            }
-    }
-}
+// ── Settings row ──────────────────────────────────────────────────────────────
 
+/**
+ * Standard settings row: accent icon, title, one-line subtitle, chevron. Full-bleed and
+ * tappable, like Android's own Settings. [destructive] turns icon + title red; [locked]
+ * (premium-only) dims the row and swaps the chevron for a lock while staying tappable
+ * (it opens the subscription offer).
+ */
 @Composable
-private fun GuideSection(title: String, description: String) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-    }
-}
-
-// ── Reusable settings button ──────────────────────────────────────────────────
-
-@Composable
-private fun SettingsButton(
-    label: String,
+private fun SettingsRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    containerColor: Color,
+    title: String,
+    subtitle: String?,
+    primaryColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    contentColor: Color = Color.Black
+    destructive: Boolean = false,
+    locked: Boolean = false
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Button(
-        onClick = onClick,
-        interactionSource = interactionSource,
-        modifier = modifier.height(50.dp).bounceClick(interactionSource),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        ),
-        shape = RoundedCornerShape(10.dp),
-        contentPadding = PaddingValues(8.dp)
+    val accent = when {
+        destructive -> MaterialTheme.colorScheme.error
+        locked -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> primaryColor
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 56.dp)
+            .padding(horizontal = PageGutter, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(label, fontSize = 12.sp, textAlign = TextAlign.Left)
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+        Icon(
+            if (locked) Icons.Default.Lock else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -745,15 +705,12 @@ private fun NextBackupCountdown(primaryColor: Color) {
     val m = (remainingMs % 3_600_000) / 60_000
     val s = (remainingMs % 60_000) / 1_000
 
-    Surface(
-        color = if (isDue) MaterialTheme.colorScheme.errorContainer else primaryColor.copy(alpha = 0.08f),
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    // Flat status row (was a tinted panel): icon + countdown, red only when a backup is due
+    Box(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(
                 imageVector = if (isDue) Icons.Default.CloudOff else Icons.Default.CloudSync,
@@ -941,14 +898,14 @@ private fun SettingsPermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = if (granted) Color(0xFF4AC067) else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (granted) TrackerColors.Green else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
