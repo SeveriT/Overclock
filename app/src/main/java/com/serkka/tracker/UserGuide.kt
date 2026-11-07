@@ -57,6 +57,8 @@ private val guideGroups = listOf(
             "Tap + to open the workout sheet. Pick a recent exercise or start typing; suggestions come from your history.",
             "The \"Last time\" chip refills your previous sets, reps and weight.",
             "Weight − / + jump 5 kg; the slider below fine-tunes ±5 kg in 0.5 kg steps.",
+            "Name an exercise Cardio or Stretching to log it by duration only: minutes and notes, no sets or reps.",
+            "Plank (lankku) is logged as sets × hold time: enter sets, then minutes and seconds per set.",
             "Rate effort with the optional RPE slider (5–10, shown as reps left). Clear removes it.",
             "Use the Today / Yesterday chips, or tap the date for any day.",
             "Saving a personal best shows a gold banner with how much you beat your previous best by."

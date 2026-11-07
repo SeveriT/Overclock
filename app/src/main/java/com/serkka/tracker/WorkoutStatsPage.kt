@@ -57,7 +57,8 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
     // Ordered by total sets × reps over the last 12 weeks (most first); all-time volume breaks ties.
     // Value = all-time kg volume (shown on the right and summed into the header total).
     val workoutStats = remember(workouts, weeklyRepsByExercise) {
-        workouts.filter { it.weightUnit == "kg" }
+        // Time-based entries (Cardio, Stretching) store minutes in `weight`, not kg — keep them out of volume
+        workouts.filter { it.weightUnit == "kg" && !isTimeBasedExercise(it.exerciseName) && !isHoldExercise(it.exerciseName) }
             .groupBy { it.exerciseName }
             .mapValues { entry ->
                 entry.value.sumOf {
@@ -237,7 +238,8 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
 
 /** Reps in one log entry: sets × reps (missing sets counts as 1 set; missing reps counts as 0). */
 private fun repsOf(w: Workout): Int =
-    if (w.reps > 0) (if (w.sets > 0) w.sets else 1) * w.reps else 0
+    if (isHoldExercise(w.exerciseName)) 0   // plank etc.: `reps` holds seconds, not reps
+    else if (w.reps > 0) (if (w.sets > 0) w.sets else 1) * w.reps else 0
 
 /**
  * Per exercise: total reps for each of the last [REP_CHART_WEEKS] ISO weeks (Monday-based),

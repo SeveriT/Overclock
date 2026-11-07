@@ -56,7 +56,20 @@ internal fun pbCelebrationFor(
     exercise: String, sets: Int, reps: Int, weight: Float, unit: String,
     history: List<Workout>, excludeId: Int? = null
 ): PbCelebrationData {
-    val isCardio = exercise.trim().equals("Cardio", ignoreCase = true)
+    if (isHoldExercise(exercise)) {
+        val previousHold = history
+            .filter { it.id != excludeId && it.exerciseName.equals(exercise, ignoreCase = true) }
+            .maxOfOrNull { it.reps }
+        val holdComparison = when {
+            previousHold == null || previousHold == 0 -> "First ${exercise.trim()} logged"
+            reps > previousHold ->
+                "+${formatHoldDuration(reps - previousHold)} over your previous best (${formatHoldDuration(previousHold)})"
+            reps == previousHold -> "Matches your best of ${formatHoldDuration(previousHold)}"
+            else -> "Longest so far: ${formatHoldDuration(previousHold)}"
+        }
+        return PbCelebrationData("New personal best", "${exercise.trim()} · ${formatHoldSets(sets, reps)}", holdComparison)
+    }
+    val isCardio = isTimeBasedExercise(exercise)
     val valueUnit = if (isCardio) "min" else unit
     val detail = when {
         isCardio -> "${formatWeight(weight)} min"
@@ -95,7 +108,7 @@ internal fun workoutSavedSummary(
 
     val todaysWorkouts = workouts.filter { dateOf(it.date) == today }
     val sets = todaysWorkouts
-        .filterNot { it.exerciseName.trim().equals("Cardio", ignoreCase = true) }
+        .filterNot { isTimeBasedExercise(it.exerciseName) }
         .sumOf { if (it.sets > 0) it.sets else 1 }
     val pbs = todaysWorkouts.count { it.isPersonalBest }
 

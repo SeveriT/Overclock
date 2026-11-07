@@ -324,10 +324,12 @@ private fun WorkoutWeekHeader(
 
 /** "Sets x reps @ weight" detail line; cardio entries show minutes instead. */
 internal fun workoutDetailsText(workout: Workout): String {
-    val isCardio = workout.exerciseName.trim().equals("Cardio", ignoreCase = true)
+    val isCardio = isTimeBasedExercise(workout.exerciseName)
     val base = buildString {
         if (isCardio) {
             if (workout.weight > 0) append("${formatWeight(workout.weight)} min")
+        } else if (isHoldExercise(workout.exerciseName)) {
+            if (workout.reps > 0) append(formatHoldSets(workout.sets, workout.reps))
         } else {
             if (workout.sets > 0) append("${workout.sets} sets ")
             if (workout.reps > 0) {
@@ -596,7 +598,8 @@ fun WorkoutDialog(
         weight = formatWeight(recent.weight)
     }
 
-    val isCardio = exercise.trim().equals("Cardio", ignoreCase = true)
+    val isCardio = isTimeBasedExercise(exercise)
+    val isHold = isHoldExercise(exercise)   // plank / lankku: sets × duration
 
     FormSheet(
         title = titleOverride ?: if (workout == null) "Add Workout" else "Edit Workout",
@@ -608,8 +611,8 @@ fun WorkoutDialog(
             onConfirm(
                 exercise,
                 sets.toIntOrNull() ?: 0,
-                reps.toIntOrNull() ?: 0,
-                weight.toLeadFloat() ?: 0f,
+                reps.toIntOrNull() ?: 0,                       // holds: seconds per set
+                if (isHold) 0f else weight.toLeadFloat() ?: 0f,
                 datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
                 isPB,
                 weightUnit,
@@ -684,7 +687,7 @@ fun WorkoutDialog(
 
         // ── Last time (tap to reuse) ─────────────────────────────────────────
         lastPerformance?.let { last ->
-            val lastIsCardio = last.exerciseName.trim().equals("Cardio", ignoreCase = true)
+            val lastIsCardio = isTimeBasedExercise(last.exerciseName)
             AssistChip(
                 onClick = { fillFrom(last) },
                 label = {
@@ -693,6 +696,7 @@ fun WorkoutDialog(
                     val lastRpe = last.rpe?.let { " · RPE ${formatRpe(it)}" } ?: ""
                     Text(
                         if (lastIsCardio) "Last time: ${formatWeight(last.weight)} min$lastRpe · tap to reuse"
+                        else if (isHoldExercise(last.exerciseName)) "Last time: ${formatHoldSets(last.sets, last.reps)}$lastRpe · tap to reuse"
                         else "Last time: ${last.sets}×${last.reps} @ ${formatWeight(last.weight)}${last.weightUnit}$lastRpe · tap to reuse"
                     )
                 },
@@ -705,7 +709,32 @@ fun WorkoutDialog(
         }
 
         // ── Numbers ──────────────────────────────────────────────────────────
-        if (!isCardio) {
+        if (isHold) {
+            // Sets, then the hold time per set as Min + Sec (stored as total seconds in `reps`)
+            val totalSec = reps.toIntOrNull() ?: 0
+            NumericInput(value = sets, onValueChange = { sets = it }, label = "Sets",
+                modifier = Modifier.fillMaxWidth().focusRequester(focusSets),
+                imeAction = ImeAction.Next, onNext = { focusReps.requestFocus() })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumericInput(
+                    value = if (reps.isBlank()) "" else (totalSec / 60).toString(),
+                    onValueChange = { m -> reps = ((m.toIntOrNull() ?: 0) * 60 + totalSec % 60).toString() },
+                    label = "Min",
+                    modifier = Modifier.weight(1f).focusRequester(focusReps),
+                    imeAction = ImeAction.Next, onNext = { focusNotes.requestFocus() }
+                )
+                NumericInput(
+                    value = if (reps.isBlank()) "" else (totalSec % 60).toString(),
+                    // Typing 75 s rolls over into 1 min 15 s
+                    onValueChange = { s -> reps = ((totalSec / 60) * 60 + (s.toIntOrNull() ?: 0)).toString() },
+                    label = "Sec",
+                    modifier = Modifier.weight(1f),
+                    step = 5f,
+                    imeAction = ImeAction.Next, onNext = { focusNotes.requestFocus() }
+                )
+            }
+        }
+        if (!isCardio && !isHold) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumericInput(value = sets, onValueChange = { sets = it }, label = "Sets",
                     modifier = Modifier.weight(1f).focusRequester(focusSets),
@@ -715,7 +744,8 @@ fun WorkoutDialog(
                     imeAction = ImeAction.Next, onNext = { focusWeight.requestFocus() })
             }
         }
-        NumericInput(
+        // Holds (plank) have no weight/minutes field — their time is the Min/Sec above
+        if (!isHold) NumericInput(
             value = weight,
             onValueChange = { weight = it },
             label = if (isCardio) "Minutes" else "Weight (kg)",
@@ -726,7 +756,7 @@ fun WorkoutDialog(
             onNext = { focusNotes.requestFocus() }
         )
         // Fine adjustment: ±5 around the value in 0.5 kg (1 min) steps
-        StepSlider(
+        if (!isHold) StepSlider(
             value = weight,
             onValueChange = { weight = it },
             step = if (isCardio) 1f else 0.5f,

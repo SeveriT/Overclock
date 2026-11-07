@@ -88,6 +88,37 @@ internal fun formatElapsed(totalSeconds: Long): String {
 
 // ── Number formatting ─────────────────────────────────────────────────────────
 
+/**
+ * Exercises logged by duration only: the minutes go in Workout.weight and sets/reps stay 0.
+ * The workout sheet then shows a Minutes field instead of sets/reps/kg, lists show "45 min",
+ * and they're left out of reps/volume stats. Add a name here to make another one time-based.
+ */
+internal val TIME_BASED_EXERCISES = setOf("cardio", "stretching", "venyttely")
+
+internal fun isTimeBasedExercise(name: String): Boolean =
+    name.trim().lowercase() in TIME_BASED_EXERCISES
+
+/**
+ * Hold exercises: sets × a duration per set (e.g. plank 3 × 1:30). The seconds per set go in
+ * Workout.reps and weight stays 0. The sheet shows Sets + Min + Sec; lists show "3 × 1:30 min";
+ * PBs compare hold time; they're left out of reps/volume stats (seconds aren't reps).
+ */
+internal val HOLD_EXERCISES = setOf("plank", "lankku")
+
+internal fun isHoldExercise(name: String): Boolean =
+    name.trim().lowercase() in HOLD_EXERCISES
+
+/** Seconds per set for display: 45 → "45 s", 90 → "1:30 min", 120 → "2 min". */
+internal fun formatHoldDuration(seconds: Int): String = when {
+    seconds < 60 -> "$seconds s"
+    seconds % 60 == 0 -> "${seconds / 60} min"
+    else -> "%d:%02d min".format(seconds / 60, seconds % 60)
+}
+
+/** "3 × 1:30 min", or just the duration when sets weren't entered. */
+internal fun formatHoldSets(sets: Int, seconds: Int): String =
+    if (sets > 0) "$sets × ${formatHoldDuration(seconds)}" else formatHoldDuration(seconds)
+
 internal fun formatWeight(weight: Float): String {
     val rounded = (weight * 1000f).roundToInt() / 1000f
     return if (rounded % 1 == 0f) rounded.toInt().toString() else rounded.toString()

@@ -191,11 +191,11 @@ fun SummaryPage(
     val periodComparison = remember(workouts, workoutSessions, today) {
         val zone = ZoneId.systemDefault()
         fun dateOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
-        fun isCardio(w: Workout) = w.exerciseName.trim().equals("Cardio", ignoreCase = true)
+        fun isCardio(w: Workout) = isTimeBasedExercise(w.exerciseName)   // Cardio, Stretching…
         fun stats(from: LocalDate, to: LocalDate): PeriodStats {
             val w = workouts.filter { dateOf(it.date) in from..to }
             val s = workoutSessions.filter { dateOf(it.date) in from..to }
-            val strength = w.filterNot(::isCardio)
+            val strength = w.filterNot { isCardio(it) || isHoldExercise(it.exerciseName) }   // holds: seconds, not reps
             return PeriodStats(
                 // Same "active day" rule as the streaks: any workout entry or session
                 gymDays = (w.map { dateOf(it.date) } + s.map { dateOf(it.date) }).toSet().size,
