@@ -18,6 +18,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -157,6 +162,46 @@ private fun ElasticColumnWrapper(
 
 
 @SuppressLint("UseKtx")
+private val NAV_PILLS_CLEARANCE = 36.dp      // FAB / music widget sit above the pills
+
+/**
+ * The navbar's collapsed form: a small capsule of page pills. Tap it or swipe up on it to
+ * open the full navbar again.
+ */
+@Composable
+private fun NavPills(count: Int, selected: Int, color: Color, backdrop: Color, onReveal: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            // Generous touch area around the tiny capsule
+            .padding(horizontal = 24.dp)
+            .height(32.dp)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { change, dragAmount ->
+                    if (dragAmount < -4f) { change.consume(); onReveal() }
+                }
+            }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onReveal)
+            .semantics { contentDescription = "Show navigation bar" }
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .background(backdrop.copy(alpha = 0.85f), TrackerShapes.Pill)
+                .padding(horizontal = 16.dp, vertical = 7.dp)   // 132 dp wide capsule
+        ) {
+            val idle = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+            repeat(count) { i ->
+                val isSelected = i == selected
+                val width by animateDpAsState(if (isSelected) 32.dp else 6.dp, tween(Motion.MEDIUM), label = "pillWidth")
+                val pillColor by animateColorAsState(if (isSelected) color else idle, tween(Motion.MEDIUM), label = "pillColor")
+                Box(Modifier.size(width = width, height = 6.dp).background(pillColor, TrackerShapes.Pill))
+            }
+        }
+    }
+}
+
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
@@ -242,15 +287,24 @@ fun WorkoutScreen(
         else                       -> null
     }
 
-    var isNavBarVisible by remember { mutableStateOf(true) }
+    // FAB + music widget: hide while scrolling down, come back when scrolling up
+    var fabVisible by remember { mutableStateOf(true) }
     var previousIndex by remember { mutableIntStateOf(0) }
     var previousOffset by remember { mutableIntStateOf(0) }
 
+    // Navbar: rests as small page pills. Tapping (or swiping up on) the pills opens the full
+    // bar; it folds back when you change page or scroll a list down. No timer.
+    var navBarExpanded by remember { mutableStateOf(false) }
+    fun revealNavBar() { navBarExpanded = true }
+
     LaunchedEffect(activeListState) {
         if (activeListState == null) {
-            isNavBarVisible = true
+            fabVisible = true
             return@LaunchedEffect
         }
+        // The first reading is just where the list already is (e.g. Workouts opens a row down,
+        // past the hidden search header), not a scroll, so it only sets the baseline.
+        var baselineSet = false
         snapshotFlow {
             Triple(
                 activeListState.firstVisibleItemIndex,
@@ -261,10 +315,13 @@ fun WorkoutScreen(
             val scrollingDown = index > previousIndex || (index == previousIndex && offset > previousOffset + 5)
             val scrollingUp = index < previousIndex || (index == previousIndex && offset < previousOffset - 5)
 
-            if (scrollingDown && index > 0) {
-                isNavBarVisible = false
+            if (!baselineSet) {
+                baselineSet = true
+            } else if (scrollingDown && index > 0) {
+                fabVisible = false
+                navBarExpanded = false
             } else if (scrollingUp && canScrollForward) {
-                isNavBarVisible = true
+                fabVisible = true
             }
 
             previousIndex = index
@@ -275,9 +332,20 @@ fun WorkoutScreen(
     var searchQuery          by remember { mutableStateOf("") }
     var searchExpanded       by remember { mutableStateOf(false) }
 
+    // Dragging the Workouts list while searching puts the keyboard away so results are visible.
+    // Only the keyboard: clearing focus would close the search (the field closes on focus loss).
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val workoutsDragged by workoutsListState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(workoutsDragged) {
+        if (workoutsDragged && searchExpanded) {
+            keyboardController?.hide()
+        }
+    }
+
     // Reset navbar visibility on screen change
     LaunchedEffect(currentRoute) {
-        isNavBarVisible = true
+        fabVisible = true
+        navBarExpanded = false
         previousIndex = 0
         previousOffset = 0
         if (currentRoute != Screen.Workouts.name) {
@@ -288,7 +356,7 @@ fun WorkoutScreen(
 
     val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val navBarOffsetY by animateDpAsState(
-        targetValue = if (isNavBarVisible) 0.dp else 100.dp + systemNavBarHeight,
+        targetValue = if (navBarExpanded) 0.dp else 100.dp + systemNavBarHeight,
         animationSpec = tween(Motion.MEDIUM),
         label = "navBarOffset"
     )
@@ -391,7 +459,7 @@ fun WorkoutScreen(
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
             val contentBottomPadding by animateDpAsState(
-                targetValue = if (isNavBarVisible) 190.dp else 140.dp,
+                targetValue = if (fabVisible) 190.dp else 140.dp,
                 animationSpec = tween(Motion.MEDIUM),
                 label = "contentBottom"
             )
@@ -527,12 +595,8 @@ fun WorkoutScreen(
                                         workoutSessions = workoutSessions,
                                         stepsViewModel = stepsViewModel,
                                         primaryColor = primaryColor,
-                                        onWorkoutEdit   = { editingWorkout = it },
-                                        onWorkoutDelete = { workoutToDelete = it },
-                                        onWorkoutCopy   = { copyingWorkout = it },
                                         onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
                                         onNavigateToSessions = { navigate(Screen.Sessions.name) },
-                                        onNavigateToReps = { navigate(Screen.Workouts.name) },
                                         listState = summaryListState,
                                         topPadding = totalTopPadding,
                                         bottomPadding = contentBottomPadding,
@@ -1063,11 +1127,20 @@ fun WorkoutScreen(
                 currentSong.packageName == "com.spotify.music" &&
                 !musicDismissed
 
-            val widgetBottomPadding by animateDpAsState(
-                targetValue = if (isNavBarVisible) 80.dp else 16.dp,
-                animationSpec = tween(Motion.MEDIUM),
-                label = "widgetBottom"
-            )
+            // FAB visibility as a transition state, so the music widget keeps the FAB's slot
+            // free until the fade-out has actually finished (otherwise the widget jumps up
+            // under the still-fading FAB).
+            val fabTransition = remember { MutableTransitionState(fabVisible && currentRoute in fabScreens) }
+            fabTransition.targetState = fabVisible && currentRoute in fabScreens
+            val fabHoldsSlot = fabTransition.currentState || fabTransition.targetState
+            // Page the FAB belongs to: stays on the last FAB page while it fades out, so leaving
+            // Weight doesn't flash the "+" icon (or route a tap to the wrong add dialog).
+            val lastFabRoute = remember { mutableStateOf(currentRoute) }
+            if (currentRoute in fabScreens) lastFabRoute.value = currentRoute
+            val fabRoute = lastFabRoute.value
+
+            // Snaps between positions (no slide) when the navbar opens / folds
+            val widgetBottomPadding = if (navBarExpanded) 80.dp else NAV_PILLS_CLEARANCE
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1139,7 +1212,7 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = if (isNavBarVisible && currentRoute in fabScreens) 70.dp else 0.dp)
+                            .padding(top = if (fabHoldsSlot) 70.dp else 0.dp)
                             .pointerInput(Unit) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { coroutineScope.launch { dragX.snapTo(0f) } },
@@ -1420,9 +1493,10 @@ fun WorkoutScreen(
                 }
 
                 AnimatedVisibility(
-                    visible = isNavBarVisible && currentRoute in fabScreens,
-                    enter = fadeIn() + scaleIn(),
-                    exit  = fadeOut() + scaleOut(),
+                    visibleState = fabTransition,
+                    // Fade only: the scale-from-zero read as the FAB sliding in from below
+                    enter = fadeIn(tween(Motion.SHORT)),
+                    exit  = fadeOut(tween(Motion.SHORT)),
                     modifier = Modifier.align(if (hasMusicWidget) Alignment.TopEnd else Alignment.TopEnd)
                 ) {
                     val fabInteractionSource = remember { MutableInteractionSource() }
@@ -1445,7 +1519,7 @@ fun WorkoutScreen(
                                     indication = ripple(),
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        when (currentRoute) {
+                                        when (fabRoute) {
                                             Screen.Workouts.name -> showAddWorkoutDialog = true
                                             Screen.WeightTracking.name -> { viewModel.prepareNewEntry(); showAddWeightDialog = true }
                                             Screen.Notes.name -> showAddNoteDialog = true
@@ -1456,7 +1530,7 @@ fun WorkoutScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = if (currentRoute == Screen.WeightTracking.name)
+                                    imageVector = if (fabRoute == Screen.WeightTracking.name)
                                         Icons.Default.MonitorWeight else Icons.Default.Add,
                                     contentDescription = "Add",
                                     tint = MaterialTheme.colorScheme.surface,
@@ -1527,6 +1601,24 @@ fun WorkoutScreen(
                     colors = navBarColors
                 )
                 Spacer(modifier = Modifier.width(4.dp))
+            }
+
+            // Collapsed navbar: one pill per page, the current one long and coloured
+            AnimatedVisibility(
+                visible = !navBarExpanded,
+                enter = fadeIn(tween(Motion.MEDIUM)),
+                exit = fadeOut(tween(Motion.SHORT)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+            ) {
+                NavPills(
+                    count = swipeScreens.size,
+                    selected = swipeScreens.indexOf(currentRoute),
+                    color = primaryColor,
+                    backdrop = bgColor,
+                    onReveal = { revealNavBar() }
+                )
             }
 
             // ── Subscription dialog ──────────────────────────────────────

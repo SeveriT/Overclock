@@ -26,7 +26,7 @@ Overclock is an Android app for lifters who want full control over their trainin
   - **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
 - **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Configurable axis range, and quick weigh-ins with ±1 kg buttons and a 0.1 kg fine-tune slider
 - **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Home page
-- **Home** — weekly activity count, streaks, a Last 30 Days panel (gym days, average RPE, sets × reps, volume) compared with the previous 30 days, latest weight, steps, and this week's exercises, with individually hideable sections
+- **Home** — weekly activity count, streaks, a Last 30 Days panel (gym days, average RPE, sets × reps, volume) compared with the previous 30 days, latest weight and steps, with individually hideable sections
 - **Calendar** — a year-at-a-glance overview of compact month grids; days you trained are marked with an accent circle and today gets a ring
 - **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, and notes; opened from Calendar's history icon or "See all" on Home
 - **Workout stats** — total volume lifted plus a per-exercise breakdown ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart with a 12-week average line; long-press to hide it from the list and the total

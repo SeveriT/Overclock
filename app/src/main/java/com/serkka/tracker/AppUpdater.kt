@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.storage.StorageManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
@@ -29,6 +30,9 @@ import java.net.URL
 private const val RELEASES_API = "https://api.github.com/repos/SeveriT/Overclock/releases/latest"
 private const val PREF_LAST_CHECK = "update_last_check_ms"
 private const val PREF_SKIPPED = "update_skipped_version"
+
+/** Thrown when the phone is too full to download or install the update. */
+class NotEnoughStorageException(val neededBytes: Long) : Exception("Not enough free storage")
 
 /** A newer release found on GitHub. */
 data class UpdateInfo(
@@ -128,6 +132,8 @@ object AppUpdater {
                 install(appContext, apk)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
+            } catch (e: NotEnoughStorageException) {
+                _state.value = UpdateState.Failed(storageMessage(e.neededBytes))
             } catch (e: Exception) {
                 Log.e("AppUpdater", "Update download failed", e)
                 _state.value = UpdateState.Failed("Download failed. Try again in a moment.")
@@ -144,6 +150,11 @@ object AppUpdater {
         val apk = File(dir, "Overclock-${info.version}.apk")
         if (apk.exists() && info.apkSizeBytes > 0 && apk.length() == info.apkSizeBytes) return apk
         dir.listFiles()?.forEach { it.delete() }
+        // Room for the download itself plus what the installer needs afterwards
+        if (info.apkSizeBytes > 0) {
+            val needed = info.apkSizeBytes * INSTALL_SPACE_FACTOR
+            if (!hasFreeSpace(context, needed)) throw NotEnoughStorageException(needed)
+        }
         val part = File(dir, apk.name + ".part")
 
         val conn = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
@@ -178,6 +189,18 @@ object AppUpdater {
 
     /** Opens Android's installer for [apk]; if installs from this app aren't allowed yet, says so. */
     fun install(context: Context, apk: File) {
+        // Android may clear the cache folder when storage runs low, taking the download with it
+        if (!apk.exists()) {
+            _state.value = UpdateState.Failed("The downloaded update was cleared by Android. Check for updates again to re-download it.")
+            return
+        }
+        // The installer copies the APK and unpacks it; with too little space it just closes
+        // without saying why, so check first.
+        val needed = apk.length() * (INSTALL_SPACE_FACTOR - 1)
+        if (!hasFreeSpace(context, needed)) {
+            _state.value = UpdateState.Failed(storageMessage(needed))
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
@@ -200,6 +223,22 @@ object AppUpdater {
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    // ── Storage ─────────────────────────────────────────────────────────────
+
+    /** Download + installer copy + unpacked app: roughly 3× the APK size. */
+    private const val INSTALL_SPACE_FACTOR = 3L
+
+    /** Space the system can give us, counting cache it's allowed to clear (same check the installer makes). */
+    private fun hasFreeSpace(context: Context, bytes: Long): Boolean = runCatching {
+        val sm = context.getSystemService(StorageManager::class.java)
+        sm.getAllocatableBytes(sm.getUuidForPath(context.dataDir)) >= bytes
+    }.getOrDefault(true)   // can't tell: let the installer try
+
+    private fun storageMessage(neededBytes: Long): String {
+        val mb = (neededBytes + 999_999) / 1_000_000
+        return "Not enough free storage to update. Free up about $mb MB on your phone and try again."
     }
 
     // ── GitHub API ──────────────────────────────────────────────────────────

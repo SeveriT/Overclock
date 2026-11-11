@@ -2,6 +2,10 @@
 
 package com.serkka.tracker
 
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -474,9 +478,13 @@ internal fun RpeSlider(
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                if (rpe == null) "Not set" else "${formatRpe(rpe)} · ${rpeDescription(rpe)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (rpe == null) MaterialTheme.colorScheme.onSurfaceVariant else primaryColor,
+                if (rpe == null) AnnotatedString("Not set") else buildAnnotatedString {
+                    append(formatRpe(rpe))
+                    // Description in the accent colour, number stays white
+                    withStyle(SpanStyle(color = primaryColor)) { append(" · ${rpeDescription(rpe)}") }
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (rpe == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
             if (rpe != null) {

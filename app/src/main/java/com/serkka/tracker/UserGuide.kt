@@ -86,7 +86,7 @@ private val guideGroups = listOf(
     )),
     GuideGroup("Progress", listOf(
         GuideTopic(Icons.Default.Home, "Home", "Your week at a glance", listOf(
-            "Weekly streak and this week's gym entries.",
+            "Weekly streak, Last 30 Days stats, latest weight and steps.",
             "Steps and latest weight with full-width charts.",
             "Last 30 Days compares gym days, average RPE, sets × reps and volume with the previous 30 days.",
             "Hide a section with its eye-off icon; bring it back from the top bar."

@@ -74,12 +74,8 @@ fun SummaryPage(
     workoutSessions: List<WorkoutSession>,
     stepsViewModel: StepsViewModel,
     primaryColor: Color,
-    onWorkoutEdit: (Workout) -> Unit,
-    onWorkoutDelete: (Workout) -> Unit,
-    onWorkoutCopy: (Workout) -> Unit,
     onNavigateToWeightTracking: () -> Unit,
     onNavigateToSessions: () -> Unit,
-    onNavigateToReps: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     topPadding: Dp = 0.dp,
     bottomPadding: Dp = 16.dp,
@@ -91,22 +87,6 @@ fun SummaryPage(
     val lastWeight = remember(bodyWeights) { bodyWeights.maxByOrNull { it.date } }
 
     val today = LocalDate.now()
-
-    val weekWorkouts = remember(workouts) {
-        val weekAgo = today.minusDays(6)
-        workouts.filter {
-            val d = Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            !d.isBefore(weekAgo) && !d.isAfter(today)
-        }.sortedByDescending { it.date }
-    }
-
-    val weekWorkoutsGrouped = remember(weekWorkouts) {
-        // Same ordering as the Workouts screen: newest-added first within a day (id DESC).
-        // Timestamps alone are unreliable here — picker entries are midnight UTC while
-        // AI/quick entries use the exact time — which shuffled same-day rows.
-        weekWorkouts.groupBy { formatDate(it.date) }
-            .mapValues { (_, list) -> list.sortedByDescending { it.id } }
-    }
 
     // Weekly dots use local sessions + weight-training workout entries only (no Strava).
     val weeklyStreak = remember(workoutSessions, workouts, today) {
@@ -210,7 +190,6 @@ fun SummaryPage(
         stats(today.minusDays(29), today) to stats(today.minusDays(59), today.minusDays(30))
     }
 
-    val expandedDays = remember { mutableStateMapOf<String, Boolean>() }
     val expandedActivityDays = remember { mutableStateMapOf<String, Boolean>() }
     val haptic = LocalHapticFeedback.current
 
@@ -820,62 +799,6 @@ fun SummaryPage(
                 }
             }
 
-            // ── This week's exercises ─────────────────────────────────────────
-            item {
-                SectionHeader(
-                    title = "This Week's Gym Entries",
-                    actionLabel = "See all",
-                    onAction = onNavigateToReps
-                )
-            }
-
-            if (weekWorkouts.isEmpty()) {
-                item {
-                    EmptyState(
-                        icon = ImageVector.vectorResource(R.drawable.ic_weight_training),
-                        message = "No exercises recorded this week yet."
-                    )
-                }
-            } else {
-                // All days in one item so the list's item spacing doesn't gap the flat rows.
-                item(key = "summary_week_days") {
-                    val dayEntries = weekWorkoutsGrouped.entries.toList()
-                    Column(Modifier.fillMaxWidth().animateContentSize()) {
-                        dayEntries.forEachIndexed { dayIndex, (date, workoutsInDay) ->
-                            val isExpanded = expandedDays[date] ?: false
-
-                            // Shared with the Workouts screen (WorkoutListContent.kt).
-                            WorkoutDayHeader(
-                                workoutsInDay = workoutsInDay,
-                                isExpanded = isExpanded,
-                                primaryColor = primaryColor,
-                                onToggle = { expandedDays[date] = !isExpanded }
-                            )
-
-                            if (isExpanded) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    workoutsInDay.forEachIndexed { i, workout ->
-                                        // Summary keeps its own interactions: tap = edit, long-press = copy.
-                                        WorkoutEntryRow(
-                                            workout = workout,
-                                            modifier = Modifier.combinedClickable(
-                                                onClick = { onWorkoutEdit(workout) },
-                                                onLongClick = {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    onWorkoutCopy(workout)
-                                                }
-                                            )
-                                        )
-                                        if (i < workoutsInDay.lastIndex) WorkoutEntryDivider()
-                                    }
-                                }
-                            }
-
-                            if (dayIndex < dayEntries.lastIndex) WorkoutDayDivider()
-                        }
-                    }
-                }
-            }
             // ── Last 30 days vs the previous 30 ─────────────────────────────
             item {
                 SectionHeader(
