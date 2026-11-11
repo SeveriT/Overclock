@@ -17,8 +17,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 64
-        versionName = "2.8.6"
+        versionCode = 65
+        versionName = "2.8.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -90,8 +90,12 @@ tasks.register<Exec>("githubRelease") {
         System.getenv("LOCALAPPDATA")?.let { "$it\\Programs\\GitHub CLI\\gh.exe" }
     ).firstOrNull { it != null && File(it).exists() } ?: "gh"
 
+    // Plain locals, not `providers`/`rootDir` off the script: the configuration cache can't
+    // store a task action that holds on to the whole Project.
+    val execs = providers
+    val root = rootDir
     fun git(vararg args: String): String =
-        providers.exec { commandLine("git", *args); workingDir = rootDir }
+        execs.exec { commandLine("git", *args); workingDir = root }
             .standardOutput.asText.get().trim()
 
     doFirst {
