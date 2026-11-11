@@ -86,7 +86,8 @@ fun PaceCalculatorContent(primaryColor: Color) {
             valueRange = PACE_MIN_SEC..PACE_MAX_SEC,
             onDecrement = { setPace(paceSec.roundToInt() - 1f); save() },
             onIncrement = { setPace(paceSec.roundToInt() + 1f); save() },
-            colors = sliderColors
+            colors = sliderColors,
+            label = formatPace(paceSec)
         )
 
         SectionHeader("Speed")
@@ -97,7 +98,8 @@ fun PaceCalculatorContent(primaryColor: Color) {
             valueRange = SPEED_MIN..SPEED_MAX,
             onDecrement = { setSpeed((speedKmh * 10).roundToInt() / 10f - 0.1f); save() },
             onIncrement = { setSpeed((speedKmh * 10).roundToInt() / 10f + 0.1f); save() },
-            colors = sliderColors
+            colors = sliderColors,
+            label = String.format("%.1f", speedKmh)
         )
 
         // ── Finish times at this pace ─────────────────────────────────────────
@@ -169,8 +171,10 @@ private fun StepperSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
-    colors: SliderColors
+    colors: SliderColors,
+    label: String
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -184,15 +188,10 @@ private fun StepperSlider(
             onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             colors = colors,
+            interactionSource = interactionSource,
             modifier = Modifier.weight(1f),
-            // Same compact thumb + slim track as the Settings sliders
-            thumb = {
-                SliderDefaults.Thumb(
-                    interactionSource = remember { MutableInteractionSource() },
-                    colors = colors,
-                    modifier = Modifier.size(16.dp)
-                )
-            },
+            // Shared handle: halo + value bubble while touched
+            thumb = { TrackerSliderThumb(interactionSource, colors.thumbColor, label) },
             track = { sliderState ->
                 SliderDefaults.Track(
                     sliderState = sliderState,

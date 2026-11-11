@@ -24,6 +24,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -241,6 +242,7 @@ fun SettingsPage(
                             Triple("G", primaryColor.green) { v: Float -> themeViewModel.updatePrimaryColor(primaryColor.copy(green = v)) },
                             Triple("B", primaryColor.blue) { v: Float -> themeViewModel.updatePrimaryColor(primaryColor.copy(blue = v)) }
                         ).forEach { (_, value, onValueChange) ->
+                            val rgbInteraction = remember { MutableInteractionSource() }
                             Slider(
                                 value = value,
                                 onValueChange = onValueChange,
@@ -248,12 +250,9 @@ fun SettingsPage(
                                     thumbColor = primaryColor,
                                     activeTrackColor = primaryColor
                                 ),
-                                thumb = {
-                                    SliderDefaults.Thumb(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
+                                interactionSource = rgbInteraction,
+                                // Bubble shows the channel as 0–255
+                                thumb = { TrackerSliderThumb(rgbInteraction, primaryColor, "${(value * 255).roundToInt()}") },
                                 track = { sliderState ->
                                     SliderDefaults.Track(
                                         sliderState = sliderState,
@@ -283,6 +282,7 @@ fun SettingsPage(
                     // Single neutral-gray slider (R = G = B). A previously tinted background
                     // shows at its average level and becomes neutral once dragged.
                     val grayLevel = (backgroundColor.red + backgroundColor.green + backgroundColor.blue) / 3f
+                    val brightnessInteraction = remember { MutableInteractionSource() }
                     Slider(
                         value = grayLevel,
                         onValueChange = { v -> themeViewModel.updateBackgroundColor(Color(v, v, v)) },
@@ -292,10 +292,12 @@ fun SettingsPage(
                             thumbColor = primaryColor,
                             activeTrackColor = primaryColor
                         ),
+                        interactionSource = brightnessInteraction,
+                        // Bubble shows brightness as % of the allowed range
                         thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = remember { MutableInteractionSource() },
-                                modifier = Modifier.size(16.dp)
+                            TrackerSliderThumb(
+                                brightnessInteraction, primaryColor,
+                                "${(grayLevel / ThemeViewModel.BACKGROUND_MAX_CHANNEL * 100).roundToInt()}%"
                             )
                         },
                         track = { sliderState ->
@@ -320,6 +322,7 @@ fun SettingsPage(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    val fontInteraction = remember { MutableInteractionSource() }
                     Slider(
                         value = fontScale,
                         onValueChange = { themeViewModel.updateFontScale(it) },
@@ -329,12 +332,8 @@ fun SettingsPage(
                             thumbColor = primaryColor,
                             activeTrackColor = primaryColor
                         ),
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = remember { MutableInteractionSource() },
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
+                        interactionSource = fontInteraction,
+                        thumb = { TrackerSliderThumb(fontInteraction, primaryColor, fontLabel) },
                         track = { sliderState ->
                             SliderDefaults.Track(
                                 sliderState = sliderState,

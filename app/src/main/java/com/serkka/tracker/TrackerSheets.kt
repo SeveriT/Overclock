@@ -4,7 +4,17 @@ package com.serkka.tracker
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -248,7 +258,8 @@ internal fun StepSlider(
         valueRange = windowStart..(windowStart + span),
         step = step,
         primaryColor = primaryColor,
-        modifier = modifier.padding(top = 10.dp)   // breathing room between the field above and the ticks
+        modifier = modifier.padding(top = 10.dp),   // breathing room between the field above and the ticks
+        label = formatWeight(current)
     )
 }
 
@@ -268,8 +279,10 @@ private fun TickedSlider(
     primaryColor: Color,
     modifier: Modifier = Modifier,
     majorEvery: Int = 5,
-    active: Boolean = true
+    active: Boolean = true,
+    label: String? = null      // value shown in the bubble above the handle while touched
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     val accent = if (active) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     val colors = if (active) {
         SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
@@ -297,30 +310,6 @@ private fun TickedSlider(
                 }
             }
     ) {
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange,
-            colors = colors,
-            modifier = Modifier.fillMaxWidth(),
-            thumb = {
-                SliderDefaults.Thumb(
-                    interactionSource = remember { MutableInteractionSource() },
-                    colors = colors,
-                    modifier = Modifier.size(THUMB_SIZE)
-                )
-            },
-            track = { sliderState ->
-                SliderDefaults.Track(
-                    sliderState = sliderState,
-                    colors = colors,
-                    modifier = Modifier.height(4.dp),
-                    thumbTrackGapSize = 4.dp
-                )
-            }
-        )
-
         // Ticks in the empty space above the thumb (the Slider is 48dp tall for touch; the
         // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a
         // thumb in from each edge, so the ticks use the same inset to line up with snap points.
@@ -344,6 +333,97 @@ private fun TickedSlider(
                     strokeWidth = stroke,
                     cap = StrokeCap.Round
                 )
+            }
+        }
+
+        // Slider after the ticks, so the value bubble on the handle draws on top of them
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = valueRange,
+            colors = colors,
+            interactionSource = interactionSource,
+            modifier = Modifier.fillMaxWidth(),
+            thumb = { TrackerSliderThumb(interactionSource, accent, label) },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    colors = colors,
+                    modifier = Modifier.height(4.dp),
+                    thumbTrackGapSize = 4.dp
+                )
+            }
+        )
+    }
+}
+
+/**
+ * The handle used by every slider in the app: a solid circle that, while pressed or dragged,
+ * grows a soft halo and shows a value bubble above it (Material 3 style). Pass the SAME
+ * [interactionSource] to the Slider, so the handle knows when it is being touched.
+ */
+@Composable
+internal fun TrackerSliderThumb(
+    interactionSource: MutableInteractionSource,
+    color: Color,
+    label: String?
+) {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val dragged by interactionSource.collectIsDraggedAsState()
+    val active by animateFloatAsState(
+        targetValue = if (pressed || dragged) 1f else 0f,
+        animationSpec = tween(Motion.SHORT),
+        label = "sliderThumbActive"
+    )
+    val onAccent = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = Modifier
+            .size(THUMB_SIZE)
+            .drawBehind {
+                // Halo grows out from the handle while touched
+                if (active > 0f) {
+                    drawCircle(color.copy(alpha = 0.24f * active), radius = THUMB_HALO_RADIUS.toPx() * (0.5f + 0.5f * active))
+                }
+                drawCircle(color)
+            }
+    ) {
+        if (label != null && active > 0f) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    // Zero-size node: the bubble sits centred above the halo without changing
+                    // the size of the handle or the layout of the slider.
+                    .layout { measurable, _ ->
+                        val bubble = measurable.measure(Constraints())
+                        val aboveHalo = (THUMB_HALO_RADIUS - THUMB_SIZE / 2 + 2.dp).roundToPx()
+                        layout(0, 0) {
+                            bubble.place((THUMB_SIZE.roundToPx() - bubble.width) / 2, -bubble.height - aboveHalo)
+                        }
+                    }
+                    .graphicsLayer {
+                        alpha = active
+                        scaleX = 0.7f + 0.3f * active
+                        scaleY = 0.7f + 0.3f * active
+                        transformOrigin = TransformOrigin(0.5f, 1f)   // pops up from its pointer
+                    }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 28.dp)
+                        .background(color, TrackerShapes.Pill)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = onAccent)
+                }
+                // Pointer under the pill
+                Canvas(Modifier.size(width = 10.dp, height = 5.dp)) {
+                    drawPath(
+                        Path().apply { moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2f, size.height); close() },
+                        color
+                    )
+                }
             }
         }
     }
@@ -417,12 +497,14 @@ internal fun RpeSlider(
             step = RPE_STEP,
             primaryColor = primaryColor,
             majorEvery = 2,          // taller tick on every whole RPE
-            active = rpe != null
+            active = rpe != null,
+            label = formatRpe(rpe ?: RPE_MIN)
         )
     }
 }
 
 private val THUMB_SIZE = 16.dp
+private val THUMB_HALO_RADIUS = 20.dp   // 40 dp halo while touched, like M3
 private val SLIDER_BOTTOM_TRIM = 10.dp
 
 /**
