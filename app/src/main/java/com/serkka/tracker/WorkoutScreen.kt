@@ -296,6 +296,8 @@ fun WorkoutScreen(
     // bar; it folds back when you change page or scroll a list down. No timer.
     var navBarExpanded by remember { mutableStateOf(false) }
     fun revealNavBar() { navBarExpanded = true }
+    // Home always shows the full bar; elsewhere it follows navBarExpanded
+    val navBarShown = navBarExpanded || currentRoute == Screen.Summary.name
 
     LaunchedEffect(activeListState) {
         if (activeListState == null) {
@@ -356,7 +358,7 @@ fun WorkoutScreen(
 
     val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val navBarOffsetY by animateDpAsState(
-        targetValue = if (navBarExpanded) 0.dp else 100.dp + systemNavBarHeight,
+        targetValue = if (navBarShown) 0.dp else 100.dp + systemNavBarHeight,
         animationSpec = tween(Motion.MEDIUM),
         label = "navBarOffset"
     )
@@ -1140,7 +1142,7 @@ fun WorkoutScreen(
             val fabRoute = lastFabRoute.value
 
             // Snaps between positions (no slide) when the navbar opens / folds
-            val widgetBottomPadding = if (navBarExpanded) 80.dp else NAV_PILLS_CLEARANCE
+            val widgetBottomPadding = if (navBarShown) 80.dp else NAV_PILLS_CLEARANCE
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1605,7 +1607,7 @@ fun WorkoutScreen(
 
             // Collapsed navbar: one pill per page, the current one long and coloured
             AnimatedVisibility(
-                visible = !navBarExpanded,
+                visible = !navBarShown,
                 enter = fadeIn(tween(Motion.MEDIUM)),
                 exit = fadeOut(tween(Motion.SHORT)),
                 modifier = Modifier
