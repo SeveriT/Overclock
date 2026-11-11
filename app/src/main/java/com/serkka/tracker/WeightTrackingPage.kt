@@ -11,8 +11,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,8 +27,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.flow.first
-import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -42,6 +38,18 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToInt
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -540,6 +548,11 @@ fun WeightTrackingPage(
 
 // ── Weight chart ──────────────────────────────────────────────────────────────
 
+private const val Y_AXIS_PADDING_KG = 0.5f   // auto Y range = lightest/heaviest ± this, rounded out to whole kg
+private const val MIN_VISIBLE_DAYS = 7f    // pinch-zoom in limit: at least a week stays on screen
+private const val DEFAULT_VISIBLE_DAYS = 42f   // zoom the chart opens at: 6 weeks
+private const val MAX_VISIBLE_DAYS = 70f   // pinch-zoom out limit: at most 10 weeks on screen
+
 @Composable
 fun WeightChart(
     weights: List<BodyWeight>,
@@ -556,51 +569,74 @@ fun WeightChart(
     val gridLineColor  = TrackerColors.ChartGrid
     val labelColor     = Color.White
     val gridLineStroke = 1.dp
-    val yLabelCount    = 4
-    val visibleDaysMs  = 30L * 24 * 60 * 60 * 1000  // 30 days in ms
+    val yLabelCount    = 4      // aim for about this many gaps between Y labels
 
     // Auto range folds the prediction point in so the projected line fits on-screen.
     // A user-set min/max override (from tapping the axis) wins over the auto value.
     val autoMinBase = minOf(weights.minOf { it.weight }, predictionWeight ?: Float.MAX_VALUE)
     val autoMaxBase = maxOf(weights.maxOf { it.weight }, predictionWeight ?: -Float.MAX_VALUE)
-    val padding = maxOf(1f, (autoMaxBase - autoMinBase) * 0.15f)
-    val minWeight  = minWeightOverride ?: (autoMinBase - padding)
-    val maxWeight  = maxWeightOverride ?: (autoMaxBase + padding)
+    // Auto range: lightest/heaviest weigh-in ± 0.5 kg, widened to whole kilos
+    val minWeight  = minWeightOverride ?: floor(autoMinBase - Y_AXIS_PADDING_KG)
+    val maxWeight  = maxWeightOverride ?: ceil(autoMaxBase + Y_AXIS_PADDING_KG)
     val weightRange = maxOf(1f, maxWeight - minWeight)
+    // Y labels / gridlines on whole kilos only: every `yStep` kg from the first whole
+    // kilo inside the range, so labels never need decimals.
+    val yStep = maxOf(1, ceil(weightRange / yLabelCount).toInt())
+    val yTicks: List<Float> = generateSequence(ceil(minWeight)) { it + yStep }
+        .takeWhile { it <= maxWeight + 0.001f }
+        .toList()
 
     val minDate  = weights.first().date
     val maxDate  = maxOf(weights.last().date, predictionDateMillis ?: weights.last().date)
     val dateRange = maxOf(1L, maxDate - minDate)
 
-    // Calculate how wide the canvas needs to be relative to the 30-day viewport
-    val totalPages = if (dateRange > visibleDaysMs) dateRange.toFloat() / visibleDaysMs else 1f
 
     val animationProgress = remember { Animatable(0f) }
     LaunchedEffect(weights) {
         animationProgress.animateTo(1f, animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing))
     }
 
-    // Open with the latest real weigh-in at the right edge of the viewport. The forecast
-    // (which extends maxDate past the last entry) stays off-screen until you scroll right.
+    // ── Viewport: pan + pinch zoom ───────────────────────────────────────────
+    // The chart is laid out on a "content" strip contentWidthPx wide; the visible canvas
+    // (viewportPx) shows the slice starting at offsetPx. Panning moves the offset, pinching
+    // changes the content width around the fingers. Own state instead of horizontalScroll
+    // so zooming never waits a frame for the scroll range to re-measure.
     val density = LocalDensity.current
-    val scrollState = rememberScrollState()
-    // Single source for the canvas width — used by both the scroll math and the Canvas.
-    val canvasWidth = (300.dp * totalPages).coerceAtLeast(300.dp)
-    LaunchedEffect(weights, maxDate) {
-        // maxValue is Int.MAX_VALUE until the scroll container has been measured.
-        val maxScroll = snapshotFlow { scrollState.maxValue }.first { it != Int.MAX_VALUE }
-        if (maxScroll <= 0) return@LaunchedEffect          // everything fits; nothing to scroll
-        with(density) {
-            val canvasPx = canvasWidth.toPx()
-            val viewportPx = canvasPx - maxScroll
-            val dotRadiusPx = 4.dp.toPx()                     // matches the Canvas's chartLeft inset
-            val usablePx = canvasPx - 2 * dotRadiusPx
-            val lastX = dotRadiusPx +
-                ((weights.last().date - minDate).toFloat() / dateRange.toFloat()) * usablePx
-            val rightMargin = 16.dp.toPx()                    // keep the last dot off the edge
-            val target = (lastX + rightMargin - viewportPx).roundToInt().coerceIn(0, maxScroll)
-            scrollState.scrollTo(target)
-        }
+    val dotRadiusPx = with(density) { 4.dp.toPx() }
+    var viewportPx by remember { mutableFloatStateOf(0f) }
+    var contentWidthPx by remember { mutableFloatStateOf(0f) }
+    var offsetPx by remember { mutableFloatStateOf(0f) }
+    val totalDays = dateRange / 86_400_000f
+    fun minContentPx() = maxOf(viewportPx, viewportPx * totalDays / MAX_VISIBLE_DAYS)    // zoomed out: 10 weeks
+    fun maxContentPx() = maxOf(viewportPx, viewportPx * totalDays / MIN_VISIBLE_DAYS)    // zoomed in: ~a week
+    fun maxOffsetPx() = maxOf(0f, contentWidthPx - viewportPx)
+
+    // Open at the default zoom with the latest real weigh-in at the right edge. The forecast
+    // (which extends maxDate past the last entry) stays off-screen until you scroll right.
+    LaunchedEffect(weights, maxDate, viewportPx) {
+        if (viewportPx <= 0f) return@LaunchedEffect
+        // Default zoom: 6 weeks on screen (or everything, if the history is shorter)
+        contentWidthPx = (viewportPx * totalDays / DEFAULT_VISIBLE_DAYS).coerceIn(minContentPx(), maxContentPx())
+        val usable = contentWidthPx - 2 * dotRadiusPx
+        val lastX = dotRadiusPx + ((weights.last().date - minDate).toFloat() / dateRange.toFloat()) * usable
+        val rightMargin = with(density) { 16.dp.toPx() }      // keep the last dot off the edge
+        offsetPx = (lastX + rightMargin - viewportPx).coerceIn(0f, maxOffsetPx())
+    }
+
+    val panState = rememberScrollableState { delta ->
+        val old = offsetPx
+        offsetPx = (offsetPx - delta).coerceIn(0f, maxOffsetPx())
+        old - offsetPx
+    }
+
+    /** Zoom by [factor], keeping the date under [focusX] (viewport px) in place. */
+    fun zoomBy(factor: Float, focusX: Float) {
+        if (contentWidthPx <= 0f) return
+        val old = contentWidthPx
+        val new = (old * factor).coerceIn(minContentPx(), maxContentPx())
+        val focusContent = offsetPx + focusX
+        contentWidthPx = new
+        offsetPx = (focusContent * (new / old) - focusX).coerceIn(0f, maxOffsetPx())
     }
 
     // Swallow any leftover horizontal scroll/fling so swiping the chart never
@@ -633,6 +669,16 @@ fun WeightChart(
         labels
     }
 
+    // Y-label column = widest label + the page gutter, so the gap between the labels and the
+    // chart matches the gap between the screen edge and the labels.
+    val yAxisWidth = remember(yTicks, density) {
+        with(density) {
+            val paint = android.graphics.Paint().apply { textSize = 12.sp.toPx() }
+            val widest = yTicks.maxOfOrNull { paint.measureText(it.roundToInt().toString()) } ?: 0f
+            widest.toDp() + PageGutter
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -655,7 +701,7 @@ fun WeightChart(
             // Fixed Y-axis labels on the left — tap to configure the min/max range.
             Canvas(
                 modifier = Modifier
-                    .width(36.dp)
+                    .width(yAxisWidth)
                     .fillMaxHeight()
                     .clickable { onAxisClick() }
             ) {
@@ -668,32 +714,45 @@ fun WeightChart(
                     setColor(labelColor.toArgb())
                     textAlign = android.graphics.Paint.Align.LEFT
                 }
-                for (i in 0..yLabelCount) {
-                    val fraction = i.toFloat() / yLabelCount
-                    val yVal = minWeight + fraction * weightRange
+                yTicks.forEach { yVal ->
+                    val fraction = (yVal - minWeight) / weightRange
                     val yPx = chartBottom - fraction * chartHeight
-                    val label = if (yVal % 1 == 0f) yVal.toInt().toString()
-                    else String.format("%.1f", yVal)
+                    val label = yVal.roundToInt().toString()
                     drawContext.canvas.nativeCanvas.drawText(
                         label, 0f, yPx + textPaint.textSize / 3f, textPaint
                     )
                 }
             }
 
-            // Scrollable chart area
+            // Chart area: drag to pan, pinch to zoom the time axis
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .clipToBounds()
+                    .onSizeChanged { viewportPx = it.width.toFloat() }
+                    // Two fingers = pinch zoom. Runs in the Initial pass and consumes the
+                    // events, so the pan below stops dragging while pinching.
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.count { it.pressed } >= 2) {
+                                    val zoom = event.calculateZoom()
+                                    if (zoom != 1f) zoomBy(zoom, event.calculateCentroid(useCurrent = true).x)
+                                    event.changes.forEach { it.consume() }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
                     .nestedScroll(consumeHorizontalSwipe)
-                    .horizontalScroll(scrollState)
+                    .scrollable(panState, Orientation.Horizontal)
             ) {
-                Canvas(
-                    modifier = Modifier
-                        // Minimum width = parent width, scales up for longer date ranges
-                        .width(canvasWidth)
-                        .fillMaxHeight()
-                ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    // Everything below is laid out on the content strip, then shifted by the pan
+                    val contentW = if (contentWidthPx > 0f) contentWidthPx else size.width
+                    val shift = -offsetPx
                     val xLabelHeightPx = 20.dp.toPx()
                     val chartBottom = size.height - xLabelHeightPx
                     val chartHeight = chartBottom
@@ -706,8 +765,8 @@ fun WeightChart(
                     }
 
                     // ── Horizontal grid lines ─────────────────────────────────
-                    for (i in 0..yLabelCount) {
-                        val fraction = i.toFloat() / yLabelCount
+                    yTicks.forEach { yVal ->
+                        val fraction = (yVal - minWeight) / weightRange
                         val yPx = chartBottom - fraction * chartHeight
                         drawLine(
                             color = gridLineColor,
@@ -719,7 +778,8 @@ fun WeightChart(
 
                     // ── X-axis date labels ────────────────────────────────────
                     xLabels.forEach { (ratio, label) ->
-                        val x = ratio * size.width
+                        val x = ratio * contentW + shift
+                        if (x < -40f || x > size.width + 40f) return@forEach   // off-screen
                         drawContext.canvas.nativeCanvas.drawText(
                             label, x, size.height, textPaint
                         )
@@ -733,8 +793,8 @@ fun WeightChart(
 
                     // ── Map data to canvas points ─────────────────────────────
                     val dotRadius = 4.dp.toPx()
-                    val chartRight = size.width - dotRadius
-                    val chartLeft = dotRadius
+                    val chartRight = contentW - dotRadius + shift
+                    val chartLeft = dotRadius + shift
                     val usableWidth = chartRight - chartLeft
                     val points = weights.map { w ->
                         val x = chartLeft + ((w.date - minDate).toFloat() / dateRange.toFloat()) * usableWidth
