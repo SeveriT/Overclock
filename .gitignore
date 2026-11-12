@@ -11,3 +11,5 @@ local.properties
 app/google-services.json
 *.zip
 /.claude/settings.local.json
+# Kotlin compiler session/cache data
+.kotlin/
