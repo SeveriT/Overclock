@@ -24,3 +24,14 @@
 
 # ── R8 full mode ──────────────────────────────────────────────────────────────
 -dontwarn java.lang.invoke.StringConcatFactory
+
+# ── Shrink only, never rename ────────────────────────────────────────────────
+# R8 removes unused code and resources but keeps every class/member name. Renaming is what
+# broke things before (reflection-based JSON models), and the extra size saving is tiny.
+-dontobfuscate
+
+# Google Drive API models are filled in by reflection (GenericJson / @Key fields + no-arg
+# constructors). Keep the whole model package so backup/restore can't lose a field.
+-keep class com.google.api.services.drive.** { *; }
+-keep class com.google.api.client.json.GenericJson { *; }
+-keep class com.google.api.client.util.GenericData { *; }

@@ -27,10 +27,11 @@ android {
         release {
             // Android Studio picks this variant by default (Build Variants panel can still switch)
             isDefault = true
-            // R8/ProGuard disabled — not publishing, so skip minification/shrinking to
-            // avoid obfuscation-related crashes and speed up release builds.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 shrinking on (unused code + resources removed: mostly the huge icons library),
+            // but no renaming (-dontobfuscate in proguard-rules.pro): renaming caused the past
+            // R8 crashes and saves little here, and readable names keep crash logs useful.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
