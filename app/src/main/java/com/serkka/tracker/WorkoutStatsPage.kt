@@ -3,26 +3,22 @@
 package com.serkka.tracker
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +30,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -97,6 +96,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
     val totalRecentReps = visibleStats.sumOf { recentReps(it.first) }
 
     val expanded = remember { mutableStateListOf<String>() }
+    var historyExercise by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -191,6 +191,19 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
 
                     if (isExpanded) {
                         weeklyRepsByExercise[exercise]?.let { WeeklyRepsChart(it, primaryColor) }
+                        // Every set ever logged, best sets and the estimated-1RM trend
+                        TextButton(
+                            onClick = { historyExercise = exercise },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Full history", color = primaryColor, fontWeight = FontWeight.SemiBold)
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = primaryColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
                 if (index < visibleStats.lastIndex) ListRowDivider(inset = PageGutter)
@@ -231,6 +244,15 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
                 }
             }
         }
+    }
+
+    historyExercise?.let { name ->
+        ExerciseHistorySheet(
+            exercise = name,
+            workouts = workouts,
+            primaryColor = primaryColor,
+            onDismiss = { historyExercise = null }
+        )
     }
 }
 

@@ -7,19 +7,38 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -32,7 +51,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
-import java.util.*
+import java.util.Locale
 
 // ── Calendar page — year-at-a-glance overview of compact month grids ──────────
 
@@ -220,8 +239,23 @@ private fun MiniMonth(
                                 isToday  -> Modifier.fillMaxSize(0.8f).border(1.5.dp, primaryColor, CircleShape)
                                 else     -> Modifier
                             }
-                            Box(modifier = cellModifier, contentAlignment = Alignment.Center) {
-                                Text(
+                            // Trained on Christmas Eve, Christmas Day or New Year's Day (Extras.kt)
+                            val holidayWorkout = isActive && isHolidayDate(date)
+                            val context = LocalContext.current
+                            Box(
+                                modifier = if (holidayWorkout) cellModifier.clickable {
+                                    android.widget.Toast.makeText(context, "Gains don't take holidays.", android.widget.Toast.LENGTH_SHORT).show()
+                                } else cellModifier,
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (holidayWorkout) {
+                                    Icon(
+                                        Icons.Default.AcUnit,
+                                        contentDescription = "Trained on a holiday",
+                                        tint = MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier.fillMaxSize(0.7f)
+                                    )
+                                } else Text(
                                     text = day.toString(),
                                     fontSize = 10.sp,  // deliberate exception: mini-month day numbers must fit 7 columns
                                     lineHeight = 10.sp,

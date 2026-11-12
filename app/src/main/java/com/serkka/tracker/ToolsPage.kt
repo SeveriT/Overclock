@@ -3,12 +3,24 @@ package com.serkka.tracker
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.ExpandMore
@@ -16,7 +28,11 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -31,7 +47,7 @@ import androidx.compose.ui.unit.dp
 // Accordion of small utilities. One tool is open at a time; the open one is
 // remembered across launches.
 
-private enum class Tool { Schedule, PaceCalculator, ExerciseNames }
+private enum class Tool { Schedule, OneRepMax, PlateCalculator, PaceCalculator, ExerciseNames }
 
 private const val PREF_OPEN_TOOL = "tools_open_tool"
 
@@ -97,6 +113,44 @@ fun ToolsPage(
             )
         }
         item(key = "tool_divider_schedule") { ListRowDivider(modifier = Modifier.animateItem(), inset = 0.dp) }
+
+        // ── One-rep max ───────────────────────────────────────────────────────
+        item(key = "tool_orm") {
+            ToolHeader(
+                icon = Icons.Default.Calculate,
+                title = "One-Rep Max",
+                subtitle = "Estimate your 1RM from any set",
+                expanded = openTool == Tool.OneRepMax,
+                primaryColor = primaryColor,
+                onClick = { toggle(Tool.OneRepMax) },
+                modifier = Modifier.animateItem()
+            )
+        }
+        if (openTool == Tool.OneRepMax) {
+            item(key = "orm_content") {
+                Box(Modifier.animateItem()) { OneRepMaxContent(primaryColor, workouts) }
+            }
+        }
+        item(key = "tool_divider_orm") { ListRowDivider(modifier = Modifier.animateItem(), inset = 0.dp) }
+
+        // ── Plate calculator ──────────────────────────────────────────────────
+        item(key = "tool_plates") {
+            ToolHeader(
+                icon = Icons.Default.Album,
+                title = "Plate Calculator",
+                subtitle = "Plates per side for a target weight",
+                expanded = openTool == Tool.PlateCalculator,
+                primaryColor = primaryColor,
+                onClick = { toggle(Tool.PlateCalculator) },
+                modifier = Modifier.animateItem()
+            )
+        }
+        if (openTool == Tool.PlateCalculator) {
+            item(key = "plates_content") {
+                Box(Modifier.animateItem()) { PlateCalculatorContent(primaryColor) }
+            }
+        }
+        item(key = "tool_divider_plates") { ListRowDivider(modifier = Modifier.animateItem(), inset = 0.dp) }
 
         // ── Pace calculator ───────────────────────────────────────────────────
         item(key = "tool_pace") {

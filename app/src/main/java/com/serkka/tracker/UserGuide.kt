@@ -6,16 +6,55 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -104,6 +143,7 @@ private val guideGroups = listOf(
             "Its own tab, right after Workouts.",
             "Exercises are ranked by sets × reps over the last 12 weeks.",
             "Tap an exercise for its reps-per-week chart; tap a bar to read that week.",
+            "Full history under the chart shows every set you've logged for that exercise, your best estimated 1RM and heaviest set, and an estimated-1RM trend.",
             "Long-press an exercise to hide it from the list and total. Restore it from Hidden at the bottom."
         )),
         GuideTopic(Icons.Default.MonitorWeight, "Weight tracking", "Trend, prediction, RPI and BMI", listOf(
@@ -125,9 +165,11 @@ private val guideGroups = listOf(
         ))
     )),
     GuideGroup("Tools", listOf(
-        GuideTopic(Icons.Default.Handyman, "Tools", "Schedule, pace calculator and exercise names", listOf(
+        GuideTopic(Icons.Default.Handyman, "Tools", "Schedule, 1RM and plate calculators, pace and exercise names", listOf(
             "Open from the wrench icon in the top bar. One tool is open at a time.",
             "Schedule: tick off planned workouts, tap Reset for a new week, long-press an item to rename it.",
+            "One-rep max: enter a weight and reps (or tap one of your exercises) for your estimated 1RM and a percentage table for working sets.",
+            "Plate calculator: enter a target weight and pick the bar to see the plates for each side.",
             "Pace calculator: drag min/km or km/h and the other follows. Shows finish times and your 12-minute Cooper distance.",
             "Exercise names: rename an exercise everywhere at once, or merge two by renaming one to the other. Each rename can be undone."
         ))

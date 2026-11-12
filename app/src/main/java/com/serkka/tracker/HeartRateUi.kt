@@ -78,7 +78,13 @@ internal fun HeartRateChip(primaryColor: Color, onClick: () -> Unit, modifier: M
         when {
             live -> {
                 Text("$bpm", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(" bpm", style = MaterialTheme.typography.labelMedium, color = muted)
+                // Extra lines at the extremes (Extras.kt)
+                val rate = bpm ?: 0
+                when {
+                    rate > 190 -> Text("  Breathe!", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = primaryColor)
+                    rate < 45 -> Text("  Cyclist or asleep?", style = MaterialTheme.typography.labelLarge, color = muted)
+                    else -> Text(" bpm", style = MaterialTheme.typography.labelMedium, color = muted)
+                }
             }
             state is HeartRateMonitor.State.Connected ->
                 Text("--", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = muted)

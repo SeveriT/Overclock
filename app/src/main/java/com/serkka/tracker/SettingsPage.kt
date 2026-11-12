@@ -14,28 +14,18 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -44,14 +34,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -61,11 +59,11 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
-import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Collections
+import kotlin.math.roundToInt
 
 private const val BACKUP_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000  // 1 week (matches MainActivity.scheduleBackup)
 
@@ -590,6 +588,7 @@ fun SettingsPage(
             }
         }
 
+        item { OverclockVersionFooter() }
         item { Spacer(modifier = Modifier.height(8.dp)) }
     }
 
@@ -969,4 +968,43 @@ private fun openAppInfo(context: Context) {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK
     }
     context.startActivity(intent)
+}
+
+/**
+ * App name + version at the bottom of Settings. Extra: tap it 7 times (like Android's
+ * build number) to overclock: the accent cycles through the rainbow for 10 seconds.
+ */
+@Composable
+private fun OverclockVersionFooter() {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val rainbow by Extras.rainbow.collectAsState()
+    var taps by remember { mutableIntStateOf(0) }
+    var lastTapMs by remember { mutableLongStateOf(0L) }
+    val tapsNeeded = 7
+    val text = when {
+        rainbow -> "\u26A1 Overclocked!"
+        taps in 4 until tapsNeeded -> "${tapsNeeded - taps} more\u2026"
+        else -> "Overclock ${AppUpdater.installedVersion(context)}"
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = if (rainbow) FontWeight.Bold else FontWeight.Normal,
+        color = if (rainbow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                val now = System.currentTimeMillis()
+                taps = if (now - lastTapMs < 1_500L) taps + 1 else 1   // taps must come in quick succession
+                lastTapMs = now
+                if (taps >= tapsNeeded) {
+                    taps = 0
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    Extras.overclock()
+                }
+            }
+            .padding(vertical = 16.dp)
+    )
 }

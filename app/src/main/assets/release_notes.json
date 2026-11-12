@@ -1,5 +1,22 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.2.0": [
+    {
+      "icon": "chart",
+      "title": "Exercise history",
+      "text": "In Stats, expand an exercise and tap Full history: every set you've logged, your best estimated 1RM and heaviest set, and a 1RM trend."
+    },
+    {
+      "icon": "workout",
+      "title": "One-rep max calculator",
+      "text": "New in Tools: enter a weight and reps, or tap one of your exercises, for your estimated 1RM and a percentage table for working sets."
+    },
+    {
+      "icon": "weight",
+      "title": "Plate calculator",
+      "text": "New in Tools: the plates for each side of the bar for any target weight, with your bar and biggest plate size."
+    }
+  ],
   "3.1.0": [
     {
       "icon": "navbar",
