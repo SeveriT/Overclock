@@ -14,43 +14,26 @@
 
 ---
 
-Overclock is an Android app for lifters who want full control over their training data. Log workouts, track body weight, time your sessions, and keep an eye on your activity streak, all from a single fast interface. Everything is stored locally on your device.
+Overclock is an Android app for lifters who want full control over their training data. Everything is stored on your device.
 
 ## Features
 
-- **Workout logging** — a bottom-sheet form with recent-exercise chips, history auto-complete and a tap-to-reuse "Last time" chip. Weight uses ±5 kg buttons for big jumps plus a fine-tune slider (±5 kg in 0.5 kg steps), an optional RPE slider (5–10, shown as reps in reserve) rates effort, dates have Today / Yesterday quick picks, and personal bests are one toggle away — and celebrated with a banner showing what you beat. Pull down on the list to search, with your most-logged exercises as quick filters
-- **Workout timer** — animated ring timer with lap tracking, persistent notification, and automatic recovery if the app is killed. When you stop, save the session with a name and activity type, resume, or discard it
-- **Heart rate** — connect any Bluetooth strap or watch that broadcasts the standard Heart Rate Service (Polar, Garmin, Wahoo, Coospo…). Live BPM sits inside the timer ring, the strap is remembered and reconnects automatically, and every timed session records its heart rate every 5 seconds: average, max and a full graph in Sessions
-- **Tools** — one screen, opened from the wrench icon in the top bar, collecting small utilities in expandable sections (one open at a time, remembered between launches):
-  - **Schedule** — an editable workout checklist you fill in and tick off as you train, with a manual reset button
-  - **Exercise names** — bulk-rename an exercise across every logged entry, or merge spelling variants into one name, with Undo
-  - **Pace calculator** — linked min/km and km/h sliders (3:00–8:00 /km) with fine-tune buttons, min/mile and mph readouts, and finish-time estimates for 400 m, 5K, 10K, half marathon and marathon, plus your Cooper test distance
-- **Weight tracking** — smooth trend chart with RPI and BMI from your height, plus a recency-weighted prediction that projects your weight to a date you choose, drawn right on the chart. Drag to scroll and pinch to zoom (1–10 weeks on screen), a whole-kilo axis fitted to your weigh-ins (or a range you set), and quick weigh-ins with ±1 kg buttons and a 0.1 kg fine-tune slider
-- **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Home page
-- **Home** — weekly activity count, streaks, a Last 30 Days panel (gym days, average RPE, sets × reps, volume) compared with the previous 30 days, latest weight and steps, with individually hideable sections
-- **Calendar** — a year-at-a-glance overview of compact month grids; days you trained are marked with an accent circle and today gets a ring
-- **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, notes and heart rate (tap for the graph); its own tab after Calendar, opened automatically after saving a timer session. Export any session as a .tcx file (time + heart rate) through the share sheet, ready for strava.com/upload and other training sites
-- **Workout stats** — total volume lifted plus a per-exercise breakdown ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart with a 12-week average line; long-press to hide it from the list and the total
-- **Notes** — a dedicated training journal for freeform, date-organized notes
-- **Music widget** — integrated Spotify / YouTube Music controller with progress bar, album art accent color, and swipe gesture playback controls
-- **Material 3, container-free design** — flat lists and sections instead of cards, one consistent type scale with tabular numbers, named colour and shape tokens; every add/edit form opens as a bottom sheet and quick questions share one dialog style. Deletes come with an Undo snackbar
-- **Customization** — fully dynamic Material 3 theme with user-adjustable RGB accent colors, a background brightness slider, a font-size slider, and edge-to-edge display
-- **Cloud sync & backup** — automated Google Drive backups via WorkManager plus manual local backup/restore; backups are self-contained zip bundles that include both the workout database and step history
-- **Demo mode** — one-tap "Try with demo data" on the welcome screen seeds ~4 weeks of realistic workouts, body weight, sessions, notes, and step history
-- **Permissions manager** — a dedicated Settings section for Notifications, Notification Listener, Activity Recognition, Unrestricted Battery and Bluetooth, mirrored on the welcome screen, with live status updates
-- **Clear all data** — atomic wipe of workouts, weights, notes, sessions, and step history with automatic app restart, re-enabling demo mode afterwards
-- **Premium subscription** — Google Play Billing with a monthly subscription that unlocks Google Drive backups
+- **Workout logging** — quick entry with history auto-fill, a "Last time" shortcut, optional RPE, personal bests and search
+- **Timer and heart rate** — lap timer that survives the app being closed; connect a Bluetooth heart rate strap for live BPM and a heart rate graph for every session
+- **Sessions** — every timed workout with its heart rate, exportable as a .tcx file for Strava and other training sites
+- **Progress** — streaks and a Last 30 Days comparison on Home, per-exercise stats, a year calendar, and a weight chart with pinch zoom and a weight prediction
+- **Steps** — daily step counter with a goal
+- **Tools** — workout checklist, bulk exercise rename, and a running pace calculator
+- **Also** — notes, Spotify and YouTube Music controls, local and Google Drive backups (Drive with Premium), a demo mode, and adjustable accent colour, brightness and font size
+
+## Install
+
+Download the APK from [Releases](https://github.com/SeveriT/Overclock/releases). After that, the app checks for new versions and updates itself.
 
 ## Built with
 
-- Kotlin 2.4 + Jetpack Compose (Compose BOM 2026.09), built with AGP 9 and its built-in Kotlin support
-- Room for local persistence
-- ViewModel + StateFlow
-- Navigation Compose 2.10 with a horizontal swipe pager for the seven main tabs and a scrolling text-only navbar
-- Google Play Billing for subscriptions
-- Firebase Remote Config for premium user management
-- MediaSession integration for Spotify and YouTube Music
-- Bluetooth Low Energy (GATT Heart Rate Service) for heart rate straps
-- Google Drive API + WorkManager
-- Material 3 with dynamic color customization
+- Kotlin and Jetpack Compose (Material 3)
+- Room, Navigation Compose, WorkManager
+- Google Drive API, Firebase Remote Config, Google Play Billing
+- Bluetooth Low Energy for heart rate straps
 - Developed with help from [Claude Code](https://claude.com/claude-code), Anthropic's AI coding assistant
