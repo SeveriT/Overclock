@@ -571,16 +571,20 @@ fun SettingsPage(
                     onClick = { AppUpdater.checkNow(context) }
                 )
                 SettingsRow(
-                    icon = Icons.Default.Email,
+                    icon = Icons.Default.Feedback,
                     title = "Contact support",
-                    subtitle = "Send feedback or report a problem",
+                    subtitle = "Send feedback or report a problem on GitHub",
                     primaryColor = primaryColor,
                     onClick = {
-                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = "mailto:support@seppo.tech".toUri()
-                            putExtra(Intent.EXTRA_SUBJECT, "Overclock Support")
-                        }
-                        context.startActivity(intent)
+                        // New GitHub issue, pre-filled with what a bug report needs first.
+                        // Nothing is sent until the user submits it on GitHub.
+                        val body = "\n\n---\nOverclock ${AppUpdater.installedVersion(context)} · " +
+                            "Android ${android.os.Build.VERSION.RELEASE} · ${android.os.Build.MODEL}"
+                        val url = "https://github.com/SeveriT/Overclock/issues/new?body=${Uri.encode(body)}"
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                            .onFailure {
+                                android.widget.Toast.makeText(context, "No browser found", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                     }
                 )
             }

@@ -20,26 +20,46 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 // ── "What's new" after an update ─────────────────────────────────────────────
 // Shown once, the first time a new version opens after an update (never on a fresh install:
-// the welcome screen covers that). Only versions with notes below get a popup; patch releases
-// without notes are marked as seen silently. Add the next version's notes at the top.
+// the welcome screen covers that). The notes live in assets/release_notes.json, which the
+// githubRelease Gradle task also publishes as the GitHub release notes, so both always match.
+// Versions without notes are marked as seen silently.
 
 private class WhatsNewItem(val icon: ImageVector, val title: String, val text: String)
 
-private val releaseNotes: Map<String, List<WhatsNewItem>> = mapOf(
-    "3.0.0" to listOf(
-        WhatsNewItem(Icons.Default.Favorite, "Heart rate",
-            "Connect a Bluetooth strap from the heart under the timer. Live BPM while you train, and every timed session saves its heart rate graph."),
-        WhatsNewItem(Icons.Default.Share, "Export to Strava",
-            "Share icon in Sessions exports a .tcx file with time and heart rate. Upload it at strava.com/upload."),
-        WhatsNewItem(Icons.Default.Menu, "New navbar",
-            "Always visible, text labels only. While the timer runs, the Timer tab shows the time."),
-        WhatsNewItem(Icons.Default.ShowChart, "Weight chart",
-            "Pinch to zoom from 1 to 10 weeks, and a whole-kilo axis fitted to your weigh-ins."),
-    ),
-)
+/** Icon names usable in release_notes.json (R8 strips unused icons, so they're listed here). */
+private fun iconFor(name: String): ImageVector = when (name) {
+    "favorite" -> Icons.Default.Favorite
+    "share" -> Icons.Default.Share
+    "navbar" -> Icons.Default.Menu
+    "chart" -> Icons.Default.ShowChart
+    "timer" -> Icons.Default.Timer
+    "weight" -> Icons.Default.MonitorWeight
+    "workout" -> Icons.Default.FitnessCenter
+    "calendar" -> Icons.Default.CalendarMonth
+    "home" -> Icons.Default.Home
+    "settings" -> Icons.Default.Settings
+    "backup" -> Icons.Default.CloudUpload
+    "update" -> Icons.Default.SystemUpdate
+    "bug" -> Icons.Default.BugReport
+    "speed" -> Icons.Default.Speed
+    else -> Icons.Default.Star
+}
+
+/** Notes for [version] from assets/release_notes.json, or null if it has none. */
+private fun loadNotes(context: Context, version: String): List<WhatsNewItem>? = runCatching {
+    val json = JSONObject(context.assets.open("release_notes.json").bufferedReader().use { it.readText() })
+    val items = json.optJSONArray(version) ?: return null
+    (0 until items.length()).map { i ->
+        val o = items.getJSONObject(i)
+        WhatsNewItem(iconFor(o.optString("icon")), o.getString("title"), o.getString("text"))
+    }.takeIf { it.isNotEmpty() }
+}.getOrNull()
 
 private const val PREF_SEEN = "whats_new_seen_version"
 
@@ -54,7 +74,7 @@ private fun pendingNotes(context: Context): Pair<String, List<WhatsNewItem>>? {
     // Fresh install: nothing is "new" yet. (Updates keep firstInstallTime, so it differs.)
     val isUpdate = info.lastUpdateTime != info.firstInstallTime
     if (!isUpdate) return null
-    return releaseNotes[current]?.let { current to it }
+    return loadNotes(context, current)?.let { current to it }
 }
 
 /** Place once in the main screen; shows the popup when there's something new. */
@@ -62,7 +82,7 @@ private fun pendingNotes(context: Context): Pair<String, List<WhatsNewItem>>? {
 fun WhatsNewHost() {
     val context = LocalContext.current
     var notes by remember { mutableStateOf<Pair<String, List<WhatsNewItem>>?>(null) }
-    LaunchedEffect(Unit) { notes = pendingNotes(context) }
+    LaunchedEffect(Unit) { notes = withContext(Dispatchers.IO) { pendingNotes(context) } }
 
     // Don't stack on top of an update prompt; show once that's gone
     val updateState by AppUpdater.state.collectAsState()

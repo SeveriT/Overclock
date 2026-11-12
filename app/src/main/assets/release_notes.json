@@ -1,0 +1,52 @@
+{
+  "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.1.0": [
+    {
+      "icon": "navbar",
+      "title": "Stats and Sessions tabs",
+      "text": "Workout Stats and Sessions have their own tabs and swipe pages. The navbar scrolls sideways and keeps the current tab in the middle."
+    },
+    {
+      "icon": "timer",
+      "title": "Straight to your session",
+      "text": "Saving a timer session takes you to Sessions, where you can see its heart rate graph or export it."
+    },
+    {
+      "icon": "workout",
+      "title": "More timed exercises",
+      "text": "Treadmill, Running, Walking, Cycling, Rowing, Yoga, Sauna and their Finnish names log as minutes. Side plank, Wall sit and Dead hang log as sets × hold time."
+    },
+    {
+      "icon": "bug",
+      "title": "Contact support",
+      "text": "Now opens a GitHub issue with your app and Android version filled in."
+    }
+  ],
+  "3.0.0": [
+    {
+      "icon": "favorite",
+      "title": "Heart rate",
+      "text": "Connect a Bluetooth strap from the heart under the timer. Live BPM while you train, and every timed session saves its heart rate graph."
+    },
+    {
+      "icon": "share",
+      "title": "Export to Strava",
+      "text": "Share icon in Sessions exports a .tcx file with time and heart rate. Upload it at strava.com/upload."
+    },
+    {
+      "icon": "navbar",
+      "title": "New navbar",
+      "text": "Always visible, text labels only. While the timer runs, the Timer tab shows the time."
+    },
+    {
+      "icon": "chart",
+      "title": "Weight chart",
+      "text": "Pinch to zoom from 1 to 10 weeks, and a whole-kilo axis fitted to your weigh-ins."
+    },
+    {
+      "icon": "speed",
+      "title": "Smaller app",
+      "text": "The download is now about 4 MB instead of 19 MB."
+    }
+  ]
+}

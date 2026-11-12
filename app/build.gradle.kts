@@ -17,8 +17,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 67
-        versionName = "3.0.0"
+        versionCode = 68
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -83,6 +83,9 @@ tasks.register<Exec>("githubRelease") {
     val versionName = android.defaultConfig.versionName
     val tag = "v$versionName"
     val apk = layout.buildDirectory.file("outputs/apk/release/Overclock-$tag-release.apk").get().asFile
+    // Same notes as the app's "What's new" popup (WhatsNew.kt)
+    val notesJson = file("src/main/assets/release_notes.json")
+    val notesOut = layout.buildDirectory.file("release-notes.md").get().asFile
     workingDir = rootDir
 
     // gh may not be on the PATH Android Studio started with (e.g. installed while AS was open)
@@ -110,11 +113,19 @@ tasks.register<Exec>("githubRelease") {
         require(git("branch", "-r", "--contains", head).isNotEmpty()) {
             "Commit $head isn't pushed yet — push first, then run githubRelease."
         }
+        // Release notes: this version's entries from release_notes.json as a bullet list, with
+        // GitHub's generated notes (compare link) appended. The in-app updater shows these too.
+        @Suppress("UNCHECKED_CAST")
+        val items = (groovy.json.JsonSlurper().parse(notesJson) as Map<String, Any?>)[versionName]
+            as? List<Map<String, String>> ?: emptyList()
+        val notesArgs = if (items.isEmpty()) emptyList() else {
+            notesOut.parentFile.mkdirs()
+            notesOut.writeText(items.joinToString("\n", postfix = "\n") { "- **${it["title"]}** — ${it["text"]}" })
+            listOf("--notes-file", notesOut.absolutePath)
+        }
         commandLine(
-            gh, "release", "create", tag, apk.absolutePath,
-            "--target", head,
-            "--title", "Overclock $tag",
-            "--generate-notes"
+            listOf(gh, "release", "create", tag, apk.absolutePath, "--target", head, "--title", "Overclock $tag") +
+                notesArgs + "--generate-notes"
         )
     }
 }

@@ -29,7 +29,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 - **Step counter** — daily step tracking via the device's built-in sensor, with an editable goal, goal-reached notification, and a 7-day bar chart on the Home page
 - **Home** — weekly activity count, streaks, a Last 30 Days panel (gym days, average RPE, sets × reps, volume) compared with the previous 30 days, latest weight and steps, with individually hideable sections
 - **Calendar** — a year-at-a-glance overview of compact month grids; days you trained are marked with an accent circle and today gets a ring
-- **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, notes and heart rate (tap for the graph); opened from Calendar's history icon or "See all" on Home. Export any session as a .tcx file (time + heart rate) through the share sheet, ready for strava.com/upload and other training sites
+- **Sessions** — browse, add, and edit saved workout sessions with duration, activity type, date, notes and heart rate (tap for the graph); its own tab after Calendar, opened automatically after saving a timer session. Export any session as a .tcx file (time + heart rate) through the share sheet, ready for strava.com/upload and other training sites
 - **Workout stats** — total volume lifted plus a per-exercise breakdown ranked by sets × reps over the last 12 weeks. Tap an exercise for a reps-per-week bar chart with a 12-week average line; long-press to hide it from the list and the total
 - **Notes** — a dedicated training journal for freeform, date-organized notes
 - **Music widget** — integrated Spotify / YouTube Music controller with progress bar, album art accent color, and swipe gesture playback controls
@@ -46,7 +46,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 - Kotlin 2.4 + Jetpack Compose (Compose BOM 2026.09), built with AGP 9 and its built-in Kotlin support
 - Room for local persistence
 - ViewModel + StateFlow
-- Navigation Compose 2.10 with a horizontal swipe pager for the five main tabs
+- Navigation Compose 2.10 with a horizontal swipe pager for the seven main tabs and a scrolling text-only navbar
 - Google Play Billing for subscriptions
 - Firebase Remote Config for premium user management
 - MediaSession integration for Spotify and YouTube Music

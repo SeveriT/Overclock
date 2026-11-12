@@ -93,7 +93,15 @@ internal fun formatElapsed(totalSeconds: Long): String {
  * The workout sheet then shows a Minutes field instead of sets/reps/kg, lists show "45 min",
  * and they're left out of reps/volume stats. Add a name here to make another one time-based.
  */
-internal val TIME_BASED_EXERCISES = setOf("cardio", "stretching", "venyttely")
+internal val TIME_BASED_EXERCISES = setOf(
+    // English
+    "cardio", "stretching", "treadmill", "rowing", "cycling", "elliptical", "stairmaster",
+    "running", "walking", "swimming", "hiit", "warm-up", "cool-down", "mobility",
+    "foam rolling", "yoga", "sauna",
+    // Finnish
+    "venyttely", "kardio", "juoksumatto", "soutu", "pyöräily", "crosstrainer", "porraskone",
+    "juoksu", "kävely", "uinti", "lämmittely", "jäähdyttely", "liikkuvuus", "rullaus", "jooga"
+)
 
 internal fun isTimeBasedExercise(name: String): Boolean =
     name.trim().lowercase() in TIME_BASED_EXERCISES
@@ -103,7 +111,10 @@ internal fun isTimeBasedExercise(name: String): Boolean =
  * Workout.reps and weight stays 0. The sheet shows Sets + Min + Sec; lists show "3 × 1:30 min";
  * PBs compare hold time; they're left out of reps/volume stats (seconds aren't reps).
  */
-internal val HOLD_EXERCISES = setOf("plank", "lankku")
+internal val HOLD_EXERCISES = setOf(
+    "plank", "side plank", "wall sit", "dead hang",       // English
+    "lankku", "kylkilankku", "seinäkyykky", "roikunta"    // Finnish
+)
 
 internal fun isHoldExercise(name: String): Boolean =
     name.trim().lowercase() in HOLD_EXERCISES

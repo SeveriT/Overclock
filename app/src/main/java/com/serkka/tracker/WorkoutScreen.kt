@@ -27,6 +27,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -74,6 +76,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.serkka.tracker.ui.theme.DarkSurfaceColor
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 import kotlin.math.sin
@@ -164,12 +167,14 @@ private fun ElasticColumnWrapper(
 }
 
 
-@SuppressLint("UseKtx")
 private val NAV_BAR_HEIGHT = 56.dp   // text-only tabs: shorter than M3's 80 dp icon + label bar
+private const val NAV_VISIBLE_TABS = 5   // tab width = screen / 5; extra tabs scroll ("rolling")
 
 /**
  * Bottom navigation: always visible, text labels only (no icons). The selected tab is bold in
  * the accent colour. [tabs] = route to label; the Timer tab's label is the running time.
+ * Every tab is a fifth of the screen wide, so with more than five the bar scrolls sideways;
+ * it follows the selected tab, and a soft fade at an edge shows there's more that way.
  */
 @Composable
 private fun TextNavBar(
@@ -182,8 +187,7 @@ private fun TextNavBar(
 ) {
     // A shade darker than the page so the bar reads as its own layer
     val barColor = lerp(backdrop, Color.Black, 0.2f)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             // Short fade from the content above, then solid behind the labels and system bar
@@ -200,16 +204,40 @@ private fun TextNavBar(
             )
             .navigationBarsPadding()
             .height(NAV_BAR_HEIGHT)
-            .padding(horizontal = 4.dp)
     ) {
+        val sidePadding = 4.dp
+        val tabWidth = (maxWidth - sidePadding * 2) / NAV_VISIBLE_TABS
+        val scroll = rememberScrollState()
+        val density = LocalDensity.current
+
+        // Centre the selected tab where the scroll allows: Timer–Home show the left end of the
+        // bar, Weight onwards rolls it so Sessions comes into view.
+        val selectedIndex = tabs.indexOfFirst { it.first == currentRoute }
+        LaunchedEffect(selectedIndex, tabWidth) {
+            if (selectedIndex < 0) return@LaunchedEffect
+            with(density) {
+                val tabPx = tabWidth.toPx()
+                val viewport = (maxWidth - sidePadding * 2).toPx()
+                val centred = selectedIndex * tabPx - (viewport - tabPx) / 2f
+                scroll.animateScrollTo(centred.roundToInt().coerceIn(0, scroll.maxValue))
+            }
+        }
+
         val idle = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .horizontalScroll(scroll)
+                .padding(horizontal = sidePadding)
+        ) {
         tabs.forEach { (route, label) ->
             val selected = route == currentRoute
             val textColor by animateColorAsState(if (selected) color else idle, tween(Motion.SHORT), label = "tabColor")
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .weight(1f)
+                    .width(tabWidth)
                     .fillMaxHeight()
                     .selectable(
                         selected = selected,
@@ -228,9 +256,26 @@ private fun TextNavBar(
                 )
             }
         }
+        }
+
+        // Edge fades: hint that more tabs are hidden on that side
+        val fadeWidth = 28.dp
+        if (scroll.canScrollBackward) {
+            Box(
+                Modifier.align(Alignment.CenterStart).width(fadeWidth).fillMaxHeight()
+                    .background(Brush.horizontalGradient(listOf(barColor, Color.Transparent)))
+            )
+        }
+        if (scroll.canScrollForward) {
+            Box(
+                Modifier.align(Alignment.CenterEnd).width(fadeWidth).fillMaxHeight()
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, barColor)))
+            )
+        }
     }
 }
 
+@SuppressLint("UseKtx")
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
@@ -280,9 +325,11 @@ fun WorkoutScreen(
         listOf(
             Screen.WorkoutTimer.name,
             Screen.Workouts.name,
+            Screen.WorkoutStats.name,
             Screen.Summary.name,
             Screen.WeightTracking.name,
-            Screen.Calendar.name
+            Screen.Calendar.name,
+            Screen.Sessions.name
         )
     }
     val pagerHostRoute = "swipe_host"
@@ -548,6 +595,7 @@ fun WorkoutScreen(
                                         pbCelebration = workoutSavedSummary(duration, workouts, workoutSessions)
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.addWorkoutSession(name, type, startMs, duration, hrSamples)
+                                        navigate(Screen.Sessions.name)   // show the saved session
                                     }
                                 )
                             }
@@ -642,25 +690,24 @@ fun WorkoutScreen(
                                     listState = calendarListState
                                 )
                             }
+                            Screen.WorkoutStats.name -> {
+                                WorkoutStatsPage(workouts, primaryColor, topPadding = totalTopPadding, bottomPadding = contentBottomPadding)
+                            }
+                            Screen.Sessions.name -> {
+                                ElasticColumnWrapper {
+                                    SessionsPage(
+                                        sessions = workoutSessions,
+                                        primaryColor = primaryColor,
+                                        onDelete = { sessionToDelete = it },
+                                        onEdit = { sessionToEdit = it },
+                                        listState = sessionsListState,
+                                        topPadding = totalTopPadding,
+                                        bottomPadding = contentBottomPadding
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-                // Not in the pager: reached from Calendar's History icon or Home's "See all".
-                composable(Screen.Sessions.name) {
-                    ElasticColumnWrapper {
-                        SessionsPage(
-                            sessions = workoutSessions,
-                            primaryColor = primaryColor,
-                            onDelete = { sessionToDelete = it },
-                            onEdit = { sessionToEdit = it },
-                            listState = sessionsListState,
-                            topPadding = totalTopPadding,
-                            bottomPadding = contentBottomPadding
-                        )
-                    }
-                }
-                composable(Screen.WorkoutStats.name) {
-                    WorkoutStatsPage(workouts, primaryColor, topPadding = totalTopPadding, bottomPadding = contentBottomPadding)
                 }
                 composable(Screen.Notes.name) {
                     ElasticColumnWrapper {
@@ -852,20 +899,6 @@ fun WorkoutScreen(
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
                         ) {
-                            val statsInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = { navigate(Screen.WorkoutStats.name) },
-                                interactionSource = statsInteractionSource,
-                                modifier = Modifier.size(42.dp).bounceClick(statsInteractionSource)
-                            ) {
-                                Icon(Icons.Default.BarChart, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                        AnimatedVisibility(
-                            visible = currentRoute == Screen.Workouts.name && !searchExpanded,
-                            enter   = fadeIn() + slideInHorizontally { it },
-                            exit    = fadeOut() + slideOutHorizontally { it }
-                        ) {
                             val searchInteractionSource = remember { MutableInteractionSource() }
                             IconButton(
                                 onClick = { searchExpanded = true },
@@ -873,20 +906,6 @@ fun WorkoutScreen(
                                 modifier = Modifier.size(42.dp).bounceClick(searchInteractionSource)
                             ) {
                                 Icon(Icons.Default.Search, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                        AnimatedVisibility(
-                            visible = currentRoute == Screen.Calendar.name,
-                            enter   = fadeIn() + slideInHorizontally { it },
-                            exit    = fadeOut() + slideOutHorizontally { it }
-                        ) {
-                            val sessionsInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = { navigate(Screen.Sessions.name) },
-                                interactionSource = sessionsInteractionSource,
-                                modifier = Modifier.size(42.dp).bounceClick(sessionsInteractionSource)
-                            ) {
-                                Icon(Icons.Default.History, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         val toolsInteractionSource = remember { MutableInteractionSource() }
@@ -1523,9 +1542,11 @@ fun WorkoutScreen(
                 tabs = listOf(
                     Screen.WorkoutTimer.name to (if (timerIsRunning) formatElapsed(timerElapsed) else "Timer"),
                     Screen.Workouts.name to "Workouts",
+                    Screen.WorkoutStats.name to "Stats",
                     Screen.Summary.name to "Home",
                     Screen.WeightTracking.name to "Weight",
-                    Screen.Calendar.name to "Calendar"
+                    Screen.Calendar.name to "Calendar",
+                    Screen.Sessions.name to "Sessions"
                 ),
                 currentRoute = currentRoute,
                 color = primaryColor,

@@ -42,8 +42,8 @@ private data class GuideGroup(val title: String, val topics: List<GuideTopic>)
 private val guideGroups = listOf(
     GuideGroup("Getting started", listOf(
         GuideTopic(Icons.Default.Explore, "Navigation", "Five swipeable tabs, everything else in the top bar", listOf(
-            "Swipe between Timer, Workouts, Home, Weight and Calendar.",
-            "Top bar: Tools (wrench), Notes (pencil) and Settings. Workout Stats lives on Workouts, Sessions (history icon) on Calendar.",
+            "Swipe between Timer, Workouts, Stats, Home, Weight, Calendar and Sessions, or tap a tab in the navbar. The navbar scrolls sideways and keeps the current tab in the middle.",
+            "Top bar: Tools (wrench), Notes (pencil) and Settings.",
             "The navbar at the bottom is always visible. While the workout timer runs, the Timer tab shows the elapsed time."
         )),
         GuideTopic(Icons.Default.AutoAwesome, "Demo mode", "Try the app with four weeks of sample data", listOf(
@@ -57,8 +57,8 @@ private val guideGroups = listOf(
             "Tap + to open the workout sheet. Pick a recent exercise or start typing; suggestions come from your history.",
             "The \"Last time\" chip refills your previous sets, reps and weight.",
             "Weight − / + jump 5 kg; the slider below fine-tunes ±5 kg in 0.5 kg steps.",
-            "Name an exercise Cardio or Stretching to log it by duration only: minutes and notes, no sets or reps.",
-            "Plank (lankku) is logged as sets × hold time: enter sets, then minutes and seconds per set.",
+            "Cardio, stretching and similar activities are logged by duration only (minutes and notes, no sets or reps): e.g. Treadmill, Running, Walking, Cycling, Rowing, Yoga, Mobility, Warm-up, Sauna, or Finnish names like Juoksumatto, Kävely, Venyttely, Lämmittely.",
+            "Plank, Side plank, Wall sit and Dead hang (Lankku, Kylkilankku, Seinäkyykky, Roikunta) are logged as sets × hold time: enter sets, then minutes and seconds per set.",
             "Rate effort with the optional RPE slider (5–10, shown as reps left). Clear removes it.",
             "Use the Today / Yesterday chips, or tap the date for any day.",
             "Saving a personal best shows a gold banner with how much you beat your previous best by."
@@ -84,7 +84,7 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.History, "Sessions", "Every timer session in one list", listOf(
             "Saved timer sessions plus ones you add with +.",
             "Sessions count toward your weekly streak.",
-            "Open from the history icon on Calendar, or \"See all\" on Home.",
+            "Its own tab after Calendar; saving a timer session takes you there.",
             "Sessions with heart rate show average and max; tap that line for the heart rate graph.",
             "The share icon exports a session as a .tcx file (time and heart rate). Upload it at strava.com/upload or to other training sites."
         )),
@@ -101,7 +101,7 @@ private val guideGroups = listOf(
             "Hide a section with its eye-off icon; bring it back from the top bar."
         )),
         GuideTopic(Icons.Default.BarChart, "Workout stats", "Volume and reps per exercise", listOf(
-            "Open from the chart icon on Workouts.",
+            "Its own tab, right after Workouts.",
             "Exercises are ranked by sets × reps over the last 12 weeks.",
             "Tap an exercise for its reps-per-week chart; tap a bar to read that week.",
             "Long-press an exercise to hide it from the list and total. Restore it from Hidden at the bottom."
