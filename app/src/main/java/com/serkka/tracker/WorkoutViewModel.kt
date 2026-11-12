@@ -1,5 +1,6 @@
 package com.serkka.tracker
 
+import kotlin.math.roundToInt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -160,9 +161,24 @@ class WorkoutViewModel(
     }
 
     // WorkoutSession operations
-    fun addWorkoutSession(name: String, type: String, startEpochMs: Long, durationSeconds: Int) {
+    /** [hrSamples]: BPM per HeartRateMonitor.SAMPLE_SECONDS from the timer (empty = no strap). */
+    fun addWorkoutSession(
+        name: String,
+        type: String,
+        startEpochMs: Long,
+        durationSeconds: Int,
+        hrSamples: List<Int> = emptyList()
+    ) {
+        val readings = hrSamples.filter { it > 0 }
         viewModelScope.launch {
-            repository.addSession(WorkoutSession(name = name, type = type, date = startEpochMs, durationSeconds = durationSeconds))
+            repository.addSession(
+                WorkoutSession(
+                    name = name, type = type, date = startEpochMs, durationSeconds = durationSeconds,
+                    avgHr = readings.takeIf { it.isNotEmpty() }?.average()?.roundToInt(),
+                    maxHr = readings.maxOrNull(),
+                    hrSamples = hrSamples.takeIf { readings.isNotEmpty() }?.joinToString(",")
+                )
+            )
         }
     }
 

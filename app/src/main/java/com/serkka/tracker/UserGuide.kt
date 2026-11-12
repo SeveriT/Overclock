@@ -44,7 +44,7 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.Explore, "Navigation", "Five swipeable tabs, everything else in the top bar", listOf(
             "Swipe between Timer, Workouts, Home, Weight and Calendar.",
             "Top bar: Tools (wrench), Notes (pencil) and Settings. Workout Stats lives on Workouts, Sessions (history icon) on Calendar.",
-            "The navbar hides as you scroll down and comes back when you scroll up."
+            "The navbar at the bottom is always visible. While the workout timer runs, the Timer tab shows the elapsed time."
         )),
         GuideTopic(Icons.Default.AutoAwesome, "Demo mode", "Try the app with four weeks of sample data", listOf(
             "Tap \"Try with demo data\" on the welcome screen.",
@@ -74,10 +74,19 @@ private val guideGroups = listOf(
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",
             "Saving shows a summary: duration, sets and PBs today, and which gym day of the week it was."
         )),
+        GuideTopic(Icons.Default.Favorite, "Heart rate", "Bluetooth strap on the timer", listOf(
+            "Tap the heart under the lap time on the timer to connect a strap. Works with straps and watches that broadcast standard Bluetooth heart rate (Polar, Garmin, Wahoo, Coospo and others).",
+            "Put the strap on before scanning: most only broadcast when they feel a heartbeat.",
+            "Your strap is remembered and reconnects by itself whenever you open the timer.",
+            "While the timer runs, heart rate is recorded every 5 seconds (paused time isn't). The session saves average, max and the full graph.",
+            "Disconnect or Forget the strap in the same sheet."
+        )),
         GuideTopic(Icons.Default.History, "Sessions", "Every timer session in one list", listOf(
             "Saved timer sessions plus ones you add with +.",
             "Sessions count toward your weekly streak.",
-            "Open from the history icon on Calendar, or \"See all\" on Home."
+            "Open from the history icon on Calendar, or \"See all\" on Home.",
+            "Sessions with heart rate show average and max; tap that line for the heart rate graph.",
+            "The share icon exports a session as a .tcx file (time and heart rate). Upload it at strava.com/upload or to other training sites."
         )),
         GuideTopic(Icons.Default.EditNote, "Notes", "Program plans, cues and reminders", listOf(
             "Open from the pencil icon in the top bar.",
@@ -101,6 +110,7 @@ private val guideGroups = listOf(
             "Log weight with optional notes: − / + jump 1 kg and the slider fine-tunes in 0.1 kg steps.",
             "Tap the RPI/BMI metric to set your height. RPI suits muscular builds better than BMI.",
             "The prediction projects your weight to a date you pick, weighting recent weigh-ins most. Scroll the chart right to see its dashed line.",
+            "Drag the chart to scroll and pinch to zoom: from 1 week up to 10 weeks on screen. It opens at 6 weeks.",
             "Tap the weight labels on the left of the chart to set its range."
         )),
         GuideTopic(Icons.Default.CalendarMonth, "Calendar", "A year of training days", listOf(
@@ -144,6 +154,7 @@ private val guideGroups = listOf(
             "Notification Listener: the music widget.",
             "Activity Recognition: the step counter.",
             "Unrestricted Battery: keeps step counting running in the background.",
+            "Bluetooth: connecting a heart rate strap (on Android 11 and older, scanning also needs location).",
             "Manage them in Settings → Permissions; status updates when you return from system settings."
         )),
         GuideTopic(Icons.Default.Restore, "Undo & clearing data", "Mistakes are easy to reverse", listOf(

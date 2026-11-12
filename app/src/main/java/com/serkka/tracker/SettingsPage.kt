@@ -774,6 +774,7 @@ private fun PermissionsCard(primaryColor: Color) {
     var batteryOptIgnored by remember {
         mutableStateOf(isIgnoringBatteryOptimizations(context))
     }
+    var bluetoothGranted by remember { mutableStateOf(HeartRateMonitor.hasPermissions(context)) }
 
     // Re-check on resume (user may have toggled in system settings)
     DisposableEffect(lifecycleOwner) {
@@ -786,11 +787,17 @@ private fun PermissionsCard(primaryColor: Color) {
                         context, Manifest.permission.ACTIVITY_RECOGNITION
                     ) == PackageManager.PERMISSION_GRANTED
                 batteryOptIgnored = isIgnoringBatteryOptimizations(context)
+                bluetoothGranted = HeartRateMonitor.hasPermissions(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    // Bluetooth (heart rate strap): scan + connect on Android 12+, location before that
+    val bluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { bluetoothGranted = HeartRateMonitor.hasPermissions(context) }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -862,6 +869,16 @@ private fun PermissionsCard(primaryColor: Color) {
                 granted = batteryOptIgnored,
                 primaryColor = primaryColor,
                 onGrant = { requestIgnoreBatteryOptimizations(context) },
+                onRevoke = { openAppInfo(context) }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SettingsPermissionRow(
+                icon = Icons.Default.Bluetooth,
+                label = "Bluetooth",
+                description = "Heart rate strap",
+                granted = bluetoothGranted,
+                primaryColor = primaryColor,
+                onGrant = { bluetoothLauncher.launch(HeartRateMonitor.requiredPermissions()) },
                 onRevoke = { openAppInfo(context) }
             )
         }

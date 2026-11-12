@@ -110,6 +110,12 @@ fun WelcomeScreen(
     // Unrestricted battery (keeps the step counter service alive)
     var batteryOptIgnored by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
 
+    // Bluetooth (heart rate strap): scan + connect on Android 12+, location before that
+    var bluetoothGranted by remember { mutableStateOf(HeartRateMonitor.hasPermissions(context)) }
+    val bluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { bluetoothGranted = HeartRateMonitor.hasPermissions(context) }
+
     // Re-check on resume (user may have toggled in system settings)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -122,6 +128,7 @@ fun WelcomeScreen(
                         context, Manifest.permission.ACTIVITY_RECOGNITION
                     ) == PackageManager.PERMISSION_GRANTED
                 batteryOptIgnored = isIgnoringBatteryOptimizations(context)
+                bluetoothGranted = HeartRateMonitor.hasPermissions(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -174,6 +181,7 @@ fun WelcomeScreen(
         // Features
         FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
+        FeatureItem(Icons.Default.Favorite, "Heart Rate", "Bluetooth strap support: live BPM on the timer, a graph per session, TCX export", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trend with prediction, weekly reps per exercise, and a weekly overview on Home", primaryColor)
         FeatureItem(Icons.Default.CalendarMonth, "Calendar", "Year-at-a-glance view of your training days and streaks", primaryColor)
         FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
@@ -239,6 +247,15 @@ fun WelcomeScreen(
             granted = batteryOptIgnored,
             primaryColor = primaryColor,
             onEnable = { requestIgnoreBatteryOptimizations(context) }
+        )
+
+        PermissionRow(
+            icon = Icons.Default.Bluetooth,
+            label = "Bluetooth",
+            description = "Connect a heart rate strap",
+            granted = bluetoothGranted,
+            primaryColor = primaryColor,
+            onEnable = { bluetoothLauncher.launch(HeartRateMonitor.requiredPermissions()) }
         )
 
         Spacer(modifier = Modifier.height(16.dp))

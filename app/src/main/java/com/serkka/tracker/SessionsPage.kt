@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.ui.res.painterResource
@@ -157,6 +161,7 @@ private fun SessionRow(
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
+    var hrExpanded by remember { mutableStateOf(false) }
     ListItem(
         modifier = Modifier.clickable(onClick = onEdit),
         colors = flatListItemColors(),
@@ -183,16 +188,60 @@ private fun SessionRow(
                 if (item.notes.isNotEmpty()) {
                     Text(item.notes, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+                // Heart rate from a Bluetooth strap: tap the summary to show the graph
+                val session = item.localSession
+                if (session?.avgHr != null) {
+                    Column(Modifier.animateContentSize()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .clip(TrackerShapes.Small)
+                                .clickable { hrExpanded = !hrExpanded }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Favorite, contentDescription = null, tint = primaryColor, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("avg ${session.avgHr} · max ${session.maxHr} bpm")
+                            Icon(
+                                if (hrExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (hrExpanded) "Hide heart rate graph" else "Show heart rate graph",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        if (hrExpanded) {
+                            HeartRateChart(
+                                samples = session.hrSampleList(),
+                                color = primaryColor,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+                    }
+                }
             }
         },
         trailingContent = {
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
+            Row {
+                // Export as a .tcx file (time + heart rate) through the share sheet
+                item.localSession?.let { session ->
+                    val context = LocalContext.current
+                    IconButton(onClick = { SessionExport.share(context, session) }) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = "Export",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     )

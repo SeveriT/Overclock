@@ -112,7 +112,7 @@ fun WorkoutTimerScreen(
     timerViewModel: WorkoutTimerViewModel,
     bottomPadding: Dp = 0.dp,
     topPadding: Dp,
-    onSaveLocally: (name: String, type: String, startEpochMs: Long, durationSeconds: Int) -> Unit = { _, _, _, _ -> }
+    onSaveLocally: (name: String, type: String, startEpochMs: Long, durationSeconds: Int, hrSamples: List<Int>) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -213,6 +213,13 @@ fun WorkoutTimerScreen(
     )
     val primaryColor = MaterialTheme.colorScheme.primary
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
+
+    // Bluetooth heart rate: reconnect the remembered strap whenever the timer is shown
+    var showHeartRateSheet by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { HeartRateMonitor.reconnectSaved(context) }
+    if (showHeartRateSheet) {
+        HeartRateSheet(primaryColor = primaryColor, onDismiss = { showHeartRateSheet = false })
+    }
 
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -325,6 +332,12 @@ fun WorkoutTimerScreen(
                         .alpha(hintAlpha)
                 )
             }
+            // Live heart rate under the lap time (mirrors the hint above; doesn't shift layout)
+            HeartRateChip(
+                primaryColor = primaryColor,
+                onClick = { showHeartRateSheet = true },
+                modifier = Modifier.offset(y = 64.dp)
+            )
         }
 
         Spacer(modifier = Modifier.weight(0.25f))
@@ -468,7 +481,9 @@ fun WorkoutTimerScreen(
                 onSaveLocally = {
                     val dt = startDateTime ?: LocalDateTime.now().minusSeconds(elapsedSeconds)
                     val startMs = dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    onSaveLocally(activityName, selectedType.typeId, startMs, elapsedSeconds.toInt())
+                    // Take the heart rate samples before discard() resets the recording
+                    val hrSamples = HeartRateMonitor.finishRecording()
+                    onSaveLocally(activityName, selectedType.typeId, startMs, elapsedSeconds.toInt(), hrSamples)
                     timerViewModel.discard()
                 },
                 onDismiss = { timerViewModel.dismissUploadDialog() },

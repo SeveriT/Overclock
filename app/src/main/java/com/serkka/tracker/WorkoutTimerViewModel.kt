@@ -87,6 +87,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         }
         if (_isRunning.value) return          // already ticking
         _isRunning.value = true
+        // Heart rate graph follows active time only (paused time isn't sampled)
+        if (firstStart) HeartRateMonitor.startRecording() else HeartRateMonitor.resumeRecording()
 
         // Anchor wall clock (shared by both total and lap so second boundaries align)
         wallClockBase = System.currentTimeMillis()
@@ -122,6 +124,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         _isRunning.value = false
         tickJob?.cancel()
         tickJob = null
+        HeartRateMonitor.pauseRecording()
         pauseTimerService()
     }
 
@@ -177,6 +180,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     fun reset() {
         pause()
         stopTimerService()
+        HeartRateMonitor.discardRecording()   // a saved workout has already taken its samples
         _hasStarted.value       = false
         _elapsedSeconds.value   = 0L
         _currentLapSeconds.value = 0L
@@ -246,6 +250,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
 
         if (wasRunning) {
             _isRunning.value = true
+            // Restarted mid-workout: keep sampling, padded so the graph lines up with elapsed time
+            HeartRateMonitor.resumeRecording(padToSeconds = recovered)
             wallClockBase = System.currentTimeMillis()
             elapsedAtBase = recovered
             lapWallClockBase = wallClockBase

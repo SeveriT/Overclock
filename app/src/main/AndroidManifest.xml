@@ -15,6 +15,17 @@
     <!-- In-app updater: lets Overclock hand a downloaded update APK to the installer -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Bluetooth heart rate strap (HeartRateMonitor.kt). Android 12+: scan + connect, and the
+         scan is never used for location. Android 11 and older need location to scan BLE. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <!-- Optional: the app still installs on phones without Bluetooth LE -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
     <queries>
         <package android:name="com.spotify.music" />
     </queries>

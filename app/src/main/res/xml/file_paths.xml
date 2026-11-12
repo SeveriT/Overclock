@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shared with the system package installer: only downloaded update APKs (AppUpdater). -->
+<!-- Files Overclock hands to other apps through its FileProvider:
+     downloaded update APKs (AppUpdater) and exported session files (SessionExport). -->
 <paths>
     <cache-path name="updates" path="updates/" />
+    <cache-path name="exports" path="exports/" />
 </paths>

@@ -5,6 +5,7 @@ package com.serkka.tracker
 import android.annotation.SuppressLint
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,8 +21,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -43,6 +45,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -162,41 +165,67 @@ private fun ElasticColumnWrapper(
 
 
 @SuppressLint("UseKtx")
-private val NAV_PILLS_CLEARANCE = 36.dp      // FAB / music widget sit above the pills
+private val NAV_BAR_HEIGHT = 56.dp   // text-only tabs: shorter than M3's 80 dp icon + label bar
 
 /**
- * The navbar's collapsed form: a small capsule of page pills. Tap it or swipe up on it to
- * open the full navbar again.
+ * Bottom navigation: always visible, text labels only (no icons). The selected tab is bold in
+ * the accent colour. [tabs] = route to label; the Timer tab's label is the running time.
  */
 @Composable
-private fun NavPills(count: Int, selected: Int, color: Color, backdrop: Color, onReveal: () -> Unit) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            // Generous touch area around the tiny capsule
-            .padding(horizontal = 24.dp)
-            .height(32.dp)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { change, dragAmount ->
-                    if (dragAmount < -4f) { change.consume(); onReveal() }
-                }
-            }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onReveal)
-            .semantics { contentDescription = "Show navigation bar" }
+private fun TextNavBar(
+    tabs: List<Pair<String, String>>,
+    currentRoute: String,
+    color: Color,
+    backdrop: Color,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // A shade darker than the page so the bar reads as its own layer
+    val barColor = lerp(backdrop, Color.Black, 0.2f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            // Short fade from the content above, then solid behind the labels and system bar
+            .background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.Transparent,
+                        0.15f to barColor.copy(alpha = 0.7f),
+                        0.35f to barColor.copy(alpha = 0.95f),
+                        0.5f to barColor,
+                        1.0f to barColor
+                    )
+                )
+            )
+            .navigationBarsPadding()
+            .height(NAV_BAR_HEIGHT)
+            .padding(horizontal = 4.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .background(backdrop.copy(alpha = 0.85f), TrackerShapes.Pill)
-                .padding(horizontal = 16.dp, vertical = 7.dp)   // 132 dp wide capsule
-        ) {
-            val idle = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-            repeat(count) { i ->
-                val isSelected = i == selected
-                val width by animateDpAsState(if (isSelected) 32.dp else 6.dp, tween(Motion.MEDIUM), label = "pillWidth")
-                val pillColor by animateColorAsState(if (isSelected) color else idle, tween(Motion.MEDIUM), label = "pillColor")
-                Box(Modifier.size(width = width, height = 6.dp).background(pillColor, TrackerShapes.Pill))
+        val idle = MaterialTheme.colorScheme.onSurfaceVariant
+        tabs.forEach { (route, label) ->
+            val selected = route == currentRoute
+            val textColor by animateColorAsState(if (selected) color else idle, tween(Motion.SHORT), label = "tabColor")
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .selectable(
+                        selected = selected,
+                        onClick = { onSelect(route) },
+                        role = Role.Tab,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(bounded = false, radius = 36.dp)
+                    )
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = textColor,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -292,12 +321,7 @@ fun WorkoutScreen(
     var previousIndex by remember { mutableIntStateOf(0) }
     var previousOffset by remember { mutableIntStateOf(0) }
 
-    // Navbar: rests as small page pills. Tapping (or swiping up on) the pills opens the full
-    // bar; it folds back when you change page or scroll a list down. No timer.
-    var navBarExpanded by remember { mutableStateOf(false) }
-    fun revealNavBar() { navBarExpanded = true }
-    // Home always shows the full bar; elsewhere it follows navBarExpanded
-    val navBarShown = navBarExpanded || currentRoute == Screen.Summary.name
+    // Navbar: always visible (TextNavBar); only the FAB / music widget react to scrolling
 
     LaunchedEffect(activeListState) {
         if (activeListState == null) {
@@ -321,7 +345,6 @@ fun WorkoutScreen(
                 baselineSet = true
             } else if (scrollingDown && index > 0) {
                 fabVisible = false
-                navBarExpanded = false
             } else if (scrollingUp && canScrollForward) {
                 fabVisible = true
             }
@@ -347,7 +370,6 @@ fun WorkoutScreen(
     // Reset navbar visibility on screen change
     LaunchedEffect(currentRoute) {
         fabVisible = true
-        navBarExpanded = false
         previousIndex = 0
         previousOffset = 0
         if (currentRoute != Screen.Workouts.name) {
@@ -356,12 +378,6 @@ fun WorkoutScreen(
         }
     }
 
-    val systemNavBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
-    val navBarOffsetY by animateDpAsState(
-        targetValue = if (navBarShown) 0.dp else 100.dp + systemNavBarHeight,
-        animationSpec = tween(Motion.MEDIUM),
-        label = "navBarOffset"
-    )
 
     val workouts        by viewModel.allWorkouts.collectAsState()
 
@@ -439,11 +455,6 @@ fun WorkoutScreen(
         }
     }
 
-    val navBarColors = NavigationBarItemDefaults.colors(
-        selectedIconColor = MaterialTheme.colorScheme.primary,
-        selectedTextColor = MaterialTheme.colorScheme.primary,
-        indicatorColor = Color.Transparent,
-    )
 
     run {
         Scaffold(
@@ -532,11 +543,11 @@ fun WorkoutScreen(
                                     timerViewModel  = timerViewModel,
                                     bottomPadding   = if (musicVisible) 88.dp else 0.dp,
                                     topPadding = totalTopPadding,
-                                    onSaveLocally = { name, type, startMs, duration ->
+                                    onSaveLocally = { name, type, startMs, duration, hrSamples ->
                                         // "End" moment: short summary banner (same component as the PB one)
                                         pbCelebration = workoutSavedSummary(duration, workouts, workoutSessions)
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.addWorkoutSession(name, type, startMs, duration)
+                                        viewModel.addWorkoutSession(name, type, startMs, duration, hrSamples)
                                     }
                                 )
                             }
@@ -786,45 +797,6 @@ fun WorkoutScreen(
                     actions = {
                         if (searchExpanded && currentRoute == Screen.Workouts.name) return@TopAppBar
                         AnimatedVisibility(
-                            visible = timerIsRunning && currentRoute != Screen.WorkoutTimer.name,
-                            enter   = fadeIn() + slideInHorizontally { it },
-                            exit    = fadeOut() + slideOutHorizontally { it }
-                        ) {
-                            val infinitePulse = rememberInfiniteTransition(label = "pulse")
-                            val pulseScale by infinitePulse.animateFloat(
-                                initialValue = 1f,
-                                targetValue = 1.02f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1200, easing = FastOutSlowInEasing),
-                                    repeatMode = RepeatMode.Reverse
-                                ),
-                                label = "scale"
-                            )
-
-                            val assistInteractionSource = remember { MutableInteractionSource() }
-                            AssistChip(
-                                onClick = { navigate(Screen.WorkoutTimer.name) },
-                                label = {
-                                    Text(
-                                        text = formatElapsed(timerElapsed),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Timer, null, modifier = Modifier.size(14.dp))
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary,
-                                    labelColor = MaterialTheme.colorScheme.surface,
-                                    leadingIconContentColor = MaterialTheme.colorScheme.surface
-                                ),
-                                modifier = Modifier.padding(end = 4.dp).height(28.dp)
-                                    .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
-                                    .bounceClick(assistInteractionSource)
-                            )
-                        }
-                        AnimatedVisibility(
                             visible = currentRoute == Screen.Settings.name,
                             enter   = fadeIn() + slideInHorizontally { it },
                             exit    = fadeOut() + slideOutHorizontally { it }
@@ -966,6 +938,8 @@ fun WorkoutScreen(
 
             // In-app update dialogs (available / downloading / install permission / up to date)
             AppUpdateHost()
+            // One-time "What's new" popup after updating to a version with notes (WhatsNew.kt)
+            WhatsNewHost()
 
             // ── Dialogs ───────────────────────────────────────────────────────
 
@@ -1142,7 +1116,8 @@ fun WorkoutScreen(
             val fabRoute = lastFabRoute.value
 
             // Snaps between positions (no slide) when the navbar opens / folds
-            val widgetBottomPadding = if (navBarShown) 80.dp else NAV_PILLS_CLEARANCE
+            // Just above the navbar labels (tuned by eye)
+            val widgetBottomPadding = NAV_BAR_HEIGHT
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1544,84 +1519,20 @@ fun WorkoutScreen(
                 }
             }
 
-            NavigationBar(
-                containerColor = Color.Transparent,
-                tonalElevation = 0.dp,
-                contentColor = primaryColor,
-                windowInsets = WindowInsets(0),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .offset { IntOffset(0, navBarOffsetY.roundToPx()) }
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.25f to bgColor.copy(alpha = 0.5f),
-                                0.5f to bgColor.copy(alpha = 0.8f),
-                                0.8f to bgColor,
-                                1.0f to bgColor
-                            )
-                        )
-                    )
-                    .navigationBarsPadding()
-            ) {
-                Spacer(modifier = Modifier.width(4.dp))
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Timer, null) },
-                    label = { Text("Timer") },
-                    selected = currentRoute == Screen.WorkoutTimer.name,
-                    onClick  = { navigate(Screen.WorkoutTimer.name) },
-                    colors = navBarColors
-                )
-                NavigationBarItem(
-                    icon = { Icon(ImageVector.vectorResource(R.drawable.ic_weight_training), null) },
-                    label = { Text("Workouts") },
-                    selected = currentRoute == Screen.Workouts.name,
-                    onClick  = { navigate(Screen.Workouts.name) },
-                    colors = navBarColors
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Dashboard, null) },
-                    label = { Text("Home") },
-                    selected = currentRoute == Screen.Summary.name,
-                    onClick  = { navigate(Screen.Summary.name) },
-                    colors = navBarColors
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.MonitorWeight, null) },
-                    label = { Text("Weight") },
-                    selected = currentRoute == Screen.WeightTracking.name,
-                    onClick  = { navigate(Screen.WeightTracking.name) },
-                    colors = navBarColors
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.CalendarMonth, null) },
-                    label = { Text("Calendar") },
-                    selected = currentRoute == Screen.Calendar.name,
-                    onClick  = { navigate(Screen.Calendar.name) },
-                    colors = navBarColors
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-
-            // Collapsed navbar: one pill per page, the current one long and coloured
-            AnimatedVisibility(
-                visible = !navBarShown,
-                enter = fadeIn(tween(Motion.MEDIUM)),
-                exit = fadeOut(tween(Motion.SHORT)),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-            ) {
-                NavPills(
-                    count = swipeScreens.size,
-                    selected = swipeScreens.indexOf(currentRoute),
-                    color = primaryColor,
-                    backdrop = bgColor,
-                    onReveal = { revealNavBar() }
-                )
-            }
+            TextNavBar(
+                tabs = listOf(
+                    Screen.WorkoutTimer.name to (if (timerIsRunning) formatElapsed(timerElapsed) else "Timer"),
+                    Screen.Workouts.name to "Workouts",
+                    Screen.Summary.name to "Home",
+                    Screen.WeightTracking.name to "Weight",
+                    Screen.Calendar.name to "Calendar"
+                ),
+                currentRoute = currentRoute,
+                color = primaryColor,
+                backdrop = bgColor,
+                onSelect = { navigate(it) },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
 
             // ── Subscription dialog ──────────────────────────────────────
             if (showSubscriptionDialog) {
