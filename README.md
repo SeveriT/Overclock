@@ -53,3 +53,4 @@ Overclock is an Android app for lifters who want full control over their trainin
 - Bluetooth Low Energy (GATT Heart Rate Service) for heart rate straps
 - Google Drive API + WorkManager
 - Material 3 with dynamic color customization
+- Developed with help from [Claude Code](https://claude.com/claude-code), Anthropic's AI coding assistant
