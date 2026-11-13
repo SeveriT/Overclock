@@ -110,7 +110,8 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Timer, "Workout timer", "Track session time and laps", listOf(
             "Start and pause with the main button; tap the ring to start a new lap.",
-            "The lap time counts down to the end of each ring. Change the ring length with − and + while the timer runs.",
+            "The lap time counts down the ring length. When it's up, the phone buzzes and the time counts up in your accent colour, showing how long you've rested. Change the ring length with − and + while the timer runs.",
+            "The timer notification shows the same lap countdown (or how far over you are) and the total time, so you can check it without opening the app.",
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",
             "Saving shows a summary: duration, sets and PBs today, and which gym day of the week it was."
         )),

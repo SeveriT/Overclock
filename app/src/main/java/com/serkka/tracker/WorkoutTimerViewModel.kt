@@ -46,6 +46,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         val next = (_lapDurationSeconds.value + deltaSeconds).coerceAtLeast(30L)
         _lapDurationSeconds.value = next
         lapPrefs.edit().putLong("lap_duration_seconds", next).apply()
+        if (_hasStarted.value) syncLapToService()
     }
 
     private val _startDateTime = MutableStateFlow<LocalDateTime?>(null)
@@ -97,6 +98,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             lapWallClockBase = wallClockBase
             lapElapsedAtBase = _currentLapSeconds.value
         }
+        syncLapToService()
 
         tickJob?.cancel()
         tickJob = viewModelScope.launch {
@@ -126,6 +128,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         tickJob = null
         HeartRateMonitor.pauseRecording()
         pauseTimerService()
+        if (_hasStarted.value) syncLapToService()
     }
 
     fun toggleRunning() {
@@ -141,6 +144,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             val offset = (now - wallClockBase) % 1000L
             lapWallClockBase = now - offset
             lapElapsedAtBase = 0L
+            syncLapToService()
         }
     }
 
@@ -227,6 +231,16 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         app.startService(intent)
     }
 
+    /** Gives the notification the lap's anchors and ring length, so it counts exactly like the ring. */
+    private fun syncLapToService() {
+        val intent = serviceIntent(TimerForegroundService.ACTION_LAP)
+            .putExtra(TimerForegroundService.EXTRA_LAP_AT_BASE, lapElapsedAtBase)
+            .putExtra(TimerForegroundService.EXTRA_LAP_WALL_BASE, if (_isRunning.value) lapWallClockBase else 0L)
+            .putExtra(TimerForegroundService.EXTRA_LAP_DURATION, _lapDurationSeconds.value)
+        // startService can throw if the app is in the background; the next sync catches up
+        try { app.startService(intent) } catch (_: IllegalStateException) { }
+    }
+
     private fun stopTimerService() {
         app.startService(serviceIntent(TimerForegroundService.ACTION_STOP))
     }
@@ -239,13 +253,15 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         val savedTimestamp = prefs.getLong("timestamp", 0L)
         val wasRunning = prefs.getBoolean("running", false)
 
-        val recovered = if (wasRunning && savedTimestamp > 0L) {
-            val drift = (System.currentTimeMillis() - savedTimestamp) / 1000
-            savedElapsed + drift
-        } else savedElapsed
+        val drift = if (wasRunning && savedTimestamp > 0L)
+            (System.currentTimeMillis() - savedTimestamp) / 1000 else 0L
+        val recovered = savedElapsed + drift
+        // The service keeps the lap going while the app is closed, so pick it up instead of restarting at 0
+        val recoveredLap = prefs.getLong("lap_seconds", 0L) + drift
 
         _elapsedSeconds.value = recovered
-        _currentLapSeconds.value = 0L
+        _currentLapSeconds.value = recoveredLap
+        lapElapsedAtBase = recoveredLap
         _hasStarted.value = true
 
         if (wasRunning) {
@@ -255,7 +271,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             wallClockBase = System.currentTimeMillis()
             elapsedAtBase = recovered
             lapWallClockBase = wallClockBase
-            lapElapsedAtBase = 0L
+            lapElapsedAtBase = recoveredLap
+            syncLapToService()
             tickJob = viewModelScope.launch {
                 while (true) {
                     delay(250L)

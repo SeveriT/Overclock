@@ -2,6 +2,7 @@
 
 package com.serkka.tracker
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -106,8 +107,11 @@ fun WorkoutTimerScreen(
 
 
     val timeString = formatElapsed(elapsedSeconds)
-    // Lap time counts down through each ring: ring length → 0:01, then starts over with the next ring
-    val lapTimeString = formatElapsed(lapDurationSeconds - currentLapSeconds % lapDurationSeconds)
+    // Lap time counts down from the ring length; once it's up (the buzz) it counts up as "+0:12",
+    // showing how long you've rested past the set time, until the next lap tap.
+    val lapOvertime = currentLapSeconds >= lapDurationSeconds
+    val lapTimeString = if (lapOvertime) "+" + formatElapsed(currentLapSeconds - lapDurationSeconds)
+                        else formatElapsed(lapDurationSeconds - currentLapSeconds)
 
     val rawProgress = (currentLapSeconds % lapDurationSeconds) / lapDurationSeconds.toFloat()
 
@@ -301,11 +305,18 @@ fun WorkoutTimerScreen(
             // Faint live heart rate graph under the lap time (HeartRateUi.kt); drawing only
             RingHeartRateGraph(color = primaryColor, ringStroke = 14.dp, modifier = Modifier.fillMaxSize())
 
+            // Over time: the counting-up rest time turns the accent colour
+            val lapColor by animateColorAsState(
+                targetValue = if (hasStarted && lapOvertime) primaryColor else MaterialTheme.colorScheme.onSurface,
+                animationSpec = tween(Motion.MEDIUM),
+                label = "lapOvertimeColor"
+            )
             Text(
                 text = if (hasStarted) lapTimeString else timeString,
                 fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
+                letterSpacing = 2.sp,
+                color = lapColor
             )
             // Floating hint — overlays above the lap time without shifting layout
             val hintAlpha by animateFloatAsState(
