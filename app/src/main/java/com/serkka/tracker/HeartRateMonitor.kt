@@ -19,6 +19,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
+import com.serkka.tracker.HeartRateMonitor.SCAN_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -302,9 +303,18 @@ object HeartRateMonitor {
     private val samples = mutableListOf<Int>()
     private var recordJob: Job? = null
 
+    /** The running workout's samples so far (0 = no reading), for the live graph in the timer ring. */
+    private val _recorded = MutableStateFlow<List<Int>>(emptyList())
+    val recorded: StateFlow<List<Int>> = _recorded
+
+    /** Call inside synchronized(samples) after every change. */
+    private fun publishSamples() {
+        _recorded.value = samples.toList()
+    }
+
     /** New workout: clears old samples and starts sampling. */
     fun startRecording() {
-        synchronized(samples) { samples.clear() }
+        synchronized(samples) { samples.clear(); publishSamples() }
         resumeRecording()
     }
 
@@ -317,11 +327,12 @@ object HeartRateMonitor {
         synchronized(samples) {
             val missing = (padToSeconds / SAMPLE_SECONDS).toInt() - samples.size
             repeat(missing.coerceAtLeast(0)) { samples.add(0) }
+            publishSamples()
         }
         recordJob = scope.launch {
             while (true) {
                 delay(SAMPLE_SECONDS * 1000L)
-                synchronized(samples) { samples.add(_bpm.value ?: 0) }
+                synchronized(samples) { samples.add(_bpm.value ?: 0); publishSamples() }
             }
         }
     }
@@ -334,12 +345,12 @@ object HeartRateMonitor {
     /** Ends the workout's recording and returns its samples (empty if no strap was ever read). */
     fun finishRecording(): List<Int> {
         pauseRecording()
-        val out = synchronized(samples) { samples.toList().also { samples.clear() } }
+        val out = synchronized(samples) { samples.toList().also { samples.clear(); publishSamples() } }
         return if (out.any { it > 0 }) out else emptyList()
     }
 
     fun discardRecording() {
         pauseRecording()
-        synchronized(samples) { samples.clear() }
+        synchronized(samples) { samples.clear(); publishSamples() }
     }
 }

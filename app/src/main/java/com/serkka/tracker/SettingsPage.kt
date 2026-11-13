@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
@@ -89,6 +90,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -278,17 +281,44 @@ fun SettingsPage(
                     modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        "Accent Color (RGB)",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Auto = accent follows the music widget's album art; the sliders set the
+                    // user's own colour, used whenever there's no song (ThemeViewModel).
+                    val userAccent by themeViewModel.primaryColor.collectAsState()
+                    val accentAuto by themeViewModel.accentFromMusic.collectAsState()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Accent Color (RGB)",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { themeViewModel.updateAccentFromMusic(!accentAuto) },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (accentAuto) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.semantics { stateDescription = if (accentAuto) "On" else "Off" }
+                        ) {
+                            if (accentAuto) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text("Auto")
+                        }
+                    }
+                    if (accentAuto) {
+                        Text(
+                            "Takes the colour of the album art in the music widget. The sliders set the colour used when no song is playing.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     Column(verticalArrangement = Arrangement.spacedBy((-8).dp)) {
                         listOf(
-                            Triple("R", primaryColor.red) { v: Float -> themeViewModel.updatePrimaryColor(primaryColor.copy(red = v)) },
-                            Triple("G", primaryColor.green) { v: Float -> themeViewModel.updatePrimaryColor(primaryColor.copy(green = v)) },
-                            Triple("B", primaryColor.blue) { v: Float -> themeViewModel.updatePrimaryColor(primaryColor.copy(blue = v)) }
+                            Triple("R", userAccent.red) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(red = v)) },
+                            Triple("G", userAccent.green) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(green = v)) },
+                            Triple("B", userAccent.blue) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(blue = v)) }
                         ).forEach { (_, value, onValueChange) ->
                             val rgbInteraction = remember { MutableInteractionSource() }
                             Slider(

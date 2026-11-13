@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -105,7 +106,8 @@ fun WorkoutTimerScreen(
 
 
     val timeString = formatElapsed(elapsedSeconds)
-    val lapTimeString = formatElapsed(currentLapSeconds)
+    // Lap time counts down through each ring: ring length → 0:01, then starts over with the next ring
+    val lapTimeString = formatElapsed(lapDurationSeconds - currentLapSeconds % lapDurationSeconds)
 
     val rawProgress = (currentLapSeconds % lapDurationSeconds) / lapDurationSeconds.toFloat()
 
@@ -205,7 +207,8 @@ fun WorkoutTimerScreen(
             .padding(horizontal = 24.dp)
             .padding(top = topPadding, bottom = 80.dp + bottomPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        // 12 dp (was 20): the saved space pays for the heart rate slot below the ring
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
         Spacer(modifier = Modifier.weight(0.25f))
@@ -295,6 +298,9 @@ fun WorkoutTimerScreen(
                 }
             }
 
+            // Faint live heart rate graph under the lap time (HeartRateUi.kt); drawing only
+            RingHeartRateGraph(color = primaryColor, ringStroke = 14.dp, modifier = Modifier.fillMaxSize())
+
             Text(
                 text = if (hasStarted) lapTimeString else timeString,
                 fontSize = if (elapsedSeconds >= 3600) 60.sp else 70.sp,
@@ -319,15 +325,20 @@ fun WorkoutTimerScreen(
                         .alpha(hintAlpha)
                 )
             }
-            // Live heart rate under the lap time (mirrors the hint above; doesn't shift layout)
-            HeartRateChip(
-                primaryColor = primaryColor,
-                onClick = { showHeartRateSheet = true },
-                modifier = Modifier.offset(y = 64.dp)
-            )
         }
 
-        Spacer(modifier = Modifier.weight(0.25f))
+        // Live heart rate between the ring and the controls, outside the ring so it doesn't catch
+        // lap taps. Its own fixed slot: with the music widget showing, the weighted spacers are
+        // close to zero, so a weighted slot left the chip squeezed against the ring and buttons.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.height(48.dp).fillMaxWidth()
+        ) {
+            HeartRateChip(
+                primaryColor = primaryColor,
+                onClick = { showHeartRateSheet = true }
+            )
+        }
 
         // ── Controls ──────────────────────────────────────────────────────────
         val leftSlot = when {
@@ -336,7 +347,8 @@ fun WorkoutTimerScreen(
             else -> "stop"
         }
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            // Nudged 16 dp lower (user request). An offset, so the ring and heart rate don't move
+            modifier = Modifier.fillMaxWidth().offset(y = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {

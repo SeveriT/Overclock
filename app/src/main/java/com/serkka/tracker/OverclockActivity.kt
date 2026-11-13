@@ -50,8 +50,7 @@ class OverclockActivity : ComponentActivity() {
         // Notification permission is now handled in WelcomeScreen
 
         setContent {
-            val baseColor by themeViewModel.primaryColor.collectAsState()
-            val primaryColor = withOverclockRainbow(baseColor)   // Extras.kt
+            val primaryColor = rememberAccentColor(themeViewModel)   // ThemeViewModel.kt (Auto + rainbow)
             val fontScale by themeViewModel.fontScale.collectAsState()
             val backgroundColor by themeViewModel.backgroundColor.collectAsState()
 

@@ -11,12 +11,34 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +50,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -92,6 +115,101 @@ internal fun HeartRateChip(primaryColor: Color, onClick: () -> Unit, modifier: M
                 Text("Heart rate", style = MaterialTheme.typography.labelLarge, color = muted)
             else ->
                 Text("Connecting…", style = MaterialTheme.typography.labelLarge, color = muted)
+        }
+    }
+}
+
+// ── Live graph inside the timer ring ─────────────────────────────────────────
+
+/** Last 10 minutes of samples (SAMPLE_SECONDS apart) shown in the ring. */
+private const val RING_GRAPH_SAMPLES = 10 * 60 / HeartRateMonitor.SAMPLE_SECONDS
+
+/**
+ * Faint live heart rate graph for the lower half of the timer ring: the running workout's
+ * samples plus the current reading as the newest point, as a soft area clipped to the inside
+ * of the ring. Drawing only, so lap taps on the ring pass straight through.
+ * [ringStroke] is the ring's stroke width, so the graph stays clear of it.
+ */
+@Composable
+internal fun RingHeartRateGraph(color: Color, ringStroke: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+    val recorded by HeartRateMonitor.recorded.collectAsState()
+    val bpm by HeartRateMonitor.bpm.collectAsState()
+    val points = remember(recorded, bpm) {
+        val window = recorded.takeLast(RING_GRAPH_SAMPLES - 1) + (bpm ?: 0)
+        if (window.count { it > 0 } >= 2) window else emptyList()
+    }
+    // Fades in once there's something to draw, out when the workout is saved or discarded
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (points.isEmpty()) 0f else 1f,
+        animationSpec = tween(Motion.LONG),
+        label = "ringHrAlpha"
+    )
+    // Keeps the last graph while it fades out (a plain holder: no state write during composition)
+    val lastPoints = remember { arrayOf(points) }
+    if (points.isNotEmpty()) lastPoints[0] = points
+    val shown = lastPoints[0]
+    if (alpha == 0f || shown.isEmpty()) return
+
+    Canvas(modifier) {
+        val radius = size.minDimension / 2f - ringStroke.toPx() - 6.dp.toPx()
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val circle = Path().apply {
+            addOval(androidx.compose.ui.geometry.Rect(Offset(cx, cy), radius))
+        }
+        // Graph band: below the lap time down to near the bottom of the ring
+        val top = cy + radius * 0.38f
+        val bottom = cy + radius * 0.88f
+        // Fixed 10-minute scale across the ring: grows in from the left, then scrolls. The ring's
+        // curve hides roughly the first minute (the user prefers this to a stretched graph).
+        val left = cx - radius
+        val step = 2f * radius / (RING_GRAPH_SAMPLES - 1)
+
+        val valid = shown.filter { it > 0 }
+        val lo = valid.min().toFloat()
+        val hi = valid.max().toFloat()
+        val mid = (lo + hi) / 2f
+        val span = maxOf(hi - lo + 10f, 20f)   // at least 20 bpm tall, so a steady pulse isn't a zigzag
+        fun y(v: Int) = bottom - ((v - (mid - span / 2f)) / span) * (bottom - top)
+
+        // One path per run of real readings (0 = no reading breaks the line)
+        val runs = mutableListOf<List<Offset>>()
+        var run = mutableListOf<Offset>()
+        shown.forEachIndexed { i, v ->
+            if (v > 0) run.add(Offset(left + i * step, y(v)))
+            else if (run.isNotEmpty()) { runs.add(run); run = mutableListOf() }
+        }
+        if (run.isNotEmpty()) runs.add(run)
+
+        clipPath(circle) {
+            runs.filter { it.size >= 2 }.forEach { pts ->
+                val line = Path().apply {
+                    moveTo(pts[0].x, pts[0].y)
+                    for (k in 1 until pts.size) {
+                        val a = pts[k - 1]; val b = pts[k]
+                        val mx = (a.x + b.x) / 2f
+                        cubicTo(mx, a.y, mx, b.y, b.x, b.y)   // smooth, never overshoots vertically
+                    }
+                }
+                val area = Path().apply {
+                    addPath(line)
+                    lineTo(pts.last().x, cy + radius)
+                    lineTo(pts.first().x, cy + radius)
+                    close()
+                }
+                drawPath(
+                    area,
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(color.copy(alpha = 0.22f * alpha), Color.Transparent),
+                        startY = top, endY = cy + radius
+                    )
+                )
+                drawPath(
+                    line,
+                    color = color.copy(alpha = 0.45f * alpha),
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+            }
         }
     }
 }

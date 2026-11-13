@@ -16,12 +16,22 @@ class MediaRepository private constructor() {
     )
     val currentSong = _currentSong.asStateFlow()
 
+    /** The user closed the music widget (its ✕). Shown again when playback starts. Lives here, not
+     *  in the screen, so the accent's Auto colour (ThemeViewModel) can follow the widget too. */
+    private val _widgetHidden = MutableStateFlow(false)
+    val widgetHidden = _widgetHidden.asStateFlow()
+
+    fun setWidgetHidden(hidden: Boolean) {
+        _widgetHidden.value = hidden
+    }
+
     private var nextTrackAction: (() -> Unit)? = null
     private var previousTrackAction: (() -> Unit)? = null
     private var togglePlayPauseAction: (() -> Unit)? = null
     private var openAppAction: (() -> Unit)? = null
 
     fun updateSong(info: SongInfo) {
+        if (info.isPlaying && !_currentSong.value.isPlaying) _widgetHidden.value = false
         _currentSong.value = info
     }
 

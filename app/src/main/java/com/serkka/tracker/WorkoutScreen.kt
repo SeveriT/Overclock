@@ -67,7 +67,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
@@ -122,6 +121,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -524,15 +524,11 @@ fun WorkoutScreen(
     val currentSong    by MediaRepository.getInstance().currentSong.collectAsState()
     val timerIsRunning by timerViewModel.isRunning.collectAsState()
     val timerElapsed   by timerViewModel.elapsedSeconds.collectAsState()
-    val baseAccent     by themeViewModel.primaryColor.collectAsState()
-    val primaryColor   = withOverclockRainbow(baseAccent)   // Extras.kt
+    val primaryColor   = rememberAccentColor(themeViewModel)   // ThemeViewModel.kt (Auto + rainbow)
 
     // User-dismissed flag for the music widget — auto-resets when a song starts playing.
     // Declared here so both the NavHost (timer screen padding) and the widget gate use it.
-    var musicDismissed by remember { mutableStateOf(false) }
-    LaunchedEffect(currentSong.isPlaying) {
-        if (currentSong.isPlaying) musicDismissed = false
-    }
+    val musicDismissed by MediaRepository.getInstance().widgetHidden.collectAsState()
 
     fun navigate(route: String) {
         if (route in swipeScreens) {
@@ -1207,7 +1203,7 @@ fun WorkoutScreen(
                             ?.apply {
                                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                 ctx.startActivity(this)
-                                musicDismissed = false
+                                MediaRepository.getInstance().setWidgetHidden(false)
                             } ?: android.widget.Toast.makeText(
                                 ctx, "Spotify is not installed",
                                 android.widget.Toast.LENGTH_SHORT
@@ -1243,10 +1239,11 @@ fun WorkoutScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
+                        // Spotify logo: the waves at full button size on the green circle
                         Icon(
-                            Icons.Default.MusicNote,
+                            painter = painterResource(R.drawable.spotify_logo_waves),
                             contentDescription = "Open Spotify",
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(48.dp),
                             tint = TrackerColors.SpotifyBlack
                         )
                     }
@@ -1286,22 +1283,8 @@ fun WorkoutScreen(
                     ) {
                         val songKey = "${currentSong.title}|${currentSong.artist}"
 
-                        // Extract accent color from album art
-                        val albumAccent by remember(songKey, currentSong.albumArt) {
-                            mutableStateOf(
-                                currentSong.albumArt?.let { bmp ->
-                                    val palette = androidx.palette.graphics.Palette.from(bmp)
-                                        .maximumColorCount(16)
-                                        .generate()
-                                    val rgb = palette.getVibrantColor(
-                                        palette.getMutedColor(
-                                            palette.getDominantColor(0)
-                                        )
-                                    )
-                                    if (rgb != 0) Color(rgb) else null
-                                }
-                            )
-                        }
+                        // Album art colour (computed once per song in ThemeViewModel; also drives accent Auto)
+                        val albumAccent by themeViewModel.albumColor.collectAsState()
                         val musicAccent by animateColorAsState(
                             targetValue = albumAccent ?: primaryColor,
                             animationSpec = tween(Motion.LONG),
@@ -1353,24 +1336,53 @@ fun WorkoutScreen(
                                         if (currentSong.albumArt != null) displayedKey = songKey
                                     }
 
-                                    // Album art: slow crossfade keyed on displayedKey
-                                    if (artCache.isNotEmpty()) {
-                                        AnimatedContent(
-                                            targetState = displayedKey,
-                                            transitionSpec = {
-                                                fadeIn(tween(Motion.LONG)) togetherWith fadeOut(tween(Motion.LONG))
-                                            },
-                                            label = "AlbumArt"
-                                        ) { key ->
-                                            artCache[key]?.let { bitmap ->
-                                                androidx.compose.foundation.Image(
-                                                    bitmap = bitmap.asImageBitmap(),
-                                                    contentDescription = "Album art",
-                                                    contentScale = ContentScale.Crop,
+                                    // Album art (slow crossfade keyed on displayedKey) with the hide
+                                    // button on top while paused. Both in one 44 dp slot in the Row,
+                                    // so the overlay always lines up with the art exactly.
+                                    if (artCache.isNotEmpty() || !currentSong.isPlaying) {
+                                        Box(Modifier.size(44.dp).clip(TrackerShapes.Small)) {
+                                            if (artCache.isNotEmpty()) {
+                                                AnimatedContent(
+                                                    targetState = displayedKey,
+                                                    transitionSpec = {
+                                                        fadeIn(tween(Motion.LONG)) togetherWith fadeOut(tween(Motion.LONG))
+                                                    },
+                                                    label = "AlbumArt"
+                                                ) { key ->
+                                                    artCache[key]?.let { bitmap ->
+                                                        androidx.compose.foundation.Image(
+                                                            bitmap = bitmap.asImageBitmap(),
+                                                            contentDescription = "Album art",
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier.size(44.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            // Hide button, only while paused
+                                            if (!currentSong.isPlaying) {
+                                                val closeInteractionSource = remember { MutableInteractionSource() }
+                                                Box(
                                                     modifier = Modifier
-                                                        .size(44.dp)
-                                                        .clip(TrackerShapes.Small)
-                                                )
+                                                        .matchParentSize()
+                                                        .background(Color.Black.copy(alpha = 0.7f))
+                                                        .clickable(
+                                                            interactionSource = closeInteractionSource,
+                                                            indication = ripple(bounded = true),
+                                                            onClick = {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                MediaRepository.getInstance().setWidgetHidden(true)
+                                                            }
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "Hide music widget",
+                                                        modifier = Modifier.size(32.dp),
+                                                        tint = Color.White
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1504,36 +1516,6 @@ fun WorkoutScreen(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     trackColor = DarkSurfaceColor,
                                     isPlaying = currentSong.isPlaying
-                                )
-                            }
-                        }
-
-                        // Hide button — overlays the album art (matches its 44dp size and
-                        // 8dp rounded shape), only while paused.
-                        if (!currentSong.isPlaying) {
-                            val closeInteractionSource = remember { MutableInteractionSource() }
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(start = 12.dp, top = 12.dp)
-                                    .size(44.dp)
-                                    .clip(TrackerShapes.Small)
-                                    .background(Color.Black.copy(alpha = 0.7f))
-                                    .clickable(
-                                        interactionSource = closeInteractionSource,
-                                        indication = ripple(bounded = true),
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            musicDismissed = true
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Hide music widget",
-                                    modifier = Modifier.size(32.dp),
-                                    tint = Color.White
                                 )
                             }
                         }

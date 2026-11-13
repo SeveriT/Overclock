@@ -24,7 +24,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 - **Progress** — streaks and a Last 30 Days comparison on Home, per-exercise stats with full history and estimated 1RM trends, a year calendar, and a weight chart with pinch zoom and a weight prediction
 - **Steps** — daily step counter with a goal
 - **Tools** — workout checklist, one-rep max and plate calculators, bulk exercise rename, and a running pace calculator
-- **Also** — notes, Spotify and YouTube Music controls, local and Google Drive backups (Drive with Premium), a demo mode, adjustable accent colour, brightness and font size, and four plate-coloured app icons
+- **Also** — notes, Spotify controls, local and Google Drive backups (Drive with Premium), a demo mode, adjustable accent colour, brightness and font size, and four plate-coloured app icons
 
 ## Install
 

@@ -110,14 +110,16 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Timer, "Workout timer", "Track session time and laps", listOf(
             "Start and pause with the main button; tap the ring to start a new lap.",
+            "The lap time counts down to the end of each ring. Change the ring length with − and + while the timer runs.",
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",
             "Saving shows a summary: duration, sets and PBs today, and which gym day of the week it was."
         )),
         GuideTopic(Icons.Default.Favorite, "Heart rate", "Bluetooth strap on the timer", listOf(
-            "Tap the heart under the lap time on the timer to connect a strap. Works with straps and watches that broadcast standard Bluetooth heart rate (Polar, Garmin, Wahoo, Coospo and others).",
+            "Tap the heart under the ring on the timer to connect a strap. Works with straps and watches that broadcast standard Bluetooth heart rate (Polar, Garmin, Wahoo, Coospo and others).",
             "Put the strap on before scanning: most only broadcast when they feel a heartbeat.",
             "Your strap is remembered and reconnects by itself whenever you open the timer.",
             "While the timer runs, heart rate is recorded every 5 seconds (paused time isn't). The session saves average, max and the full graph.",
+            "The last 10 minutes of heart rate show as a faint graph inside the ring.",
             "Disconnect or Forget the strap in the same sheet."
         )),
         GuideTopic(Icons.Default.History, "Sessions", "Every timer session in one list", listOf(
@@ -175,7 +177,7 @@ private val guideGroups = listOf(
         ))
     )),
     GuideGroup("App & data", listOf(
-        GuideTopic(Icons.Default.MusicNote, "Music widget", "Control Spotify or YouTube Music", listOf(
+        GuideTopic(Icons.Default.MusicNote, "Music widget", "Control Spotify", listOf(
             "Tap to open the player; swipe left or right to skip tracks.",
             "The progress bar waves while music plays, and colours follow the album art."
         )),
@@ -205,6 +207,7 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Palette, "Customization", "Make the app yours", listOf(
             "Pick your accent colour with the RGB sliders in Settings.",
+            "Tap Auto next to Accent Color and the accent takes the colour of the album art in the music widget. Your own colour comes back when no song is playing.",
             "The background brightness and font size sliders adjust the whole app.",
             "Pick an app icon under Settings → Appearance: the plate in red (25 kg), blue (20), yellow (15) or green (10)."
         ))
