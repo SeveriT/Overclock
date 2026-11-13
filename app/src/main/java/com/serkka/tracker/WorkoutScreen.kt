@@ -374,9 +374,9 @@ fun WorkoutScreen(
     // remain as individual NavHost composables.
     val swipeScreens = remember {
         listOf(
+            Screen.WorkoutStats.name,
             Screen.WorkoutTimer.name,
             Screen.Workouts.name,
-            Screen.WorkoutStats.name,
             Screen.Summary.name,
             Screen.WeightTracking.name,
             Screen.Calendar.name,
@@ -1592,9 +1592,9 @@ fun WorkoutScreen(
 
             TextNavBar(
                 tabs = listOf(
+                    Screen.WorkoutStats.name to "Stats",
                     Screen.WorkoutTimer.name to (if (timerIsRunning) formatElapsed(timerElapsed) else "Timer"),
                     Screen.Workouts.name to "Workouts",
-                    Screen.WorkoutStats.name to "Stats",
                     Screen.Summary.name to "Home",
                     Screen.WeightTracking.name to "Weight",
                     Screen.Calendar.name to "Calendar",

@@ -81,7 +81,7 @@ private data class GuideGroup(val title: String, val topics: List<GuideTopic>)
 private val guideGroups = listOf(
     GuideGroup("Getting started", listOf(
         GuideTopic(Icons.Default.Explore, "Navigation", "Five swipeable tabs, everything else in the top bar", listOf(
-            "Swipe between Timer, Workouts, Stats, Home, Weight, Calendar and Sessions, or tap a tab in the navbar. The navbar scrolls sideways and keeps the current tab in the middle.",
+            "Swipe between Stats, Timer, Workouts, Home, Weight, Calendar and Sessions, or tap a tab in the navbar. The navbar scrolls sideways and keeps the current tab in the middle.",
             "Top bar: Tools (wrench), Notes (pencil) and Settings.",
             "The navbar at the bottom is always visible. While the workout timer runs, the Timer tab shows the elapsed time."
         )),
