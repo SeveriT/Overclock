@@ -205,7 +205,8 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Palette, "Customization", "Make the app yours", listOf(
             "Pick your accent colour with the RGB sliders in Settings.",
-            "The background brightness and font size sliders adjust the whole app."
+            "The background brightness and font size sliders adjust the whole app.",
+            "Pick an app icon under Settings → Appearance: the plate in red (25 kg), blue (20), yellow (15) or green (10)."
         ))
     ))
 )

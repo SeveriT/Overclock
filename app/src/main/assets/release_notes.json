@@ -1,5 +1,17 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.4.0": [
+    {
+      "icon": "settings",
+      "title": "App icon",
+      "text": "Pick your launcher icon in Settings → Appearance: a 25, 20, 15 or 10 kg plate in its standard colour."
+    },
+    {
+      "icon": "star",
+      "title": "Bigger icon",
+      "text": "The plate now fills the whole icon, with no background behind it."
+    }
+  ],
   "3.2.0": [
     {
       "icon": "chart",

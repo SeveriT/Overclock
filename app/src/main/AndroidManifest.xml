@@ -40,18 +40,67 @@
         android:roundIcon="@mipmap/app_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tracker">
+        <!-- The app's one screen. Launcher entries are the icon aliases below (AppIcon.kt):
+             exactly one is enabled, which sets the launcher icon. -->
         <activity
-            android:name=".MainActivity"
+            android:name=".OverclockActivity"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.Tracker">
+            android:theme="@style/Theme.Tracker" />
+        <!-- Default red icon. Keeps the old launcher name so existing home-screen shortcuts still work. -->
+        <activity-alias
+            android:name=".MainActivity"
+            android:targetActivity=".OverclockActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/app_logo"
+            android:roundIcon="@mipmap/app_logo">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <!-- Blue 20 kg plate icon -->
+        <activity-alias
+            android:name=".IconBlue"
+            android:targetActivity=".OverclockActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_logo_blue"
+            android:roundIcon="@mipmap/app_logo_blue">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Yellow 15 kg plate icon -->
+        <activity-alias
+            android:name=".IconYellow"
+            android:targetActivity=".OverclockActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_logo_yellow"
+            android:roundIcon="@mipmap/app_logo_yellow">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Green 10 kg plate icon -->
+        <activity-alias
+            android:name=".IconGreen"
+            android:targetActivity=".OverclockActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_logo_green"
+            android:roundIcon="@mipmap/app_logo_green">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <service
             android:name=".MediaNotificationListener"
             android:label="Media Listener"

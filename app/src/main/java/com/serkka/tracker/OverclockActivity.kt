@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 
-class MainActivity : ComponentActivity() {
+class OverclockActivity : ComponentActivity() {
     private lateinit var stepsViewModel: StepsViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {

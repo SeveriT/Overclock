@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon changer variant (AppIcon.kt): same plate art recoloured, same dark background -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/app_logo_background"/>
+    <foreground android:drawable="@mipmap/app_logo_foreground_blue"/>
+</adaptive-icon>
