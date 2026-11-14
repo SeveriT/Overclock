@@ -9,20 +9,55 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Notes
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -30,11 +65,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -184,7 +220,7 @@ fun WelcomeScreen(
         FeatureItem(Icons.Default.Favorite, "Heart Rate", "Bluetooth strap support: live BPM on the timer, a graph per session, TCX export", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trend with prediction, weekly reps per exercise, and a weekly overview on Home", primaryColor)
         FeatureItem(Icons.Default.CalendarMonth, "Calendar", "Year-at-a-glance view of your training days and streaks", primaryColor)
-        FeatureItem(Icons.Default.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
+        FeatureItem(Icons.AutoMirrored.Filled.DirectionsWalk, "Step Counter", "Daily step tracking with customizable goal", primaryColor)
         FeatureItem(Icons.AutoMirrored.Filled.Notes, "Notes", "Keep program plans, cues, and reminders in one place", primaryColor)
         FeatureItem(Icons.Default.Handyman, "Tools", "Workout schedule checklist and a running pace calculator", primaryColor)
         FeatureItem(Icons.Default.MusicNote, "Music Control", "Integrated player with swipe gestures", primaryColor)
@@ -228,7 +264,7 @@ fun WelcomeScreen(
         )
 
         PermissionRow(
-            icon = Icons.Default.DirectionsWalk,
+            icon = Icons.AutoMirrored.Filled.DirectionsWalk,
             label = "Activity Recognition",
             description = "Required for step counter",
             granted = activityRecognitionGranted,

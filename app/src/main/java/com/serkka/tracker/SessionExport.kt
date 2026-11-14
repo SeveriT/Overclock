@@ -15,10 +15,11 @@ import java.time.temporal.ChronoUnit
 // Writes a session as a Training Center XML (.tcx) file: start time, duration and the heart
 // rate graph (one trackpoint per HeartRateMonitor.SAMPLE_SECONDS). Strava (strava.com/upload),
 // Garmin Connect, intervals.icu and most training sites accept TCX. No GPS: it's a gym workout.
-// The file is shared through Android's share sheet (save to Files / Drive, email, ...).
+// The file is shared through Android's share sheet (Drive, email, ...) or saved to a folder the
+// user picks (Android's file picker, via the Sessions export menu).
 
 object SessionExport {
-    private const val MIME_TCX = "application/vnd.garmin.tcx+xml"
+    const val MIME_TCX = "application/vnd.garmin.tcx+xml"
 
     /** Builds the TCX document for [session]. Sessions without heart rate export time only. */
     fun buildTcx(session: WorkoutSession): String {
@@ -88,8 +89,21 @@ object SessionExport {
         }
     }
 
+    /** Writes [session] as TCX into [uri], a file the user created with the system file picker. */
+    fun save(context: Context, uri: android.net.Uri, session: WorkoutSession) {
+        try {
+            context.contentResolver.openOutputStream(uri, "wt")!!.use {
+                it.write(buildTcx(session).toByteArray(Charsets.UTF_8))
+            }
+            Toast.makeText(context, "Session saved", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("SessionExport", "Save failed", e)
+            Toast.makeText(context, "Couldn't save the session", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     /** "2026-11-12 Leg Day.tcx" with characters file systems dislike removed. */
-    private fun fileName(session: WorkoutSession): String {
+    fun fileName(session: WorkoutSession): String {
         val date = Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ISO_LOCAL_DATE)
         val name = session.name.replace(Regex("""[\\/:*?"<>|]"""), "").replace('–', '-').trim().take(60)

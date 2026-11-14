@@ -2,30 +2,54 @@
 
 package com.serkka.tracker
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.*
-import androidx.compose.ui.res.painterResource
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,16 +58,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import java.text.SimpleDateFormat
-import java.time.Instant
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
 
 /**
  * A unified display item for the sessions list.
@@ -222,16 +239,43 @@ private fun SessionRow(
         },
         trailingContent = {
             Row {
-                // Export as a .tcx file (time + heart rate) through the share sheet
+                // Export as a .tcx file (time + heart rate): share it, or save it to a folder
                 item.localSession?.let { session ->
                     val context = LocalContext.current
-                    IconButton(onClick = { SessionExport.share(context, session) }) {
-                        Icon(
-                            Icons.Default.Share,
-                            contentDescription = "Export",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    var exportMenuOpen by remember { mutableStateOf(false) }
+                    val saveLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.CreateDocument(SessionExport.MIME_TCX)
+                    ) { uri -> if (uri != null) SessionExport.save(context, uri, session) }
+                    Box {
+                        IconButton(onClick = { exportMenuOpen = true }) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "Export",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = exportMenuOpen,
+                            onDismissRequest = { exportMenuOpen = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Share…") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    exportMenuOpen = false
+                                    SessionExport.share(context, session)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Save to device…") },
+                                leadingIcon = { Icon(Icons.Default.Download, null) },
+                                onClick = {
+                                    exportMenuOpen = false
+                                    saveLauncher.launch(SessionExport.fileName(session))
+                                }
+                            )
+                        }
                     }
                 }
                 IconButton(onClick = onDelete) {

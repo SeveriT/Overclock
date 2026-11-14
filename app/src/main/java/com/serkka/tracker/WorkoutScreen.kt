@@ -4,6 +4,7 @@ package com.serkka.tracker
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -64,7 +65,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Pause
@@ -463,6 +464,13 @@ fun WorkoutScreen(
         if (workoutsDragged && searchExpanded) {
             keyboardController?.hide()
         }
+    }
+
+    // Back closes an open search instead of reaching the activity's "Exit app?" handler. Declared
+    // after (inside) that one, so it takes priority while enabled.
+    BackHandler(enabled = searchExpanded) {
+        searchQuery = ""
+        searchExpanded = false
     }
 
     // Reset navbar visibility on screen change
@@ -971,7 +979,7 @@ fun WorkoutScreen(
                             interactionSource = notesInteractionSource,
                             modifier = Modifier.size(42.dp).bounceClick(notesInteractionSource)
                         ) {
-                            Icon(Icons.Default.Create, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.EditNote, contentDescription = "Notes", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         val settingsInteractionSource = remember { MutableInteractionSource() }

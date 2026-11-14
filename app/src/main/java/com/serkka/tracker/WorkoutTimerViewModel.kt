@@ -1,12 +1,7 @@
 package com.serkka.tracker
 
 import android.app.Application
-import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -106,11 +101,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
                 delay(250L) // poll frequently for smooth updates
                 val now = System.currentTimeMillis()
                 _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
-                val newLap = lapElapsedAtBase + (now - lapWallClockBase) / 1000
-                if (newLap > _currentLapSeconds.value && newLap % _lapDurationSeconds.value == 0L) {
-                    vibrateLap()
-                }
-                _currentLapSeconds.value = newLap
+                // The ring-end buzz + beep come from TimerForegroundService (RingAlert.kt)
+                _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
             }
         }
     }
@@ -148,17 +140,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         }
     }
 
-    private fun vibrateLap() {
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = app.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            app.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-
-        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
-    }
+    /** Buzz confirming a lap tap (ring ends buzz from the service, see RingAlert.kt). */
+    private fun vibrateLap() = RingAlert.vibrate(app)
 
     // Stop tapping opens the upload dialog and pauses the timer
     fun requestStop() {
@@ -278,11 +261,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
                     delay(250L)
                     val now = System.currentTimeMillis()
                     _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
-                    val newLap = lapElapsedAtBase + (now - lapWallClockBase) / 1000
-                    if (newLap > _currentLapSeconds.value && newLap % _lapDurationSeconds.value == 0L) {
-                        vibrateLap()
-                    }
-                    _currentLapSeconds.value = newLap
+                    _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
                 }
             }
         }

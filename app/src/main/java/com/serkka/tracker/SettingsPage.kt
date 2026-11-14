@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -49,7 +50,6 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
@@ -428,6 +428,14 @@ fun SettingsPage(
         }
 
 
+
+        // ── Timer ───────────────────────────────────────────────────────
+        item { SectionHeader("Timer") }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = 4.dp)) {
+                RingBeepPicker(primaryColor)
+            }
+        }
 
         // ── Permissions ─────────────────────────────────────────────────
         item { SectionHeader("Permissions") }
@@ -933,7 +941,7 @@ private fun PermissionsCard(primaryColor: Color) {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SettingsPermissionRow(
-                icon = Icons.Default.DirectionsWalk,
+                icon = Icons.AutoMirrored.Filled.DirectionsWalk,
                 label = "Activity Recognition",
                 description = "Step counter",
                 granted = activityRecognitionGranted,

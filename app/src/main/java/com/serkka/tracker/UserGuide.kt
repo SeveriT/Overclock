@@ -29,11 +29,11 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
@@ -82,7 +82,7 @@ private val guideGroups = listOf(
     GuideGroup("Getting started", listOf(
         GuideTopic(Icons.Default.Explore, "Navigation", "Five swipeable tabs, everything else in the top bar", listOf(
             "Swipe between Stats, Timer, Workouts, Home, Weight, Calendar and Sessions, or tap a tab in the navbar. The navbar scrolls sideways and keeps the current tab in the middle.",
-            "Top bar: Tools (wrench), Notes (pencil) and Settings.",
+            "Top bar: Tools (wrench), Notes (note with a pencil) and Settings.",
             "The navbar at the bottom is always visible. While the workout timer runs, the Timer tab shows the elapsed time."
         )),
         GuideTopic(Icons.Default.AutoAwesome, "Demo mode", "Try the app with four weeks of sample data", listOf(
@@ -105,17 +105,18 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.ViewAgenda, "Your workout list", "Grouped by week and day, with quick actions", listOf(
             "Week headers stay pinned while you scroll and show the week number, dates and gym days.",
             "Tap a day to expand or collapse it.",
-            "Duplicate copies an entry to today instantly; Copy lets you edit first. Tap an entry for Edit, PB or Delete.",
+            "The repeat arrows log an entry again for today instantly; the copy icon (two pages) copies it so you can edit before saving. Tap an entry for Edit, PB or Delete.",
             "Search with the magnifier or by pulling down at the top of the list. Your most-logged exercises appear as quick filters."
         )),
-        GuideTopic(Icons.Default.Timer, "Workout timer", "Track session time and laps", listOf(
-            "Start and pause with the main button; tap the ring to start a new lap.",
-            "The lap time counts down the ring length. When it's up, the phone buzzes and the time counts up in your accent colour, showing how long you've rested. Change the ring length with − and + while the timer runs.",
-            "The timer notification shows the same lap countdown (or how far over you are) and the total time, so you can check it without opening the app.",
+        GuideTopic(Icons.Default.Timer, "Workout timer", "Session time and rest between sets", listOf(
+            "Start and pause the session with the main button.",
+            "Tap the ring after a set to start your rest. It counts down your rest time while the ring fills. Set the rest time with − and + while the timer runs.",
+            "When the rest is up, the phone buzzes, and beeps in your headphones if they're connected, even with the screen off. Pick the sound in Settings → Timer. The ring stays full and the time counts up in your accent colour, showing how much longer you've rested.",
+            "The timer notification shows the rest countdown (or how far over you are) and the total time, so you can check it without opening the app.",
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",
             "Saving shows a summary: duration, sets and PBs today, and which gym day of the week it was."
         )),
-        GuideTopic(Icons.Default.Favorite, "Heart rate", "Bluetooth strap on the timer", listOf(
+        GuideTopic(Icons.Default.MonitorHeart, "Heart rate", "Bluetooth strap on the timer", listOf(
             "Tap the heart under the ring on the timer to connect a strap. Works with straps and watches that broadcast standard Bluetooth heart rate (Polar, Garmin, Wahoo, Coospo and others).",
             "Put the strap on before scanning: most only broadcast when they feel a heartbeat.",
             "Your strap is remembered and reconnects by itself whenever you open the timer.",
@@ -128,7 +129,7 @@ private val guideGroups = listOf(
             "Sessions count toward your weekly streak.",
             "Its own tab after Calendar; saving a timer session takes you there.",
             "Sessions with heart rate show average and max; tap that line for the heart rate graph.",
-            "The share icon exports a session as a .tcx file (time and heart rate). Upload it at strava.com/upload or to other training sites."
+            "The share icon exports a session as a .tcx file (time and heart rate): Share… sends it to another app, Save to device… puts it in a folder you pick. Upload it at strava.com/upload or to other training sites."
         )),
         GuideTopic(Icons.Default.EditNote, "Notes", "Program plans, cues and reminders", listOf(
             "Open from the pencil icon in the top bar.",

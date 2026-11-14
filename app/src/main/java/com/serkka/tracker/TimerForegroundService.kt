@@ -41,11 +41,21 @@ class TimerForegroundService : Service() {
     private val ticker = object : Runnable {
         override fun run() {
             if (isRunning) {
-                elapsedSeconds = elapsedAtBase + (System.currentTimeMillis() - wallClockBase) / 1000
-                lapSeconds = currentLap()
+                val now = System.currentTimeMillis()
+                elapsedSeconds = elapsedAtBase + (now - wallClockBase) / 1000
+                val lap = currentLap(now)
+                // The ring ran out since the last tick: buzz + headphone beep (RingAlert.kt), once per
+                // lap (not again every ring length while the rest time counts up). Lives here, not in
+                // the screen, so it also fires with the screen off or the app swiped away.
+                if (lapSeconds < lapDuration && lap >= lapDuration) {
+                    RingAlert.fire(this@TimerForegroundService)
+                }
+                lapSeconds = lap
                 updateNotification()
                 saveTimerState()
-                handler.postDelayed(this, 1000)
+                // Next tick just after the lap's next whole second, so the alert lands on 0:00
+                val anchor = if (lapWallBase > 0L) lapWallBase else wallClockBase
+                handler.postDelayed(this, 1000L - (now - anchor) % 1000L + 20L)
             }
         }
     }

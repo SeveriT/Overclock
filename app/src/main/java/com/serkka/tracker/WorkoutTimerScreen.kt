@@ -113,7 +113,9 @@ fun WorkoutTimerScreen(
     val lapTimeString = if (lapOvertime) "+" + formatElapsed(currentLapSeconds - lapDurationSeconds)
                         else formatElapsed(lapDurationSeconds - currentLapSeconds)
 
-    val rawProgress = (currentLapSeconds % lapDurationSeconds) / lapDurationSeconds.toFloat()
+    // The ring fills only while counting down, then stays full while the rest time counts up
+    // (it used to wrap round and refill every ring length). A lap tap empties it again.
+    val rawProgress = if (lapOvertime) 1f else currentLapSeconds / lapDurationSeconds.toFloat()
 
     // Briefly show the new lap duration when the user adjusts it
     var showDurationHint by remember { mutableStateOf(false) }
@@ -148,7 +150,6 @@ fun WorkoutTimerScreen(
         val prev = prevLapSeconds
         val now = currentLapSeconds
         val lapReset = prev > 0L && now == 0L
-        val minuteRolled = now > 0L && now / lapDurationSeconds > prev / lapDurationSeconds
 
         when {
             lapReset -> {
@@ -159,25 +160,6 @@ fun WorkoutTimerScreen(
                         0f,
                         animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
                     )
-                    animatingOverride = false
-                }
-            }
-            minuteRolled -> {
-                animatingOverride = true
-                scope.launch {
-                    // Fill up to full, then sweep the tail to collapse the arc.
-                    headAnim.animateTo(
-                        1f,
-                        animationSpec = tween(durationMillis = 200, easing = LinearEasing)
-                    )
-                    tailAnim.snapTo(0f)
-                    tailAnim.animateTo(
-                        1f,
-                        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
-                    )
-                    // Reset for next cycle: head to the new rawProgress (≈0), tail back to 0.
-                    headAnim.snapTo(rawProgress)
-                    tailAnim.snapTo(0f)
                     animatingOverride = false
                 }
             }
