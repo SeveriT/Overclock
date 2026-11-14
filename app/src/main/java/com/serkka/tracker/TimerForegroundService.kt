@@ -10,11 +10,16 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class TimerForegroundService : Service() {
 
     private val handler   = Handler(Looper.getMainLooper())
-    private val channelId = "timer_channel_v2"
+    // v3 = IMPORTANCE_LOW (still silent) so the notification and its Start rest / Pause buttons show
+    // on the lock screen. A channel's importance can't be raised in place, hence the new ID.
+    private val channelId = "timer_channel_v3"
     private val notifId   = 42
 
     private var elapsedSeconds = 0L
@@ -74,19 +79,7 @@ class TimerForegroundService : Service() {
                 handler.postDelayed(ticker, 1000)
                 saveTimerState()
             }
-            ACTION_PAUSE -> {
-                // Snapshot accurate elapsed before pausing
-                if (isRunning && wallClockBase > 0L) {
-                    elapsedSeconds = elapsedAtBase + (System.currentTimeMillis() - wallClockBase) / 1000
-                    lapSeconds = currentLap()
-                    lapAtBase = lapSeconds
-                    lapWallBase = 0L
-                }
-                isRunning = false
-                handler.removeCallbacks(ticker)
-                updateNotification()
-                saveTimerState()
-            }
+            ACTION_PAUSE -> pauseHere()
             ACTION_RESUME -> {
                 elapsedSeconds = intent.getLongExtra(EXTRA_ELAPSED, elapsedSeconds)
                 elapsedAtBase = elapsedSeconds
@@ -112,6 +105,27 @@ class TimerForegroundService : Service() {
                 updateNotification()
                 saveTimerState()
             }
+            // Notification buttons. While the app's timer (WorkoutTimerViewModel) is alive it handles
+            // them, exactly like tapping the ring / pause button, and syncs back here. With the app
+            // swiped away the service does it itself; the app picks the state up when reopened.
+            ACTION_NOTIF_REST, ACTION_NOTIF_TOGGLE -> {
+                if (wallClockBase == 0L && !recoverFromPrefs()) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                val rest = intent.action == ACTION_NOTIF_REST
+                if (TimerRemote.hasListener()) {
+                    TimerRemote.send(if (rest) TimerRemote.Command.Rest else TimerRemote.Command.Toggle)
+                } else if (rest) {
+                    restHere()
+                } else if (isRunning) {
+                    pauseHere()
+                    HeartRateMonitor.pauseRecording()
+                } else {
+                    resumeHere()
+                    HeartRateMonitor.resumeRecording()
+                }
+            }
             ACTION_STOP -> {
                 isRunning = false
                 handler.removeCallbacks(ticker)
@@ -125,6 +139,47 @@ class TimerForegroundService : Service() {
             }
         }
         return START_STICKY
+    }
+
+    private fun pauseHere() {
+        // Snapshot accurate elapsed before pausing
+        if (isRunning && wallClockBase > 0L) {
+            elapsedSeconds = elapsedAtBase + (System.currentTimeMillis() - wallClockBase) / 1000
+            lapSeconds = currentLap()
+            lapAtBase = lapSeconds
+            lapWallBase = 0L
+        }
+        isRunning = false
+        handler.removeCallbacks(ticker)
+        updateNotification()
+        saveTimerState()
+    }
+
+    /** Resume without the app (notification button): continue from the current total and lap. */
+    private fun resumeHere() {
+        elapsedAtBase = elapsedSeconds
+        wallClockBase = System.currentTimeMillis()
+        lapAtBase = lapSeconds
+        lapWallBase = wallClockBase
+        isRunning = true
+        handler.removeCallbacks(ticker)
+        handler.postDelayed(ticker, 1000)
+        updateNotification()
+        saveTimerState()
+    }
+
+    /** Start a new rest without the app (notification button), same as tapping the ring. */
+    private fun restHere() {
+        if (!isRunning) return
+        RingAlert.vibrate(this)
+        val now = System.currentTimeMillis()
+        lapWallBase = now - (now - wallClockBase) % 1000L   // tick in step with the total
+        lapAtBase = 0L
+        lapSeconds = 0L
+        handler.removeCallbacks(ticker)
+        handler.postDelayed(ticker, 1000L - (now - lapWallBase) % 1000L + 20L)
+        updateNotification()
+        saveTimerState()
     }
 
     /** Restores a workout saved by [saveTimerState] and shows its notification. False if none. */
@@ -182,7 +237,22 @@ class TimerForegroundService : Service() {
         val lapText = if (lapSeconds >= lapDuration) "+${formatElapsed(lapSeconds - lapDuration)} over"
                       else "${formatElapsed(lapDuration - lapSeconds)} left"
 
-        return NotificationCompat.Builder(this, channelId)
+        fun button(action: String, requestCode: Int) = PendingIntent.getService(
+            this, requestCode,
+            Intent(this, TimerForegroundService::class.java).setAction(action),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(this, channelId)
+        // Buttons: Start rest + Pause while running, Resume while paused
+        if (isRunning) {
+            builder.addAction(R.drawable.ic_stat_timer, "Start rest", button(ACTION_NOTIF_REST, 1))
+            builder.addAction(R.drawable.ic_stat_timer, "Pause", button(ACTION_NOTIF_TOGGLE, 2))
+        } else {
+            builder.addAction(R.drawable.ic_stat_timer, "Resume", button(ACTION_NOTIF_TOGGLE, 2))
+        }
+
+        return builder
             .setContentTitle(lapText)
             .setContentText((if (isRunning) "" else "Paused · ") + "Total $timeString")
             .setSmallIcon(R.drawable.ic_stat_timer)
@@ -193,7 +263,7 @@ class TimerForegroundService : Service() {
             .setShowWhen(isRunning)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(openIntent)
             .build()
     }
@@ -205,12 +275,13 @@ class TimerForegroundService : Service() {
 
     private fun createChannel() {
         val manager = getSystemService(NotificationManager::class.java)
-        // Remove the legacy LOW-importance channel from older installs
+        // Remove the older timer channels (v2 was MIN, which hid it from the lock screen)
         manager.deleteNotificationChannel("timer_channel")
+        manager.deleteNotificationChannel("timer_channel_v2")
         val channel = NotificationChannel(
             channelId,
             "Workout Timer",
-            NotificationManager.IMPORTANCE_MIN
+            NotificationManager.IMPORTANCE_LOW   // silent: no sound, vibration or pop-up
         ).apply {
             description = "Shows elapsed workout time"
             setShowBadge(false)
@@ -233,9 +304,25 @@ class TimerForegroundService : Service() {
         const val ACTION_RESUME = "com.serkka.tracker.TIMER_RESUME"
         const val ACTION_STOP   = "com.serkka.tracker.TIMER_STOP"
         const val ACTION_LAP    = "com.serkka.tracker.TIMER_LAP"
+        const val ACTION_NOTIF_REST   = "com.serkka.tracker.TIMER_NOTIF_REST"
+        const val ACTION_NOTIF_TOGGLE = "com.serkka.tracker.TIMER_NOTIF_TOGGLE"
         const val EXTRA_ELAPSED = "elapsed"
         const val EXTRA_LAP_AT_BASE    = "lap_at_base"
         const val EXTRA_LAP_WALL_BASE  = "lap_wall_base"
         const val EXTRA_LAP_DURATION   = "lap_duration"
     }
+}
+
+/**
+ * Notification buttons → the app's timer. WorkoutTimerViewModel collects [commands] while it's
+ * alive; with no collector (app swiped away) the service handles the button itself.
+ */
+internal object TimerRemote {
+    enum class Command { Rest, Toggle }
+
+    private val _commands = MutableSharedFlow<Command>(extraBufferCapacity = 4)
+    val commands: SharedFlow<Command> = _commands.asSharedFlow()
+
+    fun hasListener() = _commands.subscriptionCount.value > 0
+    fun send(command: Command) { _commands.tryEmit(command) }
 }

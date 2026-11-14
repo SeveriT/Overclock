@@ -112,7 +112,7 @@ private val guideGroups = listOf(
             "Start and pause the session with the main button.",
             "Tap the ring after a set to start your rest. It counts down your rest time while the ring fills. Set the rest time with − and + while the timer runs.",
             "When the rest is up, the phone buzzes, and beeps in your headphones if they're connected, even with the screen off. Pick the sound in Settings → Timer. The ring stays full and the time counts up in your accent colour, showing how much longer you've rested.",
-            "The timer notification shows the rest countdown (or how far over you are) and the total time, so you can check it without opening the app.",
+            "The timer notification shows the rest countdown (or how far over you are) and the total time, with Start rest and Pause buttons, so you can use the timer from the lock screen without opening the app.",
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",
             "Saving shows a summary: duration, sets and PBs today, and which gym day of the week it was."
         )),

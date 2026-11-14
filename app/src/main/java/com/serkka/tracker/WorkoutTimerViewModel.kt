@@ -35,7 +35,18 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     )
     val lapDurationSeconds: StateFlow<Long> = _lapDurationSeconds
 
-    init { recoverTimerState() }
+    init {
+        recoverTimerState()
+        // Start rest / Pause / Resume buttons in the timer notification (TimerForegroundService)
+        viewModelScope.launch {
+            TimerRemote.commands.collect { command ->
+                when (command) {
+                    TimerRemote.Command.Rest -> lap()
+                    TimerRemote.Command.Toggle -> toggleRunning()
+                }
+            }
+        }
+    }
 
     fun adjustLapDuration(deltaSeconds: Long) {
         val next = (_lapDurationSeconds.value + deltaSeconds).coerceAtLeast(30L)
