@@ -1,5 +1,42 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.5.0": [
+    {
+      "icon": "timer",
+      "title": "Rest timer",
+      "text": "Tap the ring after a set to start your rest. It counts down, then counts up in your accent colour to show any extra rest. The ring stays full until your next tap."
+    },
+    {
+      "icon": "star",
+      "title": "Beep in your headphones",
+      "text": "When the rest is up you get a buzz and a beep in your headphones, even with the screen off. Pick the sound in Settings → Timer."
+    },
+    {
+      "icon": "favorite",
+      "title": "Live heart rate graph",
+      "text": "The last 10 minutes of heart rate show inside the ring, with your BPM just below it."
+    },
+    {
+      "icon": "timer",
+      "title": "Countdown in the notification",
+      "text": "See your rest countdown and total time without opening the app."
+    },
+    {
+      "icon": "settings",
+      "title": "Accent from your music",
+      "text": "Tap Auto next to Accent Color and the app takes the colour of the album art playing in Spotify."
+    },
+    {
+      "icon": "share",
+      "title": "Save sessions as files",
+      "text": "Save a session's .tcx file straight to a folder on your phone, or share it as before."
+    },
+    {
+      "icon": "bug",
+      "title": "Smaller things",
+      "text": "Stats is the first tab, Back closes the search, copy and duplicate have clearer icons, and the rest time no longer resets when you reopen the app."
+    }
+  ],
   "3.4.0": [
     {
       "icon": "settings",
