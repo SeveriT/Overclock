@@ -163,15 +163,30 @@ class MediaNotificationListener : NotificationListenerService() {
             }
         }
         
-        activeController?.sessionActivity?.send() ?: run {
-            activeController?.packageName?.let { pkg ->
-                val intent = packageManager.getLaunchIntentForPackage(pkg)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                }
-            }
+        // Other apps (Metrolist): open them through their launcher entry. The app is already
+        // running, so this brings it back where it was. The session's own PendingIntent used to come
+        // first, but since Android 14 sending another app's PendingIntent silently fails to open an
+        // activity unless the sender opts in, so it's only the fallback now (with that opt-in).
+        val pkg = activeController?.packageName ?: return
+        val launch = packageManager.getLaunchIntentForPackage(pkg)
+        if (launch != null) {
+            try {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                startActivity(launch)
+                return
+            } catch (_: Exception) { }
         }
+        val session = activeController?.sessionActivity ?: return
+        try {
+            val options = if (android.os.Build.VERSION.SDK_INT >= 34) {
+                android.app.ActivityOptions.makeBasic()
+                    .setPendingIntentBackgroundActivityStartMode(
+                        android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    )
+                    .toBundle()
+            } else null
+            session.send(this, 0, null, null, null, null, options)
+        } catch (_: Exception) { }
     }
     override fun onDestroy() {
         super.onDestroy()
