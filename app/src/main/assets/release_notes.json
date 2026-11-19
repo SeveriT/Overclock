@@ -1,5 +1,32 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.6.0": [
+    {
+      "icon": "timer",
+      "title": "Timer buttons on the lock screen",
+      "text": "The timer notification now has Start rest and Pause buttons, and shows on the lock screen. Still silent: no sound or pop-up."
+    },
+    {
+      "icon": "star",
+      "title": "Metrolist support",
+      "text": "The music widget now works with Metrolist too. Choose Spotify or Metrolist in Settings → Music."
+    },
+    {
+      "icon": "settings",
+      "title": "New accent colour picker",
+      "text": "Pick from 11 colours made for the dark theme, or tap Custom and type any hex code."
+    },
+    {
+      "icon": "speed",
+      "title": "More reliable step counter",
+      "text": "Steps are no longer lost when you don't open the app for a day or two, and the count is checked every 15 minutes in the background."
+    },
+    {
+      "icon": "bug",
+      "title": "Smaller things",
+      "text": "Tapping the music widget opens Metrolist properly, and the music button uses your phone's own app icon."
+    }
+  ],
   "3.5.0": [
     {
       "icon": "timer",
