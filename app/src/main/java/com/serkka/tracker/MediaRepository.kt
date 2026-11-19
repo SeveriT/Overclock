@@ -29,6 +29,11 @@ class MediaRepository private constructor() {
     private var previousTrackAction: (() -> Unit)? = null
     private var togglePlayPauseAction: (() -> Unit)? = null
     private var openAppAction: (() -> Unit)? = null
+    private var refreshAction: (() -> Unit)? = null
+
+    /** Re-picks the media session to follow (after the music app choice changes in Settings). */
+    fun setRefreshAction(action: () -> Unit) { refreshAction = action }
+    fun refresh() { refreshAction?.invoke() }
 
     fun updateSong(info: SongInfo) {
         if (info.isPlaying && !_currentSong.value.isPlaying) _widgetHidden.value = false

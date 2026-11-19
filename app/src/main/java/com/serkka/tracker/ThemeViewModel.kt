@@ -40,14 +40,14 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     val accentFromMusic: StateFlow<Boolean> = _accentFromMusic
 
     /**
-     * Colour of the album art of the Spotify song in the music widget, or null when there's none.
+     * Colour of the album art of the song in the music widget, or null when there's none.
      * The listener re-sends the song every second with a fresh Bitmap, so the art is compared by
      * pixels and Palette only runs when it really changes, off the main thread.
      */
     val albumColor: StateFlow<Color?> = MediaRepository.getInstance().let { media ->
-        combine(media.currentSong, media.widgetHidden) { song, hidden ->
-            // Same rule as the widget itself (WorkoutScreen): a Spotify song, widget not closed
-            song.albumArt.takeIf { song.packageName == "com.spotify.music" && song.title != null && !hidden }
+        combine(media.currentSong, media.widgetHidden, MusicApps.selected(application)) { song, hidden, app ->
+            // Same rule as the widget itself (WorkoutScreen): the chosen app's song, widget not closed
+            song.albumArt.takeIf { song.packageName == app.packageName && song.title != null && !hidden }
         }
     }
         .distinctUntilChanged { a, b -> a === b || (a != null && b != null && a.sameAs(b)) }

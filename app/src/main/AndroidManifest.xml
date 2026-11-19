@@ -28,6 +28,7 @@
 
     <queries>
         <package android:name="com.spotify.music" />
+        <package android:name="com.metrolist.music" />
     </queries>
 
     <application

@@ -429,6 +429,14 @@ fun SettingsPage(
 
 
 
+        // ── Music ───────────────────────────────────────────────────────
+        item { SectionHeader("Music") }
+        item {
+            Box(Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = 4.dp)) {
+                MusicAppPicker(primaryColor)
+            }
+        }
+
         // ── Timer ───────────────────────────────────────────────────────
         item { SectionHeader("Timer") }
         item {

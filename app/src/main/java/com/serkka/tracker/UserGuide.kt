@@ -179,7 +179,8 @@ private val guideGroups = listOf(
         ))
     )),
     GuideGroup("App & data", listOf(
-        GuideTopic(Icons.Default.MusicNote, "Music widget", "Control Spotify", listOf(
+        GuideTopic(Icons.Default.MusicNote, "Music widget", "Control Spotify or Metrolist", listOf(
+            "Choose Spotify or Metrolist in Settings → Music. The widget shows and controls that app.",
             "Tap to open the player; swipe left or right to skip tracks.",
             "The progress bar waves while music plays, and colours follow the album art."
         )),

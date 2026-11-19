@@ -1,16 +1,16 @@
 package com.serkka.tracker
 
 import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
-import android.service.notification.NotificationListenerService
-import android.service.notification.StatusBarNotification
 import android.os.Handler
 import android.os.Looper
-import android.content.Intent
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
 
 data class SongInfo(
     val title: String? = null,
@@ -60,6 +60,7 @@ class MediaNotificationListener : NotificationListenerService() {
         mediaRepository.setPreviousTrackAction { skipToPrevious() }
         mediaRepository.setTogglePlayPauseAction { togglePlayPause() }
         mediaRepository.setOpenAppAction { openApp() }
+        mediaRepository.setRefreshAction { updateController() }
     }
 
     override fun onListenerConnected() {
@@ -71,7 +72,11 @@ class MediaNotificationListener : NotificationListenerService() {
         val controllers = try {
             mediaSessionManager?.getActiveSessions(ComponentName(this, MediaNotificationListener::class.java))
         } catch (_: SecurityException) { null }
-        val newController = controllers?.firstOrNull()
+        // Prefer the music app chosen in Settings (MusicApps.kt), so e.g. a video in another app
+        // doesn't take over the widget while that app has a song loaded
+        val chosen = MusicApps.selected(this).value.packageName
+        val newController = controllers?.firstOrNull { it.packageName == chosen }
+            ?: controllers?.firstOrNull()
 
         // Always register callback to the latest controller if it exists
         if (activeController != newController) {
@@ -145,10 +150,10 @@ class MediaNotificationListener : NotificationListenerService() {
     }
 
     private fun openApp() {
-        if (activeController?.packageName == "com.spotify.music") {
+        if (activeController?.packageName == MusicApp.Spotify.packageName) {
             try {
                 val intent = Intent().apply {
-                    component = ComponentName("com.spotify.music", "androidx.compose.ui.tooling.PreviewActivity")
+                    component = ComponentName(MusicApp.Spotify.packageName, "androidx.compose.ui.tooling.PreviewActivity")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 startActivity(intent)

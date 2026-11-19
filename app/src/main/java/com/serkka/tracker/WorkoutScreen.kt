@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
@@ -127,6 +128,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -528,6 +530,8 @@ fun WorkoutScreen(
     var noteToDelete         by remember { mutableStateOf<Note?>(null) }
     var sessionToDelete      by remember { mutableStateOf<WorkoutSession?>(null) }
     var sessionToEdit        by remember { mutableStateOf<WorkoutSession?>(null) }
+    // Settings → Music: the one app the music widget follows (MusicApps.kt)
+    val musicApp by MusicApps.selected(LocalContext.current).collectAsState()
 
     val currentSong    by MediaRepository.getInstance().currentSong.collectAsState()
     val timerIsRunning by timerViewModel.isRunning.collectAsState()
@@ -640,7 +644,7 @@ fun WorkoutScreen(
                         when (swipeScreens[page]) {
                             Screen.WorkoutTimer.name -> {
                                 val musicVisible = currentSong.title != null &&
-                                    currentSong.packageName == "com.spotify.music" &&
+                                    currentSong.packageName == musicApp.packageName &&
                                     !musicDismissed
                                 WorkoutTimerScreen(
                                     timerViewModel  = timerViewModel,
@@ -1175,7 +1179,7 @@ fun WorkoutScreen(
             // ── Music widget + FAB ────────────────────────────────────────────
             val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
             val hasMusicWidget = currentSong.title != null &&
-                currentSong.packageName == "com.spotify.music" &&
+                currentSong.packageName == musicApp.packageName &&
                 !musicDismissed
 
             // FAB visibility as a transition state, so the music widget keeps the FAB's slot
@@ -1201,37 +1205,40 @@ fun WorkoutScreen(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = if (!musicDismissed) widgetBottomPadding else widgetBottomPadding + 10.dp)
             ) {
-                // Floating Spotify launch button — shown when the widget is hidden.
-                // Tap behavior: try toggling playback first; if Spotify is killed (or
-                // playback doesn't actually start within ~700ms) launch the app instead.
+                // Floating music app launch button — shown when the widget is hidden. Opens the app
+                // chosen in Settings → Music (MusicApps.kt): Spotify or Metrolist.
+                // Tap behavior: try toggling playback first; if the app is killed (or
+                // playback doesn't actually start within ~500ms) launch the app instead.
                 if (!hasMusicWidget) {
                     val noteInteractionSource = remember { MutableInteractionSource() }
-                    fun launchSpotify() {
-                        ctx.packageManager.getLaunchIntentForPackage("com.spotify.music")
+                    fun launchMusicApp() {
+                        ctx.packageManager.getLaunchIntentForPackage(musicApp.packageName)
                             ?.apply {
                                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                 ctx.startActivity(this)
                                 MediaRepository.getInstance().setWidgetHidden(false)
                             } ?: android.widget.Toast.makeText(
-                                ctx, "Spotify is not installed",
+                                ctx, "${musicApp.label} is not installed",
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                     }
+                    val isSpotifyButton = musicApp == MusicApp.Spotify
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .padding(start = 8.dp, bottom = 12.dp, top = 8.dp)
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(TrackerColors.SpotifyGreen)
+                            .background(if (isSpotifyButton) TrackerColors.SpotifyGreen else Color.Transparent)
                             .clickable(
                                 interactionSource = noteInteractionSource,
                                 indication = ripple(bounded = true),
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    if (currentSong.packageName == null) {
-                                        // No active media session — Spotify is killed
-                                        launchSpotify()
+                                    if (currentSong.packageName != musicApp.packageName) {
+                                        // No session from the chosen app — it's killed (or another
+                                        // app is playing): open the chosen app instead of toggling
+                                        launchMusicApp()
                                     } else {
                                         // Session alive — try to resume; if play silently
                                         // no-ops (process dead), fall back to launching.
@@ -1240,20 +1247,49 @@ fun WorkoutScreen(
                                             delay(500.milliseconds)
                                             if (!MediaRepository.getInstance()
                                                     .currentSong.value.isPlaying
-                                            ) launchSpotify()
+                                            ) launchMusicApp()
                                         }
                                     }
                                 }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Spotify logo: the waves at full button size on the green circle
-                        Icon(
-                            painter = painterResource(R.drawable.spotify_logo_waves),
-                            contentDescription = "Open Spotify",
-                            modifier = Modifier.size(48.dp),
-                            tint = TrackerColors.SpotifyBlack
-                        )
+                        if (isSpotifyButton) {
+                            // Spotify logo: the waves at full button size on the green circle
+                            Icon(
+                                painter = painterResource(R.drawable.spotify_logo_waves),
+                                contentDescription = "Open Spotify",
+                                modifier = Modifier.size(48.dp),
+                                tint = TrackerColors.SpotifyBlack
+                            )
+                        } else {
+                            // Other apps (Metrolist): their own launcher icon from the phone
+                            val appIcon = remember(musicApp) {
+                                runCatching {
+                                    ctx.packageManager.getApplicationIcon(musicApp.packageName)
+                                        .toBitmap(144, 144).asImageBitmap()
+                                }.getOrNull()
+                            }
+                            if (appIcon != null) {
+                                androidx.compose.foundation.Image(
+                                    bitmap = appIcon,
+                                    contentDescription = "Open ${musicApp.label}",
+                                    modifier = Modifier.size(48.dp)
+                                )
+                            } else {
+                                // Not installed: a plain note on the surface colour
+                                Box(
+                                    Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.MusicNote,
+                                        contentDescription = "Open ${musicApp.label}",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 if (hasMusicWidget) {
@@ -1338,7 +1374,7 @@ fun WorkoutScreen(
                                 ) {
 
                                     // Gate: only advance once the new bitmap has arrived so neither
-                                    // art nor text flash blank while Spotify sends metadata in stages
+                                    // art nor text flash blank while the app sends metadata in stages
                                     var displayedKey by remember { mutableStateOf(songKey) }
                                     LaunchedEffect(songKey, currentSong.albumArt) {
                                         if (currentSong.albumArt != null) displayedKey = songKey
