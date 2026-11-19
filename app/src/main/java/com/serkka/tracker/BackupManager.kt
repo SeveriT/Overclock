@@ -123,6 +123,9 @@ class BackupManager(private val context: Context) {
 
             restoredStepsJson?.let {
                 applyPrefsJson(context.getSharedPreferences(stepPrefsName, Context.MODE_PRIVATE), it)
+                // The backup's last sensor reading belongs to another boot (or phone): the next
+                // reading must only anchor, not count the difference as steps
+                StepCounterStore.resetAnchor(context)
             }
 
             Log.d("BackupManager", "Restore complete")

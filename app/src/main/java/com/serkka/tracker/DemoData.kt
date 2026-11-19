@@ -36,13 +36,12 @@ object DemoData {
             val date = today.minusDays(daysAgo.toLong())
             editor.putLong("steps_$date", dailySteps[idx])
         }
-        // Today: simulate sensor baseline so todaySteps resolves correctly
+        // Today's total; the next real sensor reading only anchors on it (StepCounterStore)
         val todaySteps = dailySteps.last()
-        val fakeBaseline = 100_000L
         editor.putString("baseline_date", today.toString())
-        editor.putLong("baseline", fakeBaseline)
         editor.putLong("today_steps", todaySteps)
         editor.apply()
+        StepCounterStore.resetAnchor(context)
     }
 
     private suspend fun seedInternal(repository: WorkoutRepository) {

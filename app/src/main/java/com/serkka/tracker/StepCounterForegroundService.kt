@@ -17,7 +17,6 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import java.time.LocalDate
 
 class StepCounterForegroundService : Service(), SensorEventListener {
 
@@ -26,10 +25,6 @@ class StepCounterForegroundService : Service(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var stepSensor: Sensor? = null
-
-    private val prefs by lazy {
-        getSharedPreferences("step_counter", MODE_PRIVATE)
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -51,34 +46,8 @@ class StepCounterForegroundService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type != Sensor.TYPE_STEP_COUNTER) return
-        val sensorSteps = event.values[0].toLong()
-        val today = LocalDate.now().toString()
-        val baselineDate = prefs.getString("baseline_date", null)
-        var baseline = prefs.getLong("baseline", -1L)
-
-        if (baselineDate != today) {
-            if (baselineDate != null && baseline >= 0) {
-                val prevDaySteps = prefs.getLong("today_steps", 0L)
-                prefs.edit().putLong("steps_$baselineDate", prevDaySteps).apply()
-            }
-            baseline = sensorSteps
-            prefs.edit()
-                .putString("baseline_date", today)
-                .putLong("baseline", baseline)
-                .putLong("today_steps", 0L)
-                .apply()
-        }
-
-        // Reboot detection — preserve today's count by shifting baseline (negative if
-        // needed) so the daily total survives a mid-day reboot.
-        if (sensorSteps < baseline) {
-            val carried = prefs.getLong("today_steps", 0L)
-            baseline = sensorSteps - carried
-            prefs.edit().putLong("baseline", baseline).apply()
-        }
-
-        val steps = sensorSteps - baseline
-        prefs.edit().putLong("today_steps", steps).apply()
+        // Day rollover, gaps and reboots are handled in one place (StepCounterStore.kt)
+        StepCounterStore.record(this, event.values[0].toLong())
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -135,8 +104,15 @@ class StepCounterForegroundService : Service(), SensorEventListener {
             val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
             if (sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) == null) return
             if (!hasActivityRecognitionPermission(context)) return
+            // Backup readings every 15 min, in case this service gets killed (StepSampleWorker.kt)
+            StepSampleWorker.schedule(context)
             val intent = Intent(context, StepCounterForegroundService::class.java)
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (_: IllegalStateException) {
+                // Android 12+ refuses foreground service starts from the background; the worker
+                // keeps counting until the app is opened next
+            }
         }
 
         fun stop(context: Context) {

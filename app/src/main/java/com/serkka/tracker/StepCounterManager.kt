@@ -106,37 +106,10 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type != Sensor.TYPE_STEP_COUNTER) return
-        val sensorSteps = event.values[0].toLong()
         val today = LocalDate.now().toString()
-        val baselineDate = prefs.getString("baseline_date", null)
-        var baseline = prefs.getLong("baseline", -1L)
-
-        if (baselineDate != today) {
-            // New day — save previous day's total, reset baseline
-            if (baselineDate != null && baseline >= 0) {
-                val prevDaySteps = prefs.getLong("today_steps", 0L)
-                prefs.edit().putLong("steps_$baselineDate", prevDaySteps).apply()
-            }
-            baseline = sensorSteps
-            prefs.edit()
-                .putString("baseline_date", today)
-                .putLong("baseline", baseline)
-                .putLong("today_steps", 0L)
-                .apply()
-        }
-
-        // Handle device reboot (sensor resets to 0). Preserve today's count so a
-        // reboot mid-day doesn't wipe the daily total: shift baseline so the existing
-        // today_steps carries forward and subsequent sensor deltas keep accumulating.
-        if (sensorSteps < baseline) {
-            val carried = prefs.getLong("today_steps", 0L)
-            baseline = sensorSteps - carried
-            prefs.edit().putLong("baseline", baseline).apply()
-        }
-
-        val steps = sensorSteps - baseline
+        // Day rollover, gaps and reboots are handled in one place (StepCounterStore.kt)
+        val steps = StepCounterStore.record(context, event.values[0].toLong())
         _todaySteps.value = steps
-        prefs.edit().putLong("today_steps", steps).apply()
         _weeklySteps.value = loadWeeklySteps()
 
         // Check if goal reached and notify
