@@ -1222,14 +1222,12 @@ fun WorkoutScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                     }
-                    val isSpotifyButton = musicApp == MusicApp.Spotify
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .padding(start = 8.dp, bottom = 12.dp, top = 8.dp)
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(if (isSpotifyButton) TrackerColors.SpotifyGreen else Color.Transparent)
                             .clickable(
                                 interactionSource = noteInteractionSource,
                                 indication = ripple(bounded = true),
@@ -1254,40 +1252,31 @@ fun WorkoutScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (isSpotifyButton) {
-                            // Spotify logo: the waves at full button size on the green circle
-                            Icon(
-                                painter = painterResource(R.drawable.spotify_logo_waves),
-                                contentDescription = "Open Spotify",
-                                modifier = Modifier.size(48.dp),
-                                tint = TrackerColors.SpotifyBlack
+                        // The chosen app's own launcher icon from the phone (Spotify and Metrolist
+                        // alike), so it matches the home screen, themed icons included
+                        val appIcon = remember(musicApp) {
+                            runCatching {
+                                ctx.packageManager.getApplicationIcon(musicApp.packageName)
+                                    .toBitmap(144, 144).asImageBitmap()
+                            }.getOrNull()
+                        }
+                        if (appIcon != null) {
+                            androidx.compose.foundation.Image(
+                                bitmap = appIcon,
+                                contentDescription = "Open ${musicApp.label}",
+                                modifier = Modifier.size(48.dp)
                             )
                         } else {
-                            // Other apps (Metrolist): their own launcher icon from the phone
-                            val appIcon = remember(musicApp) {
-                                runCatching {
-                                    ctx.packageManager.getApplicationIcon(musicApp.packageName)
-                                        .toBitmap(144, 144).asImageBitmap()
-                                }.getOrNull()
-                            }
-                            if (appIcon != null) {
-                                androidx.compose.foundation.Image(
-                                    bitmap = appIcon,
+                            // Not installed: a plain note on the surface colour
+                            Box(
+                                Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.MusicNote,
                                     contentDescription = "Open ${musicApp.label}",
-                                    modifier = Modifier.size(48.dp)
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            } else {
-                                // Not installed: a plain note on the surface colour
-                                Box(
-                                    Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.MusicNote,
-                                        contentDescription = "Open ${musicApp.label}",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
                             }
                         }
                     }

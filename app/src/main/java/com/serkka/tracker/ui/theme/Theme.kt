@@ -45,8 +45,6 @@ object TrackerColors {
     val ChartDot          = Color(0xFF24252B)   // hollow-centre of chart points
 
     // Third-party brand colours (music widget)
-    val SpotifyGreen      = Color(0xFF1DB954)
-    val SpotifyBlack      = Color(0xFF191414)
 
     // Semantic
     val Error             = Color(0xFFFF7043)   // orange-red error — the only red (negative / destructive)

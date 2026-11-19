@@ -32,7 +32,7 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Default color is now White (0xFFFFFFFF)
     private val _primaryColor = MutableStateFlow(Color(prefs.getInt("primary_color", Color.White.toArgb())))
-    /** The accent the user picked with the RGB sliders. Use [rememberAccentColor] for the colour on screen. */
+    /** The accent the user picked (swatches or hex, AccentPicker.kt). Use [rememberAccentColor] for the colour on screen. */
     val primaryColor: StateFlow<Color> = _primaryColor
 
     // Accent "Auto": follow the album art of the song in the music widget (falls back to primaryColor)
@@ -118,7 +118,7 @@ private fun readableAccent(color: Color): Color {
 /**
  * The accent colour on screen: the album colour while Auto is on and a song with art is in the
  * music widget, otherwise the user's colour. Song changes fade over [Motion.LONG]; dragging the
- * RGB sliders without music stays instant. Includes the Overclock rainbow (Extras.kt).
+ * picking a colour without music stays instant. Includes the Overclock rainbow (Extras.kt).
  */
 @Composable
 internal fun rememberAccentColor(themeViewModel: ThemeViewModel): Color {

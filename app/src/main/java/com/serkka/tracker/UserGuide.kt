@@ -209,7 +209,7 @@ private val guideGroups = listOf(
             "Settings → Clear all data wipes everything and restarts the app. Demo mode becomes available again."
         )),
         GuideTopic(Icons.Default.Palette, "Customization", "Make the app yours", listOf(
-            "Pick your accent colour with the RGB sliders in Settings.",
+            "Pick your accent colour in Settings → Appearance: tap a colour, or Custom to type any hex code.",
             "Tap Auto next to Accent Color and the accent takes the colour of the album art in the music widget. Your own colour comes back when no song is playing.",
             "The background brightness and font size sliders adjust the whole app.",
             "Pick an app icon under Settings → Appearance: the plate in red (25 kg), blue (20), yellow (15) or green (10)."

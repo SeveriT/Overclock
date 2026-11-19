@@ -281,13 +281,13 @@ fun SettingsPage(
                     modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Auto = accent follows the music widget's album art; the sliders set the
+                    // Auto = accent follows the music widget's album art; the swatches set the
                     // user's own colour, used whenever there's no song (ThemeViewModel).
                     val userAccent by themeViewModel.primaryColor.collectAsState()
                     val accentAuto by themeViewModel.accentFromMusic.collectAsState()
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "Accent Color (RGB)",
+                            "Accent Color",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
@@ -308,39 +308,17 @@ fun SettingsPage(
                     }
                     if (accentAuto) {
                         Text(
-                            "Takes the colour of the album art in the music widget. The sliders set the colour used when no song is playing.",
+                            "Takes the colour of the album art in the music widget.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy((-8).dp)) {
-                        listOf(
-                            Triple("R", userAccent.red) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(red = v)) },
-                            Triple("G", userAccent.green) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(green = v)) },
-                            Triple("B", userAccent.blue) { v: Float -> themeViewModel.updatePrimaryColor(userAccent.copy(blue = v)) }
-                        ).forEach { (_, value, onValueChange) ->
-                            val rgbInteraction = remember { MutableInteractionSource() }
-                            Slider(
-                                value = value,
-                                onValueChange = onValueChange,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = primaryColor,
-                                    activeTrackColor = primaryColor
-                                ),
-                                interactionSource = rgbInteraction,
-                                // Bubble shows the channel as 0–255
-                                thumb = { TrackerSliderThumb(rgbInteraction, primaryColor, "${(value * 255).roundToInt()}") },
-                                track = { sliderState ->
-                                    SliderDefaults.Track(
-                                        sliderState = sliderState,
-                                        modifier = Modifier.height(4.dp),
-                                        thumbTrackGapSize = 4.dp
-                                    )
-                                }
-                            )
-                        }
-                    }
+                    // Preset swatches + Custom (hex entry), AccentPicker.kt
+                    AccentColorPicker(
+                        current = userAccent,
+                        onPick = { themeViewModel.updatePrimaryColor(it) }
+                    )
 
                     // ── Background color ──────────────────────────────────────
                     val backgroundColor by themeViewModel.backgroundColor.collectAsState()
