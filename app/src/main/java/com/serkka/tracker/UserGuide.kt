@@ -164,7 +164,7 @@ private val guideGroups = listOf(
         GuideTopic(Icons.AutoMirrored.Filled.DirectionsWalk, "Step counter", "Daily steps with a goal", listOf(
             "Counts steps with your phone's built-in sensor.",
             "The pencil icon edits your goal; you get a notification when you reach it.",
-            "Long-press the steps chart to add steps for any of the last 7 days.",
+            "Long-press the steps chart to set the step count for any of the last 7 days, for example to match your watch.",
             "Needs Activity Recognition and Unrestricted Battery (Settings → Permissions)."
         ))
     )),

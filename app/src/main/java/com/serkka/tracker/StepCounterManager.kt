@@ -68,33 +68,23 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         prefs.edit().putBoolean("goal_notified_${LocalDate.now()}", false).apply()
     }
 
-    /** Manually bumps step count for [date] by [amount]. */
-    fun addStepsManually(amount: Long, date: LocalDate = LocalDate.now()) {
-        if (amount <= 0) return
+    /**
+     * Replaces [date]'s total with [total] (e.g. the number from another step app, to fix a wrong
+     * day). For today the sensor anchor is left alone, so new steps keep adding on top.
+     */
+    fun setStepsManually(total: Long, date: LocalDate = LocalDate.now()) {
+        if (total < 0) return
         val today = LocalDate.now()
         if (date == today) {
-            // Update today's count and shift baseline so live sensor events keep counting
             val todayStr = today.toString()
-            val current = prefs.getLong("today_steps", 0L)
-            val newTotal = current + amount
-            prefs.edit().putLong("today_steps", newTotal).apply()
-            _todaySteps.value = newTotal
-            val baselineDate = prefs.getString("baseline_date", null)
-            val baseline = prefs.getLong("baseline", -1L)
-            if (baselineDate == todayStr && baseline >= 0) {
-                prefs.edit().putLong("baseline", baseline - amount).apply()
-            }
-            val goal = _stepGoal.value
-            val notifiedKey = "goal_notified_$todayStr"
-            if (newTotal >= goal && !prefs.getBoolean(notifiedKey, false)) {
-                prefs.edit().putBoolean(notifiedKey, true).apply()
-                showGoalReachedNotification(newTotal, goal)
-            }
+            val edit = prefs.edit().putLong("today_steps", total)
+            if (prefs.getString("baseline_date", null) != todayStr) edit.putString("baseline_date", todayStr)
+            val lastSensor = prefs.getLong("last_sensor", Long.MIN_VALUE)
+            if (lastSensor != Long.MIN_VALUE) edit.putLong("baseline", lastSensor - total)
+            edit.apply()
+            _todaySteps.value = total
         } else {
-            // Historical day — bump the stored day total directly
-            val key = "steps_$date"
-            val current = prefs.getLong(key, 0L)
-            prefs.edit().putLong(key, current + amount).apply()
+            prefs.edit().putLong("steps_$date", total).apply()
         }
         _weeklySteps.value = loadWeeklySteps()
     }

@@ -2,6 +2,7 @@ package com.serkka.tracker
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.SystemClock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -49,9 +50,19 @@ internal object StepCounterStore {
             lastMs = minOf(nowMs, baselineDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1)
         }
 
+        // A reboot restarts the counter at 0. Only trust that when the phone really booted after
+        // the previous reading: the service, the in-app counter and StepSampleWorker all listen,
+        // and with the screen off the phone delivers held-back OLDER readings later, so a lower
+        // value usually just means a late reading. Treating those as reboots added the whole
+        // since-boot count again (20k steps on a quiet day), so late readings are now ignored.
+        val bootMs = nowMs - SystemClock.elapsedRealtime()
+        val rebooted = lastMs > 0L && bootMs > lastMs
+        if (lastSensor != Long.MIN_VALUE && !rebooted && sensorSteps < lastSensor) {
+            return if (baselineDate == today) runningTotal else 0L   // late reading: already counted
+        }
         val delta = when {
             lastSensor == Long.MIN_VALUE -> 0L        // first reading ever (or after restore/demo): just anchor
-            sensorSteps < lastSensor -> sensorSteps    // rebooted: the counter restarted at 0
+            rebooted -> sensorSteps                    // rebooted: everything since boot is new
             else -> sensorSteps - lastSensor
         }
 

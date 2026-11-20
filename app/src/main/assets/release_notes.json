@@ -1,5 +1,17 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.6.1": [
+    {
+      "icon": "bug",
+      "title": "Step counter fix",
+      "text": "3.6.0 could add thousands of steps you never walked. That's fixed: late readings from the phone are no longer counted twice."
+    },
+    {
+      "icon": "speed",
+      "title": "Correct a day's steps",
+      "text": "Long-press the steps chart to set a day's step count, for example to the number from your watch or another step app. This replaces adding steps."
+    }
+  ],
   "3.6.0": [
     {
       "icon": "timer",

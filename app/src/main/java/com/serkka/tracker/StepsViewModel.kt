@@ -80,9 +80,10 @@ class StepsViewModel(application: Application) : AndroidViewModel(application) {
         manager.setStepGoal(goal)
     }
 
-    fun addStepsManually(amount: Long, date: LocalDate = LocalDate.now()) {
-        manager.addStepsManually(amount, date)
+    fun setStepsManually(total: Long, date: LocalDate = LocalDate.now()) {
+        manager.setStepsManually(total, date)
     }
+
 
     fun setCardVisible(visible: Boolean) {
         manager.setCardVisible(visible)

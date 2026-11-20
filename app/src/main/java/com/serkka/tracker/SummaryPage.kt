@@ -229,7 +229,7 @@ fun SummaryPage(
         ActivityResultContracts.RequestPermission()
     ) { granted -> stepsViewModel.onPermissionResult(granted) }
     var showStepGoalDialog by remember { mutableStateOf(false) }
-    var showAddStepsDialog by remember { mutableStateOf(false) }
+    var showSetStepsDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         state = listState,
@@ -503,7 +503,7 @@ fun SummaryPage(
                                                 onClick = {},
                                                 onLongClick = {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    showAddStepsDialog = true
+                                                    showSetStepsDialog = true
                                                 }
                                             )
                                             .padding(8.dp)
@@ -559,21 +559,22 @@ fun SummaryPage(
                 }
             }
 
-            if (showAddStepsDialog) {
+            if (showSetStepsDialog) {
                 item {
-                    var addInput by remember { mutableStateOf("") }
+                    // Set a day's total (e.g. the number from a watch or another step app)
                     val last7Days = remember(today) { (6 downTo 0).map { today.minusDays(it.toLong()) } }
                     var selectedDate by remember { mutableStateOf(today) }
                     val currentForDay = weeklySteps.firstOrNull { it.first == selectedDate }?.second ?: 0L
-                    val addAmount = addInput.toLongOrNull() ?: 0L
+                    var stepsInput by remember { mutableStateOf(currentForDay.toString()) }
+                    val total = stepsInput.toLongOrNull()
                     TrackerDialog(
-                        title = "Add steps",
-                        onDismiss = { showAddStepsDialog = false },
-                        confirmLabel = "Add",
-                        confirmEnabled = addAmount > 0,
+                        title = "Set steps",
+                        onDismiss = { showSetStepsDialog = false },
+                        confirmLabel = "Set",
+                        confirmEnabled = total != null,
                         onConfirm = {
-                            stepsViewModel.addStepsManually(addAmount, selectedDate)
-                            showAddStepsDialog = false
+                            stepsViewModel.setStepsManually(total ?: 0L, selectedDate)
+                            showSetStepsDialog = false
                         }
                     ) {
                             Column {
@@ -600,7 +601,11 @@ fun SummaryPage(
                                         }
                                         FilterChip(
                                             selected = d == selectedDate,
-                                            onClick = { selectedDate = d },
+                                            onClick = {
+                                                selectedDate = d
+                                                // Start from that day's current count
+                                                stepsInput = (weeklySteps.firstOrNull { it.first == d }?.second ?: 0L).toString()
+                                            },
                                             label = { Text(label) },
                                             modifier = Modifier.bounceClick(chipSource),
                                             interactionSource = chipSource,
@@ -613,9 +618,9 @@ fun SummaryPage(
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 OutlinedTextField(
-                                    value = addInput,
-                                    onValueChange = { input -> addInput = input.filter { it.isDigit() }.take(5) },
-                                    label = { Text("Steps to add") },
+                                    value = stepsInput,
+                                    onValueChange = { input -> stepsInput = input.filter { it.isDigit() }.take(6) },
+                                    label = { Text("Total steps for the day") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
