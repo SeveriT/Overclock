@@ -2,6 +2,7 @@ package com.serkka.tracker
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.os.Build
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
@@ -13,10 +14,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.palette.graphics.Palette
+import com.materialkolor.dynamiccolor.ColorSpec
+import com.materialkolor.hct.Hct
+import com.materialkolor.scheme.SchemeTonalSpot
+import com.materialkolor.score.Score
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,15 +48,20 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
      * The listener re-sends the song every second with a fresh Bitmap, so the art is compared by
      * pixels and Palette only runs when it really changes, off the main thread.
      */
-    val albumColor: StateFlow<Color?> = MediaRepository.getInstance().let { media ->
+    val albumColors: StateFlow<AlbumColors?> = MediaRepository.getInstance().let { media ->
         combine(media.currentSong, media.widgetHidden, MusicApps.selected(application)) { song, hidden, app ->
             // Same rule as the widget itself (WorkoutScreen): the chosen app's song, widget not closed
             song.albumArt.takeIf { song.packageName == app.packageName && song.title != null && !hidden }
         }
     }
         .distinctUntilChanged { a, b -> a === b || (a != null && b != null && a.sameAs(b)) }
-        .map { art -> art?.let(::albumArtColor) }
+        .map { art -> art?.let(::albumSeedColor)?.let(::tonalColors) }
         .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The album art's accent (the tonal scheme's primary): drives accent Auto. Null when there's no art. */
+    val albumColor: StateFlow<Color?> = albumColors
+        .map { it?.primary }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _fontScale = MutableStateFlow(prefs.getFloat("font_scale", 1f))
@@ -99,21 +107,61 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-/** The album art's vibrant colour (muted, then dominant as fallbacks); the music widget's tint. */
-private fun albumArtColor(art: Bitmap): Color? = try {
-    val palette = Palette.from(art).maximumColorCount(16).generate()
-    val rgb = palette.getVibrantColor(palette.getMutedColor(palette.getDominantColor(0)))
-    if (rgb != 0) Color(rgb) else null
-} catch (_: Exception) {
-    null   // e.g. a hardware bitmap that can't be read
+/**
+ * Colours made from one seed the way Material You (and the Metrolist app) makes them: a dark
+ * Tonal Spot scheme, so they're balanced and readable whatever the album art looks like.
+ * primary = the accent; the container pair = a calm body with text that reads on it.
+ */
+data class AlbumColors(
+    val primary: Color,
+    val onPrimary: Color,
+    val primaryContainer: Color,
+    val onPrimaryContainer: Color
+)
+
+internal fun tonalColors(seedArgb: Int): AlbumColors {
+    val scheme = SchemeTonalSpot(Hct.fromInt(seedArgb), true, 0.0, ColorSpec.SpecVersion.SPEC_2025)
+    return AlbumColors(
+        primary = Color(scheme.primary),
+        onPrimary = Color(scheme.onPrimary),
+        primaryContainer = Color(scheme.primaryContainer),
+        onPrimaryContainer = Color(scheme.onPrimaryContainer)
+    )
 }
 
-/** Album colours can be very dark: lift the lightness so the accent stays readable on the dark theme. */
-private fun readableAccent(color: Color): Color {
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(color.toArgb(), hsl)
-    hsl[2] = hsl[2].coerceIn(0.6f, 0.85f)
-    return Color(ColorUtils.HSLToColor(hsl))
+/** Material's own fallback seed (Google Blue) for art with no usable colour, as Metrolist uses. */
+private const val ART_FALLBACK_SEED = 0xFF4285F4.toInt()
+
+/**
+ * The seed colour of the album art, picked like Metrolist: up to 128 × 128 sampled pixels (mostly
+ * transparent ones skipped), every exact colour counted (so small bright accents aren't merged into
+ * greys), then ranked by Material's Score, which prefers colourful hues over large dull areas.
+ */
+private fun albumSeedColor(art: Bitmap): Int? = try {
+    val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && art.config == Bitmap.Config.HARDWARE) {
+        art.copy(Bitmap.Config.ARGB_8888, false)
+    } else {
+        art
+    }
+    if (source == null || source.width <= 0 || source.height <= 0) {
+        null
+    } else {
+        try {
+            val w = minOf(source.width, 128)
+            val h = minOf(source.height, 128)
+            val counts = HashMap<Int, Int>()
+            for (i in 0 until w * h) {
+                val pixel = source.getPixel((i % w) * source.width / w, (i / w) * source.height / h)
+                if (pixel ushr 24 >= 128) counts.merge(pixel or 0xFF000000.toInt(), 1, Int::plus)
+            }
+            if (counts.isEmpty()) ART_FALLBACK_SEED
+            else Score.score(counts, fallbackColorArgb = ART_FALLBACK_SEED).first()
+        } finally {
+            if (source !== art) source.recycle()
+        }
+    }
+} catch (_: Exception) {
+    null   // e.g. a bitmap that can't be read
 }
 
 /**
@@ -127,7 +175,8 @@ internal fun rememberAccentColor(themeViewModel: ThemeViewModel): Color {
     val auto by themeViewModel.accentFromMusic.collectAsState()
     val album by themeViewModel.albumColor.collectAsState()
     val fromMusic = auto && album != null
-    val target = if (fromMusic) readableAccent(album!!) else base
+    // The album accent is already a readable tone (the scheme's primary)
+    val target = if (fromMusic) album!! else base
 
     val animated = remember { Animatable(target) }
     var lastFromMusic by remember { mutableStateOf(fromMusic) }

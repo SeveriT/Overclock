@@ -116,7 +116,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -218,8 +218,20 @@ private fun ElasticColumnWrapper(
 }
 
 
+/** One full turn of the music widget's album art while a song plays. */
+private const val ALBUM_ART_TURN_MS = 20_000
+
+/**
+ * Size of the music widget's album art, and of the music app button that sits in its place while the
+ * widget is hidden. Change this one number for both (keep it under MUSIC_WIDGET_HEIGHT).
+ */
+private val ALBUM_ART_SIZE = 44.dp
+
 /** Height of the music widget; its launch button sits in a frame this size, where the album art is. */
 private val MUSIC_WIDGET_HEIGHT = 64.dp
+
+/** Gap left of the album art, equal to the gap above and below it, so it sits evenly in the pill's end. */
+private val ALBUM_ART_INSET = (MUSIC_WIDGET_HEIGHT - ALBUM_ART_SIZE) / 2
 
 @SuppressLint("UseKtx")
 @Composable
@@ -424,11 +436,9 @@ fun WorkoutScreen(
             val topBarBaseHeight = 55.dp
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
-            // Gap between the page sheet's top edge and pages that don't add their own (lists do).
-            val sheetPageTop = 8.dp
             // Room under the last item for the bottom bar plus the music widget (or its launch
             // button) above it, so the end of every list can scroll clear of them.
-            val contentBottomPadding = 156.dp
+            val contentBottomPadding = 164.dp
 
             Box(
                 modifier = Modifier
@@ -549,7 +559,7 @@ fun WorkoutScreen(
                                             viewModel.updateWorkout(w.copy(isPersonalBest = !w.isPersonalBest))
                                         },
                                         listState = workoutsListState,
-                                        topPadding = sheetPageTop,
+                                        topPadding = 0.dp,
                                         bottomPadding = contentBottomPadding,
                                         searchQuery = searchQuery,
                                         searchOpen = searchExpanded,
@@ -570,7 +580,7 @@ fun WorkoutScreen(
                                         onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
                                         onNavigateToSessions = { navigate(Screen.Sessions.name) },
                                         listState = summaryListState,
-                                        topPadding = sheetPageTop,
+                                        topPadding = 0.dp,
                                         bottomPadding = contentBottomPadding,
                                         weightCardVisible = weightCardVisible,
                                         onHideWeightCard = { setWeightCardVisible(false) }
@@ -594,7 +604,7 @@ fun WorkoutScreen(
                             Screen.More.name -> {
                                 MorePage(
                                     primaryColor = primaryColor,
-                                    topPadding = sheetPageTop,
+                                    topPadding = 0.dp,
                                     bottomPadding = contentBottomPadding,
                                     onOpen = { navigate(it) }
                                 )
@@ -612,7 +622,7 @@ fun WorkoutScreen(
                         workoutSessions = workoutSessions,
                         workouts = workouts,
                         primaryColor = primaryColor,
-                        topPadding = sheetPageTop,
+                        topPadding = 0.dp,
                         bottomPadding = contentBottomPadding,
                         listState = calendarListState
                     )
@@ -1041,7 +1051,7 @@ fun WorkoutScreen(
                 !musicDismissed
 
             // Just above the bottom bar's row
-            val widgetBottomPadding = NAV_BAR_SPACE + 8.dp
+            val widgetBottomPadding = NAV_BAR_SPACE + 12.dp
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1080,8 +1090,8 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .padding(start = 8.dp)
-                            .size(48.dp)
+                            .padding(start = ALBUM_ART_INSET)
+                            .size(ALBUM_ART_SIZE)
                             .clip(CircleShape)
                             .clickable(
                                 interactionSource = noteInteractionSource,
@@ -1119,7 +1129,7 @@ fun WorkoutScreen(
                             androidx.compose.foundation.Image(
                                 bitmap = appIcon,
                                 contentDescription = "Open ${musicApp.label}",
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(ALBUM_ART_SIZE)
                             )
                         } else {
                             // Not installed: a plain note on the surface colour
@@ -1191,19 +1201,17 @@ fun WorkoutScreen(
                     ) {
                         val songKey = "${currentSong.title}|${currentSong.artist}"
 
-                        // Album art colour (computed once per song in ThemeViewModel; also drives accent Auto)
-                        val albumAccent by themeViewModel.albumColor.collectAsState()
-                        val musicAccent by animateColorAsState(
-                            targetValue = albumAccent ?: primaryColor,
-                            animationSpec = tween(Motion.LONG),
-                            label = "musicAccent"
-                        )
-
-                        // Pill tinted from the album art: a deep shade for the body, a light one for
-                        // the title and the play button, and a darker one for the other button
-                        val widgetBody = lerp(musicAccent, Color.Black, 0.55f)
-                        val widgetLight = lerp(musicAccent, Color.White, 0.45f)
-                        val widgetDeep = lerp(musicAccent, Color.Black, 0.75f)
+                        // Colours like Metrolist's mini player: a tonal scheme from the album art
+                        // (ThemeViewModel, once per song), or from the user's accent when there's none.
+                        // Body = primaryContainer with onPrimaryContainer text; play = primary with an
+                        // onPrimary icon; next = onPrimary with a primary icon. Song changes fade over.
+                        val albumColors by themeViewModel.albumColors.collectAsState()
+                        val fallbackColors = remember(primaryColor) { tonalColors(primaryColor.toArgb()) }
+                        val colors = albumColors ?: fallbackColors
+                        val widgetBody by animateColorAsState(colors.primaryContainer, tween(Motion.LONG), label = "widgetBody")
+                        val widgetText by animateColorAsState(colors.onPrimaryContainer, tween(Motion.LONG), label = "widgetText")
+                        val widgetPrimary by animateColorAsState(colors.primary, tween(Motion.LONG), label = "widgetPrimary")
+                        val widgetOnPrimary by animateColorAsState(colors.onPrimary, tween(Motion.LONG), label = "widgetOnPrimary")
                         Surface(
                             color = widgetBody,
                             shape = TrackerShapes.Pill,
@@ -1232,7 +1240,7 @@ fun WorkoutScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(MUSIC_WIDGET_HEIGHT)
-                                        .padding(start = 8.dp, end = 12.dp),
+                                        .padding(start = ALBUM_ART_INSET, end = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
 
@@ -1244,10 +1252,36 @@ fun WorkoutScreen(
                                     }
 
                                     // Album art (slow crossfade keyed on displayedKey) with the hide
-                                    // button on top while paused. Both in one 44 dp slot in the Row,
+                                    // button on top while paused. Both in one 48 dp slot in the Row,
                                     // so the overlay always lines up with the art exactly.
+                                    // Cookie-shaped like Metrolist's, turning slowly while the song plays
+                                    // and stopping where it is on pause.
+                                    val artRotation = remember { Animatable(0f) }
+                                    LaunchedEffect(currentSong.isPlaying) {
+                                        if (!currentSong.isPlaying) {
+                                            // Paused: ease on to the next angle where the 9 lobes line up
+                                            val settled = kotlin.math.ceil(artRotation.value / 40f) * 40f
+                                            artRotation.animateTo(settled, tween(Motion.MEDIUM))
+                                            artRotation.snapTo(artRotation.value % 360f)
+                                        }
+                                        while (currentSong.isPlaying) {
+                                            artRotation.animateTo(
+                                                artRotation.value + 360f,
+                                                tween(ALBUM_ART_TURN_MS, easing = LinearEasing)
+                                            )
+                                            artRotation.snapTo(artRotation.value % 360f)
+                                        }
+                                    }
                                     if (artCache.isNotEmpty() || !currentSong.isPlaying) {
-                                        Box(Modifier.size(48.dp).clip(CircleShape)) {
+                                        Box(
+                                            Modifier
+                                                .size(ALBUM_ART_SIZE)
+                                                // Only the outline turns (read here, so no recomposition per frame)
+                                                .graphicsLayer {
+                                                    shape = TrackerShapes.cookie(artRotation.value)
+                                                    clip = true
+                                                }
+                                        ) {
                                             if (artCache.isNotEmpty()) {
                                                 AnimatedContent(
                                                     targetState = displayedKey,
@@ -1261,7 +1295,7 @@ fun WorkoutScreen(
                                                             bitmap = bitmap.asImageBitmap(),
                                                             contentDescription = "Album art",
                                                             contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.size(48.dp)
+                                                            modifier = Modifier.size(ALBUM_ART_SIZE)
                                                         )
                                                     }
                                                 }
@@ -1359,7 +1393,7 @@ fun WorkoutScreen(
                                             Text(
                                                 text = outTitle,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                                color = widgetLight,
+                                                color = widgetText,
                                                 style = MaterialTheme.typography.bodyLarge,
                                                 fontWeight = FontWeight.SemiBold
                                             )
@@ -1367,7 +1401,7 @@ fun WorkoutScreen(
                                                 text = outArtist,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = widgetLight.copy(alpha = 0.75f)
+                                                color = widgetText.copy(alpha = 0.7f)
                                             )
                                         }
                                         // Incoming layer
@@ -1378,7 +1412,7 @@ fun WorkoutScreen(
                                             Text(
                                                 text = inTitle,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                                color = widgetLight,
+                                                color = widgetText,
                                                 style = MaterialTheme.typography.bodyLarge,
                                                 fontWeight = FontWeight.SemiBold
                                             )
@@ -1386,7 +1420,7 @@ fun WorkoutScreen(
                                                 text = inArtist,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = widgetLight.copy(alpha = 0.75f)
+                                                color = widgetText.copy(alpha = 0.7f)
                                             )
                                         }
                                     }
@@ -1395,7 +1429,7 @@ fun WorkoutScreen(
                                     val playInteractionSource = remember { MutableInteractionSource() }
                                     Box(
                                         modifier = Modifier.size(40.dp).clip(CircleShape)
-                                            .background(widgetLight)
+                                            .background(widgetPrimary)
                                             .clickable(
                                                 interactionSource = playInteractionSource,
                                                 indication = ripple(bounded = true),
@@ -1409,7 +1443,7 @@ fun WorkoutScreen(
                                         Icon(
                                             imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                             contentDescription = "Play/Pause",
-                                            tint = widgetDeep,
+                                            tint = widgetOnPrimary,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -1418,7 +1452,7 @@ fun WorkoutScreen(
                                     val nextInteractionSource = remember { MutableInteractionSource() }
                                     Box(
                                         modifier = Modifier.size(40.dp).clip(CircleShape)
-                                            .background(widgetDeep)
+                                            .background(widgetOnPrimary)
                                             .clickable(
                                                 interactionSource = nextInteractionSource,
                                                 indication = ripple(bounded = true),
@@ -1434,7 +1468,7 @@ fun WorkoutScreen(
                                         Icon(
                                             imageVector = Icons.Default.SkipNext,
                                             contentDescription = "Next track",
-                                            tint = widgetLight,
+                                            tint = widgetPrimary,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }

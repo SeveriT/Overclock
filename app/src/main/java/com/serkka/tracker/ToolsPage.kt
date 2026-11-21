@@ -86,7 +86,7 @@ fun ToolsPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 4.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
     ) {
         // ── Schedule ──────────────────────────────────────────────────────────
         item(key = "tool_schedule") {

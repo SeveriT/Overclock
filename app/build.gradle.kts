@@ -17,8 +17,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 81
-        versionName = "3.8.0"
+        versionCode = 82
+        versionName = "3.8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -166,6 +166,7 @@ dependencies {
 
     // Palette for extracting colors from album art
     implementation(libs.androidx.palette.ktx)
+    implementation(libs.material.color.utilities)
 
     // Google Play Billing
     implementation(libs.billing.ktx)

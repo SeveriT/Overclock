@@ -66,7 +66,13 @@ internal data class NavFab(val icon: ImageVector, val description: String, val o
 internal val NAV_ROW_HEIGHT = 56.dp
 
 /** Space the bar takes above the system navigation bar, including its bottom margin. */
-internal val NAV_BAR_SPACE: Dp = NAV_ROW_HEIGHT + 12.dp
+internal val NAV_BAR_SPACE: Dp = NAV_ROW_HEIGHT + 16.dp
+
+/** A tab's width when the row has room: the 24 dp icon with 20 dp either side. */
+private val TAB_WIDTH = 64.dp
+
+/** Space between tabs inside the pill. */
+private val TAB_GAP = 2.dp
 
 /**
  * The bottom bar, same style as the Overtime app: a floating pill of icon tabs with the selected one
@@ -96,7 +102,7 @@ internal fun PillNavBar(
             // Content fades out under the bar instead of ending at a hard edge
             .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.background)))
             .navigationBarsPadding()
-            .padding(bottom = 12.dp)
+            .padding(bottom = 16.dp)
             .padding(horizontal = 16.dp)
             // Taps between and around the pill and button don't fall through to the page
             .pointerInput(Unit) {},
@@ -105,7 +111,7 @@ internal fun PillNavBar(
         Row(
             modifier = Modifier.onSizeChanged { onRowWidth(with(density) { it.width.toDp() }) },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // The pill yields space if the row is ever too narrow, so the button stays square
             TabsPill(tabs, highlightPosition, accent, timerRoute, timerText, onSelect, Modifier.weight(1f, fill = false))
@@ -148,6 +154,9 @@ private fun TabsPill(
 
     Box(
         modifier = modifier
+            // Always the width of all tabs at TAB_WIDTH (or what the row allows): the running timer
+            // takes its extra room from the other tabs, never from the rest of the bar
+            .width(TAB_WIDTH * tabs.size + TAB_GAP * (tabs.size - 1) + 8.dp)
             .graphicsLayer(shadowElevation = with(density) { 6.dp.toPx() }, shape = CircleShape)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainer)
@@ -183,8 +192,9 @@ private fun TabsPill(
             )
         }
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(TAB_GAP)
         ) {
             tabs.forEachIndexed { index, tab ->
                 val selected = index == nearest
@@ -193,8 +203,16 @@ private fun TabsPill(
                     tween(Motion.SHORT),
                     label = "tabTint"
                 )
+                val showTime = tab.route == timerRoute && timerText != null
                 Box(
                     modifier = Modifier
+                        // The tabs share the pill's width equally. While the timer runs, its tab takes
+                        // the time's fixed width (so ticking digits don't resize it) and the others
+                        // share what's left, so the pill itself never changes size.
+                        .then(
+                            if (showTime) Modifier.width(timeWidth + 32.dp)
+                            else Modifier.weight(1f)
+                        )
                         .onPlaced { tabBounds[index].value = it.positionInParent().x.roundToInt() to it.size.width }
                         .clip(CircleShape)
                         .selectable(
@@ -204,10 +222,9 @@ private fun TabsPill(
                             indication = null,
                             interactionSource = null
                         )
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val showTime = tab.route == timerRoute && timerText != null
                     if (showTime) {
                         // While the timer runs its tab shows the time instead of the icon, in a
                         // fixed width, so the bar doesn't change size as the digits tick or the

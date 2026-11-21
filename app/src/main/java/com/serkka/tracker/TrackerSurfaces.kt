@@ -23,10 +23,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 // ── Shared M3 surfaces ────────────────────────────────────────────────────────
@@ -46,6 +52,40 @@ internal object TrackerShapes {
     val Pill = RoundedCornerShape(50)
     /** The page sheet under the top bar: rounded top corners only. */
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    /**
+     * Scalloped "cookie" with 9 soft lobes, like Material 3's Cookie9Sided (album art), turned by
+     * [rotationDegrees]: only the outline turns, whatever it clips stays upright.
+     */
+    fun cookie(rotationDegrees: Float = 0f): Shape = CookieShape(lobes = 9, depth = 0.07f, rotationDegrees)
+}
+
+/**
+ * A circle with [lobes] soft bumps round its edge: the radius swings by [depth] (share of the radius)
+ * along a cosine, so the scallops are smooth and the shape fills its box at the lobe tips.
+ */
+private class CookieShape(
+    private val lobes: Int,
+    private val depth: Float,
+    private val rotationDegrees: Float
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val radius = minOf(cx, cy)
+        val path = Path()
+        val steps = 360
+        val turn = Math.toRadians(rotationDegrees.toDouble())
+        for (i in 0..steps) {
+            val angle = 2.0 * Math.PI * i / steps
+            // 1 at a lobe tip, 1 - depth between lobes; the lobes are turned, the circle isn't
+            val r = radius * (1f - depth * (1f - kotlin.math.cos(lobes * (angle - turn)).toFloat()) / 2f)
+            val x = cx + r * kotlin.math.cos(angle).toFloat()
+            val y = cy + r * kotlin.math.sin(angle).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        return Outline.Generic(path)
+    }
 }
 
 /**

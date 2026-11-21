@@ -191,7 +191,7 @@ fun WeightTrackingPage(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
     ) {
         if (sortedWeights.isNotEmpty()) {
             item {

@@ -367,7 +367,7 @@ fun WorkoutTimerScreen(
         }
         Row(
             // Nudged 16 dp lower (user request). An offset, so the ring and heart rate don't move
-            modifier = Modifier.fillMaxWidth().offset(y = 16.dp),
+            modifier = Modifier.fillMaxWidth().offset(y = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {

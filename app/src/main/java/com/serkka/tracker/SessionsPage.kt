@@ -104,7 +104,7 @@ fun SessionsPage(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         // No horizontal padding: list rows run full-bleed; the hero panel adds its own gutter.
-        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
     ) {
         if (allItems.isNotEmpty()) {
             item {

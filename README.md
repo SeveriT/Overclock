@@ -38,3 +38,4 @@ Download the APK from [Releases](https://github.com/SeveriT/Overclock/releases).
 - Google Drive API, Firebase Remote Config, Google Play Billing
 - Bluetooth Low Energy for heart rate straps
 - Developed with help from [Claude Code](https://claude.com/claude-code), Anthropic's AI coding assistant
+- Design inspired by [Next Player](https://github.com/anilbeesetti/nextplayer) and [Metrolist](https://github.com/MetrolistGroup/Metrolist)

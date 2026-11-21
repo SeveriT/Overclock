@@ -270,7 +270,7 @@ fun SettingsPage(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // Flat M3 settings layout: section headers + control groups on the background.
-        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding),
+        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         item { SectionHeader("Appearance") }

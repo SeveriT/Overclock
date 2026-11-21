@@ -125,7 +125,7 @@ fun WorkoutStatsPage(workouts: List<Workout>, primaryColor: Color, topPadding: D
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 6.dp, bottom = bottomPadding)
+        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding)
     ) {
         item {
             FlatSection(
