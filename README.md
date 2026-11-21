@@ -18,7 +18,7 @@ Overclock is an Android app for lifters who want full control over their trainin
 
 ## Features
 
-- **Workout logging** — quick entry with history auto-fill, a "Last time" shortcut, optional RPE, personal bests and search
+- **Workout logging** — quick entry with exercise name suggestions, a "Last time" shortcut that reuses your previous numbers, optional RPE, personal bests and search
 - **Timer and heart rate** — workout timer with a rest countdown that beeps in your headphones and then counts any extra rest; it keeps running with the app closed and shows in the notification, with Start rest and Pause buttons on the lock screen. Connect a Bluetooth heart rate strap for live BPM, a live graph in the timer and a heart rate graph for every session
 - **Sessions** — every timed workout with its heart rate, exportable as a .tcx file (shared or saved to your phone) for Strava and other training sites
 - **Progress** — streaks and a Last 30 Days comparison on Home, per-exercise stats with full history and estimated 1RM trends, a year calendar, and a weight chart with pinch zoom and a weight prediction
