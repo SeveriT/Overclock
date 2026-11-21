@@ -5,13 +5,25 @@ package com.serkka.tracker
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -19,8 +31,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -289,7 +314,13 @@ private fun weeklyReps(workouts: List<Workout>): Map<String, List<Pair<LocalDate
 private fun WeeklyRepsChart(weeks: List<Pair<LocalDate, Int>>, primaryColor: Color) {
     var selected by remember(weeks) { mutableIntStateOf(weeks.lastIndex) }
     val grow = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { grow.animateTo(1f, tween(Motion.LONG, easing = FastOutSlowInEasing)) }
+    val pageVisible = LocalPageVisible.current
+    LaunchedEffect(pageVisible) {
+        if (pageVisible) {
+            grow.snapTo(0f)
+            grow.animateTo(1f, tween(Motion.LONG * 2, easing = LinearEasing))
+        }
+    }
 
     val maxReps = weeks.maxOf { it.second }.coerceAtLeast(1)
     val avg = weeks.sumOf { it.second } / weeks.size.toFloat()
@@ -334,7 +365,12 @@ private fun WeeklyRepsChart(weeks: List<Pair<LocalDate, Int>>, primaryColor: Col
             val slot = size.width / weeks.size
             val barW = slot * 0.6f
             weeks.forEachIndexed { i, (_, reps) ->
-                val barH = (reps / maxReps.toFloat() * size.height * grow.value)
+                // Staggered: each bar starts a little after the one to its left, then eases up
+                val stagger = 0.5f
+                val start = if (weeks.size > 1) stagger * i / (weeks.size - 1) else 0f
+                val t = ((grow.value - start) / (1f - stagger)).coerceIn(0f, 1f)
+                val barGrow = FastOutSlowInEasing.transform(t)
+                val barH = (reps / maxReps.toFloat() * size.height * barGrow)
                     .coerceAtLeast(if (reps > 0) 3.dp.toPx() else 0f)
                 if (barH > 0f) {
                     drawRoundRect(

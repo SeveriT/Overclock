@@ -1,41 +1,60 @@
 package com.serkka.tracker
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -139,46 +158,173 @@ private fun ColorSwatch(
     }
 }
 
-/** Hex entry with a live preview; Apply is enabled once six hex digits are typed. */
+/**
+ * Colour picker dialog (layout after the usual web pickers): a saturation × brightness square,
+ * a hue rainbow slider, and a row with the colour swatch, an editable hex code and a copy button.
+ * Dragging updates the hex code; typing a valid code moves the handles.
+ */
 @Composable
 private fun HexColorDialog(initial: Color, onDismiss: () -> Unit, onConfirm: (Color) -> Unit) {
-    var text by remember { mutableStateOf(initial.toHex().removePrefix("#")) }
-    val parsed = parseHexColor(text)
+    val context = LocalContext.current
+    // HSV is the source of truth while dragging (hue survives at zero saturation / brightness)
+    val start = remember {
+        FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) }
+    }
+    var hue by remember { mutableFloatStateOf(start[0]) }
+    var sat by remember { mutableFloatStateOf(start[1]) }
+    var value by remember { mutableFloatStateOf(start[2]) }
+    val color = Color.hsv(hue, sat, value)
+    var hexText by remember { mutableStateOf(initial.toHex().removePrefix("#")) }
+    fun syncHex() { hexText = Color.hsv(hue, sat, value).toHex().removePrefix("#") }
+
     TrackerDialog(
         title = "Custom colour",
         onDismiss = onDismiss,
         confirmLabel = "Apply",
-        confirmEnabled = parsed != null,
-        onConfirm = { parsed?.let(onConfirm) }
+        onConfirm = { onConfirm(color) }
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.animateContentSize()   // the warning below slides in and out
+        ) {
+            // ── Saturation (left → right) × brightness (top → bottom) ──
+            val pureHue = Color.hsv(hue, 1f, 1f)
             Box(
                 Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(parsed ?: Color.Transparent)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .fillMaxWidth()
+                    .aspectRatio(1.5f)
+                    .clip(TrackerShapes.Medium)
+                    .pointerInput(Unit) {
+                        fun pick(pos: Offset) {
+                            sat = (pos.x / size.width).coerceIn(0f, 1f)
+                            value = 1f - (pos.y / size.height).coerceIn(0f, 1f)
+                            syncHex()
+                        }
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            pick(down.position); down.consume()
+                            drag(down.id) { change -> pick(change.position); change.consume() }
+                        }
+                    }
+                    .drawBehind {
+                        drawRect(pureHue)
+                        drawRect(Brush.horizontalGradient(listOf(Color.White, Color.White.copy(alpha = 0f))))
+                        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0f), Color.Black)))
+                        // Handle: white ring around the picked colour
+                        val c = Offset(sat * size.width, (1f - value) * size.height)
+                        drawCircle(Color.White, radius = 11.dp.toPx(), center = c)
+                        drawCircle(color, radius = 7.dp.toPx(), center = c)
+                    }
             )
-            Spacer(Modifier.width(16.dp))
-            OutlinedTextField(
-                value = text,
-                onValueChange = { new ->
-                    text = new.removePrefix("#").filter { it.lowercaseChar() in "0123456789abcdef" }
-                        .take(6).uppercase()
-                },
-                prefix = { Text("#") },
-                placeholder = { Text("4FA3FF") },
-                singleLine = true,
-                isError = text.length == 6 && parsed == null,
-                supportingText = { Text("Six hex digits, e.g. FF9A3C") },
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = { parsed?.let(onConfirm) }),
-                textStyle = MaterialTheme.typography.titleMedium
+
+            // ── Hue slider ──
+            val hueColors = remember { (0..6).map { Color.hsv((it * 60f) % 360f, 1f, 1f) } }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .pointerInput(Unit) {
+                        val inset = 10.dp.toPx()
+                        fun pick(pos: Offset) {
+                            hue = (((pos.x - inset) / (size.width - 2 * inset)).coerceIn(0f, 1f) * 359.9f)
+                            syncHex()
+                        }
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            pick(down.position); down.consume()
+                            drag(down.id) { change -> pick(change.position); change.consume() }
+                        }
+                    }
+                    .drawBehind {
+                        val inset = 10.dp.toPx()
+                        val barH = 10.dp.toPx()
+                        val top = (size.height - barH) / 2f
+                        drawRoundRect(
+                            Brush.horizontalGradient(hueColors, startX = inset, endX = size.width - inset),
+                            topLeft = Offset(0f, top),
+                            size = Size(size.width, barH),
+                            cornerRadius = CornerRadius(barH / 2f)
+                        )
+                        val c = Offset(inset + hue / 360f * (size.width - 2 * inset), size.height / 2f)
+                        drawCircle(Color.White, radius = 11.dp.toPx(), center = c)
+                        drawCircle(pureHue, radius = 7.dp.toPx(), center = c)
+                    }
             )
+
+            // ── Swatch · # hex · copy ──
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, TrackerShapes.Medium)
+                    .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                Box(Modifier.size(28.dp).clip(CircleShape).background(color))
+                Spacer(Modifier.width(12.dp))
+                Text("#", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                BasicTextField(
+                    value = hexText,
+                    onValueChange = { new ->
+                        hexText = new.removePrefix("#").filter { it.lowercaseChar() in "0123456789abcdef" }
+                            .take(6).uppercase()
+                        // A complete code moves the handles
+                        parseHexColor(hexText)?.let { typed ->
+                            val hsv = FloatArray(3)
+                            android.graphics.Color.colorToHSV(typed.toArgb(), hsv)
+                            if (hsv[1] > 0f && hsv[2] > 0f) hue = hsv[0]   // greys/black keep the current hue
+                            sat = hsv[1]; value = hsv[2]
+                        }
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Characters,
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Done
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Colour", color.toHex()))
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy hex code", modifier = Modifier.size(18.dp))
+                }
+            }
+
+            // ── Too-dark warning ──
+            // The accent colours text, icons and charts on the near-black background. Below a 3:1
+            // contrast ratio (the WCAG minimum for UI graphics) they get hard to see. Only a
+            // warning: Apply still works.
+            val background = MaterialTheme.colorScheme.background
+            if (contrastRatio(color, background) < 3f) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "This colour is too dark for the app's dark background. Text, icons and charts in it will be hard to see.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
+}
+
+/** WCAG contrast ratio between two colours: 1 (none) to 21 (black on white). */
+internal fun contrastRatio(a: Color, b: Color): Float {
+    val la = a.luminance()
+    val lb = b.luminance()
+    return (maxOf(la, lb) + 0.05f) / (minOf(la, lb) + 0.05f)
 }

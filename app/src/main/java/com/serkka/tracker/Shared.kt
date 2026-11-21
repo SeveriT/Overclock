@@ -5,40 +5,27 @@ package com.serkka.tracker
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsBike
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Hiking
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Terrain
-import androidx.compose.material.icons.filled.Waves
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.composed
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
@@ -172,6 +159,17 @@ fun Modifier.bounceClick(
     onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ): Modifier = this.then(
+    // Press bounce: shrinks a little while held and springs back on release
+    Modifier.composed {
+        val pressed by interactionSource.collectIsPressedAsState()
+        val scale by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (pressed && enabled) 0.92f else 1f,
+            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.45f, stiffness = 700f),
+            label = "bounceScale"
+        )
+        Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+    }
+).then(
     if (onClick != null || onLongClick != null) {
         Modifier
             .clip(TrackerShapes.Medium)
@@ -237,3 +235,32 @@ internal fun EmptyState(
         )
     }
 }
+
+// ── Chart draw-in ────────────────────────────────────────────────────────────
+
+/**
+ * 0 → 1 once when a chart first appears, for drawing it in from left to right
+ * (clipRect(right = left + width * value)). Remembered per chart instance, so it doesn't replay
+ * on every recomposition.
+ */
+@androidx.compose.runtime.Composable
+internal fun rememberDrawIn(durationMillis: Int = 900): androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D> {
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    val visible = LocalPageVisible.current
+    // Replays each time its swipe page becomes the current one (pages next to the current one are
+    // already composed off-screen, so starting on composition would finish before you get there)
+    androidx.compose.runtime.LaunchedEffect(visible) {
+        if (visible) {
+            progress.snapTo(0f)
+            progress.animateTo(1f, androidx.compose.animation.core.tween(durationMillis, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        }
+    }
+    return progress
+}
+
+/**
+ * True while this content's page is the current page of the main swipe pager (WorkoutScreen
+ * provides it per page). Outside the pager (sheets, NavHost screens) it's always true. Entrance
+ * animations key on it so they play when the page is actually shown.
+ */
+internal val LocalPageVisible = androidx.compose.runtime.compositionLocalOf { true }

@@ -25,7 +25,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -91,6 +93,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -123,7 +126,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -288,6 +290,12 @@ private fun TextNavBar(
         tabs.forEach { (route, label) ->
             val selected = route == currentRoute
             val textColor by animateColorAsState(if (selected) color else idle, tween(Motion.SHORT), label = "tabColor")
+            // Selected tab grows a touch, with a soft spring, as it becomes the current page
+            val textScale by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (selected) 1.12f else 1f,
+                animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 500f),
+                label = "tabScale"
+            )
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -306,7 +314,8 @@ private fun TextNavBar(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     color = textColor,
-                    maxLines = 1
+                    maxLines = 1,
+                    modifier = Modifier.graphicsLayer { scaleX = textScale; scaleY = textScale }
                 )
             }
         }
@@ -387,6 +396,8 @@ fun WorkoutScreen(
         )
     }
     val pagerHostRoute = "swipe_host"
+    // Pages opened from the top bar icons; they drop in from the top (NavHost transitions)
+    val topBarRoutes = remember { setOf(Screen.Tools.name, Screen.Notes.name, Screen.Settings.name) }
     val pagerState = rememberPagerState(
         initialPage = swipeScreens.indexOf(Screen.Summary.name),
         pageCount = { swipeScreens.size }
@@ -601,33 +612,22 @@ fun WorkoutScreen(
                 navController = navController,
                 startDestination = pagerHostRoute,
                 modifier = Modifier.fillMaxSize(),
+                // The swipe pages live in one destination (swipe_host); the pages opened from the
+                // top bar (Tools, Notes, Settings) drop in from the top with a fade, and slide back
+                // up as they close. Everything else just cross-fades.
                 enterTransition = {
-                    val from = swipeScreens.indexOf(initialState.destination.route)
-                    val to = swipeScreens.indexOf(targetState.destination.route)
-                    when {
-                        from == -1 || to == -1 ->
+                    if (targetState.destination.route in topBarRoutes)
+                        slideInVertically(animationSpec = tween(Motion.MEDIUM, easing = LinearOutSlowInEasing)) { -it / 8 } +
                             fadeIn(animationSpec = tween(Motion.MEDIUM))
-                        to > from ->
-                            slideInHorizontally(animationSpec = tween(Motion.MEDIUM)) { it / 6 } +
-                                fadeIn(animationSpec = tween(Motion.MEDIUM))
-                        else ->
-                            slideInHorizontally(animationSpec = tween(Motion.MEDIUM)) { -it / 6 } +
-                                fadeIn(animationSpec = tween(Motion.MEDIUM))
-                    }
+                    else fadeIn(animationSpec = tween(Motion.MEDIUM))
                 },
                 exitTransition = {
-                    val from = swipeScreens.indexOf(initialState.destination.route)
-                    val to = swipeScreens.indexOf(targetState.destination.route)
-                    when {
-                        from == -1 || to == -1 ->
+                    val leavingTopBarPage = initialState.destination.route in topBarRoutes &&
+                        targetState.destination.route !in topBarRoutes
+                    if (leavingTopBarPage)
+                        slideOutVertically(animationSpec = tween(Motion.SHORT, easing = FastOutLinearInEasing)) { -it / 8 } +
                             fadeOut(animationSpec = tween(Motion.SHORT))
-                        to > from ->
-                            slideOutHorizontally(animationSpec = tween(Motion.SHORT)) { -it / 6 } +
-                                fadeOut(animationSpec = tween(Motion.SHORT))
-                        else ->
-                            slideOutHorizontally(animationSpec = tween(Motion.SHORT)) { it / 6 } +
-                                fadeOut(animationSpec = tween(Motion.SHORT))
-                    }
+                    else fadeOut(animationSpec = tween(Motion.SHORT))
                 }
             ) {
                 composable(pagerHostRoute) {
@@ -641,6 +641,8 @@ fun WorkoutScreen(
                             snapAnimationSpec = tween(Motion.SHORT)
                         )
                     ) { page ->
+                        // Lets entrance animations (chart draw-in, calendar, steps) start when the page is shown
+                        CompositionLocalProvider(LocalPageVisible provides (pagerState.currentPage == page)) {
                         when (swipeScreens[page]) {
                             Screen.WorkoutTimer.name -> {
                                 val musicVisible = currentSong.title != null &&
@@ -766,6 +768,7 @@ fun WorkoutScreen(
                                     )
                                 }
                             }
+                        }
                         }
                     }
                 }

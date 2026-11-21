@@ -2,7 +2,13 @@
 
 package com.serkka.tracker
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -56,6 +62,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -123,6 +130,16 @@ fun WorkoutListContent(
     // Group by day, then sort each day's workouts by id DESC so the latest
     // insertion is always on top — regardless of whether `date` came from the
     // picker (midnight UTC) or System.currentTimeMillis() (exact timestamp).
+    // Entries added since the list was last shown (log, copy, duplicate): only these slide in.
+    // A plain holder, compared per data change, so the first load and scrolling don't animate.
+    val knownIds = remember { arrayOfNulls<Set<Int>>(1) }
+    val newIds = remember(workouts) {
+        val ids = workouts.mapTo(HashSet()) { it.id }
+        val previous = knownIds[0]
+        knownIds[0] = ids
+        if (previous == null) emptySet() else ids - previous
+    }
+
     val groupedWorkouts = workouts
         .groupBy { formatDate(it.date) }
         .mapValues { (_, list) -> list.sortedByDescending { it.id } }
@@ -233,7 +250,7 @@ fun WorkoutListContent(
                 // ── Week header where the week changes (list is newest first) ──
                 if (dayIndex == 0 || dayWeekStarts[dayIndex - 1] != weekStart) {
                     // Gap before a new week is its own item so it doesn't stick with the header
-                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(16.dp)) }
+                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(16.dp).animateItem()) }
                     // Sticky: stays pinned under the top bar while scrolling through its week,
                     // and the next week's header pushes it off — so the week change is obvious.
                     stickyHeader(key = "week_$weekStart") {
@@ -249,7 +266,9 @@ fun WorkoutListContent(
                 val nextDaySameWeek = dayIndex < dayEntries.lastIndex && dayWeekStarts[dayIndex + 1] == weekStart
 
                 item(key = "day_$date") {
-                    Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+                    // animateItem: a new day slides into place, a removed one fades out, and the
+                    // rest of the list moves smoothly instead of jumping
+                    Column(modifier = Modifier.animateItem().fillMaxWidth().animateContentSize()) {
                         WorkoutDayHeader(
                             workoutsInDay = workoutsInDay,
                             isExpanded = isExpanded,
@@ -265,16 +284,31 @@ fun WorkoutListContent(
                         if (isExpanded) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 workoutsInDay.forEachIndexed { i, workout ->
-                                    WorkoutMovementRow(
-                                        workout = workout,
-                                        primaryColor = primaryColor,
-                                        onEdit = { onEdit(workout) },
-                                        onCopy = { onCopy(workout) },
-                                        onDuplicate = { onDuplicate(workout) },
-                                        onDelete = { onDelete(workout) },
-                                        onTogglePB = { onTogglePB(workout) }
-                                    )
-                                    if (i < workoutsInDay.lastIndex) WorkoutEntryDivider()
+                                    key(workout.id) {
+                                        // A just-logged entry fades and slides in; others show as is
+                                        val appear = remember {
+                                            MutableTransitionState(workout.id !in newIds).apply { targetState = true }
+                                        }
+                                        AnimatedVisibility(
+                                            visibleState = appear,
+                                            enter = fadeIn(tween(Motion.MEDIUM)) +
+                                                expandVertically(tween(Motion.MEDIUM)) +
+                                                slideInHorizontally(tween(Motion.MEDIUM)) { -it / 6 }
+                                        ) {
+                                            Column {
+                                                WorkoutMovementRow(
+                                                    workout = workout,
+                                                    primaryColor = primaryColor,
+                                                    onEdit = { onEdit(workout) },
+                                                    onCopy = { onCopy(workout) },
+                                                    onDuplicate = { onDuplicate(workout) },
+                                                    onDelete = { onDelete(workout) },
+                                                    onTogglePB = { onTogglePB(workout) }
+                                                )
+                                                if (i < workoutsInDay.lastIndex) WorkoutEntryDivider()
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

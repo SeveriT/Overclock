@@ -2,68 +2,99 @@
 
 package com.serkka.tracker
 
-import android.content.Context
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.roundToInt
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToInt
 
 // ── Weight tracking page ──────────────────────────────────────────────────────
 
@@ -592,8 +623,11 @@ fun WeightChart(
 
 
     val animationProgress = remember { Animatable(0f) }
-    LaunchedEffect(weights) {
-        animationProgress.animateTo(1f, animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing))
+    val pageVisible = LocalPageVisible.current
+    LaunchedEffect(pageVisible) {
+        if (!pageVisible) return@LaunchedEffect
+        animationProgress.snapTo(0f)   // draws in again each time the Weight page is shown
+        animationProgress.animateTo(1f, animationSpec = tween(1000, easing = LinearEasing))
     }
 
     // ── Viewport: pan + pinch zoom ───────────────────────────────────────────
@@ -852,8 +886,16 @@ fun WeightChart(
                         }
                     }
 
+                    // Draw-in: the first 75 % sweeps the line across, the rest grows the prediction
+                    val lineP = FastOutSlowInEasing.transform((animationProgress.value / 0.75f).coerceIn(0f, 1f))
+                    val predP = FastOutSlowInEasing.transform(((animationProgress.value - 0.75f) / 0.25f).coerceIn(0f, 1f))
+                    // Sweep only the visible window: the content strip holds the whole history and
+                    // usually starts far off-screen to the left (panned to the latest weeks)
+                    val sweepStart = maxOf(chartLeft, 0f)
+                    val revealX = sweepStart + (size.width - sweepStart) * lineP
+
                     // ── Fill gradient ─────────────────────────────────────────
-                    if (points.size > 1) {
+                    if (points.size > 1) clipRect(right = revealX) {
                         val fillPath = Path().apply {
                             smoothCurveTo(points)
                             lineTo(points.last().x, chartBottom)
@@ -863,7 +905,7 @@ fun WeightChart(
                         drawPath(
                             path = fillPath,
                             brush = Brush.verticalGradient(
-                                colors = listOf(color.copy(alpha = 0.25f * animationProgress.value), Color.Transparent),
+                                colors = listOf(color.copy(alpha = 0.25f), Color.Transparent),
                                 startY = 0f,
                                 endY = chartBottom
                             )
@@ -874,15 +916,17 @@ fun WeightChart(
                         drawPath(
                             path = linePath,
                             color = color,
-                            style = Stroke(width = 2.5.dp.toPx()),
-                            alpha = animationProgress.value
+                            style = Stroke(width = 2.5.dp.toPx())
                         )
                     }
 
                     // ── Data point dots ───────────────────────────────────────
                     points.forEach { pt ->
-                        drawCircle(color = color, radius = 4.dp.toPx() * animationProgress.value, center = pt)
-                        drawCircle(color = TrackerColors.ChartDot, radius = 2.dp.toPx() * animationProgress.value, center = pt)
+                        val pop = ((revealX - pt.x) / 12.dp.toPx() + 1f).coerceIn(0f, 1f)   // as the line reaches it
+                        if (pop > 0f) {
+                            drawCircle(color = color, radius = 4.dp.toPx() * pop, center = pt)
+                            drawCircle(color = TrackerColors.ChartDot, radius = 2.dp.toPx() * pop, center = pt)
+                        }
                     }
 
                     // ── Prediction projection (dashed line to the forecast point) ──
@@ -893,8 +937,8 @@ fun WeightChart(
                         val end = Offset(predX, predY)
                         // Grow the dashed line out from the last real point as the chart animates in.
                         val animEnd = Offset(
-                            start.x + (end.x - start.x) * animationProgress.value,
-                            start.y + (end.y - start.y) * animationProgress.value
+                            start.x + (end.x - start.x) * predP,
+                            start.y + (end.y - start.y) * predP
                         )
                         drawLine(
                             color = color.copy(alpha = 0.7f),
@@ -906,11 +950,11 @@ fun WeightChart(
                         // Hollow dot marks the forecast value (distinct from solid data dots).
                         drawCircle(
                             color = color,
-                            radius = 4.dp.toPx() * animationProgress.value,
+                            radius = 4.dp.toPx() * predP,
                             center = end,
                             style = Stroke(width = 2.dp.toPx())
                         )
-                        if (animationProgress.value > 0.6f) {
+                        if (predP > 0.6f) {
                             val predLabelPaint = android.graphics.Paint().apply {
                                 isAntiAlias = true
                                 textSize = 12.sp.toPx()
@@ -969,12 +1013,12 @@ fun BodyWeightDialog(
             step = 1f,                 // −/+ buttons: 1 kg jumps
             allowDecimal = true
         )
-        // Fine adjustment: ±1 kg around the value in 0.1 kg steps
+        // Fine adjustment: a 1 kg window in 0.1 kg steps; the −/+ buttons do the 1 kg jumps
         StepSlider(
             value = weight,
             onValueChange = { weight = it },
             step = 0.1f,
-            span = 2f,
+            span = 1f,
             primaryColor = primaryColor
         )
         OutlinedTextField(

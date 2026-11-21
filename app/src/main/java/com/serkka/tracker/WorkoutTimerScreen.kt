@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -169,7 +170,19 @@ fun WorkoutTimerScreen(
 
     val animatedProgress = (headAnim.value - tailAnim.value).coerceAtLeast(0f)
     val startAngle = -90f + tailAnim.value * 360f
-    val ringScale = 1f
+    // Rest over: when the countdown reaches 0:00 the ring gives one soft glow pulse (with the buzz).
+    // Only on the change itself, not when coming back to the screen while already over time.
+    val restPulse = remember { Animatable(0f) }
+    var wasOvertime by remember { mutableStateOf(lapOvertime) }
+    LaunchedEffect(lapOvertime) {
+        if (lapOvertime && !wasOvertime && hasStarted) {
+            restPulse.snapTo(0f)
+            restPulse.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+            restPulse.animateTo(0f, tween(900, easing = LinearOutSlowInEasing))
+        }
+        wasOvertime = lapOvertime
+    }
+    val ringScale = 1f + 0.035f * restPulse.value
     val ringAppearance by animateFloatAsState(
         targetValue = if (hasStarted) 1f else 0f,
         animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
@@ -246,6 +259,19 @@ fun WorkoutTimerScreen(
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 val topLeft = Offset(inset, inset)
+
+                // Rest-over glow: a wide, fading halo on the ring's line
+                if (restPulse.value > 0f) {
+                    drawArc(
+                        color = primaryColor.copy(alpha = 0.35f * restPulse.value),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = stroke + 22.dp.toPx() * restPulse.value)
+                    )
+                }
 
                 drawArc(
                     color = trackColor,

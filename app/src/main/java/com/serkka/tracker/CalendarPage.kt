@@ -3,6 +3,9 @@
 package com.serkka.tracker
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -33,11 +36,13 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -196,6 +201,18 @@ private fun MiniMonth(
     primaryColor: Color,
     modifier: Modifier = Modifier
 ) {
+    // Training day circles pop in one after another through the month, with a small overshoot,
+    // every time the Calendar page is shown (and as months scroll into view). It waits for the
+    // page to be current: the pager composes neighbouring pages early, off-screen.
+    val pop = remember { Animatable(0f) }
+    val pageVisible = LocalPageVisible.current
+    LaunchedEffect(pageVisible) {
+        if (pageVisible) {
+            pop.snapTo(0f)
+            pop.animateTo(1f, tween(750, easing = LinearEasing))
+        }
+    }
+    val overshoot = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
     val daysInMonth = month.lengthOfMonth()
     val firstOffset = month.atDay(1).dayOfWeek.value - 1   // Monday = 0
     val totalSlots = firstOffset + daysInMonth
@@ -235,7 +252,14 @@ private fun MiniMonth(
                             val isActive = activeDates.contains(date)
                             val isToday = date == today
                             val cellModifier = when {
-                                isActive -> Modifier.fillMaxSize(0.8f).background(primaryColor, CircleShape)
+                                isActive -> Modifier
+                                    .graphicsLayer {
+                                        // Each day starts a bit after the previous one
+                                        val t = ((pop.value - 0.6f * (day - 1) / 30f) / 0.4f).coerceIn(0f, 1f)
+                                        val s = overshoot.transform(t)
+                                        scaleX = s; scaleY = s
+                                    }
+                                    .fillMaxSize(0.8f).background(primaryColor, CircleShape)
                                 isToday  -> Modifier.fillMaxSize(0.8f).border(1.5.dp, primaryColor, CircleShape)
                                 else     -> Modifier
                             }

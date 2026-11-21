@@ -8,6 +8,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -69,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -76,6 +82,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -251,12 +258,35 @@ fun SummaryPage(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(end = 20.dp)
                         ) {
+                            // Living streak: the flame flickers gently (two out-of-step loops so it
+                            // never looks mechanical); a 0 streak stays still
+                            val flicker = rememberInfiniteTransition(label = "flame")
+                            val flameStretch by flicker.animateFloat(
+                                initialValue = 0f, targetValue = 1f,
+                                animationSpec = infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                                label = "flameStretch"
+                            )
+                            val flameSway by flicker.animateFloat(
+                                initialValue = -1f, targetValue = 1f,
+                                animationSpec = infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                                label = "flameSway"
+                            )
+                            val alive = weekStreak > 0
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
                                     contentDescription = null,
                                     tint = primaryColor,
-                                    modifier = Modifier.size(width = 34.dp, height = 45.dp)
+                                    modifier = Modifier
+                                        .size(width = 34.dp, height = 45.dp)
+                                        .graphicsLayer {
+                                            if (alive) {
+                                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                                                scaleY = 1f + 0.025f * flameStretch
+                                                scaleX = 1f - 0.012f * flameStretch
+                                                rotationZ = 1f * flameSway
+                                            }
+                                        }
                                 )
                                 Text(
                                     text = weekStreak.toString(),
@@ -439,6 +469,28 @@ fun SummaryPage(
                             }
                         } else {
                             val goalSteps = stepGoal
+                            // Bar fills up from empty; once the goal is reached, the count gives a
+                            // little bounce and a shine sweeps across the full bar
+                            val progress = (todaySteps.toFloat() / goalSteps).coerceIn(0f, 1f)
+                            val barFill = remember { Animatable(0f) }
+                            val pageVisible = LocalPageVisible.current
+                            LaunchedEffect(progress, pageVisible) {
+                                if (!pageVisible) return@LaunchedEffect
+                                barFill.animateTo(progress, tween(Motion.LONG, easing = FastOutSlowInEasing))
+                            }
+                            // Fill again from empty each time Home is shown
+                            LaunchedEffect(pageVisible) { if (!pageVisible) barFill.snapTo(0f) }
+                            val goalReached = todaySteps >= goalSteps
+                            val celebrate = remember { Animatable(0f) }
+                            LaunchedEffect(goalReached, pageVisible) {
+                                if (goalReached && pageVisible) {
+                                    kotlinx.coroutines.delay(Motion.LONG.toLong())   // after the bar has filled
+                                    celebrate.snapTo(0f)
+                                    celebrate.animateTo(1f, tween(1100, easing = LinearEasing))
+                                } else celebrate.snapTo(0f)
+                            }
+                            // 0 → 1 → 0 over the first ~third of the celebration
+                            val countBounce = kotlin.math.sin((celebrate.value * 3f).coerceAtMost(1f) * Math.PI.toFloat())
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -450,7 +502,12 @@ fun SummaryPage(
                                             text = String.format(Locale.getDefault(), "%,d", todaySteps),
                                             style = MaterialTheme.typography.headlineMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.graphicsLayer {
+                                                val s = 1f + 0.12f * countBounce
+                                                scaleX = s; scaleY = s
+                                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 1f)
+                                            }
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
@@ -469,10 +526,23 @@ fun SummaryPage(
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    val progress = (todaySteps.toFloat() / goalSteps).coerceIn(0f, 1f)
                                     LinearProgressIndicator(
-                                        progress = { progress },
-                                        modifier = Modifier.fillMaxWidth(0.75f).height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                        progress = { barFill.value },
+                                        modifier = Modifier.fillMaxWidth(0.75f).height(4.dp).clip(RoundedCornerShape(2.dp))
+                                            .drawWithContent {
+                                                drawContent()
+                                                // Goal shine: a bright band sweeping left to right
+                                                if (celebrate.value in 0.001f..0.999f) {
+                                                    val band = size.width * 0.35f
+                                                    val x = -band + (size.width + band) * celebrate.value
+                                                    drawRect(
+                                                        Brush.horizontalGradient(
+                                                            listOf(Color.Transparent, Color.White.copy(alpha = 0.75f), Color.Transparent),
+                                                            startX = x, endX = x + band
+                                                        )
+                                                    )
+                                                }
+                                            },
                                         color = primaryColor,
                                         trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                                         drawStopIndicator = {},
@@ -487,7 +557,8 @@ fun SummaryPage(
                                 }
                                 if (weeklySteps.isNotEmpty()) {
                                     val stepsBarAnim = remember { Animatable(0f) }
-                                    LaunchedEffect(weeklySteps) {
+                                    LaunchedEffect(weeklySteps, pageVisible) {
+                                        if (!pageVisible) { stepsBarAnim.snapTo(0f); return@LaunchedEffect }
                                         stepsBarAnim.animateTo(1f, animationSpec = tween(Motion.LONG, easing = FastOutSlowInEasing))
                                     }
                                     val canvasInteractionSource = remember { MutableInteractionSource() }

@@ -3,11 +3,24 @@
 package com.serkka.tracker
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -16,6 +29,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
@@ -173,6 +187,7 @@ private fun OneRepMaxTrendChart(points: List<Pair<LocalDate, Float>>, color: Col
     val firstDay = points.first().first.toEpochDay()
     val span = (points.last().first.toEpochDay() - firstDay).coerceAtLeast(1L).toFloat()
     val dateFormat = DateTimeFormatter.ofPattern("d.M.yy")
+    val drawIn = rememberDrawIn()
 
     Canvas(Modifier.fillMaxWidth().height(150.dp)) {
         val paint = android.graphics.Paint().apply {
@@ -197,10 +212,17 @@ private fun OneRepMaxTrendChart(points: List<Pair<LocalDate, Float>>, color: Col
         points.forEachIndexed { i, (day, v) ->
             if (i == 0) path.moveTo(x(day), y(v)) else path.lineTo(x(day), y(v))
         }
-        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        // Draws in from the left; each dot pops as the line reaches it
+        val revealX = labelW + chartW * drawIn.value
+        clipRect(right = revealX + 4.dp.toPx()) {
+            drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
         points.forEach { (day, v) ->
-            drawCircle(color, radius = 3.5.dp.toPx(), center = Offset(x(day), y(v)))
-            drawCircle(TrackerColors.ChartDot, radius = 1.5.dp.toPx(), center = Offset(x(day), y(v)))
+            val pop = ((revealX - x(day)) / 12.dp.toPx() + 1f).coerceIn(0f, 1f)
+            if (pop > 0f) {
+                drawCircle(color, radius = 3.5.dp.toPx() * pop, center = Offset(x(day), y(v)))
+                drawCircle(TrackerColors.ChartDot, radius = 1.5.dp.toPx() * pop, center = Offset(x(day), y(v)))
+            }
         }
 
         val baseline = size.height - 2.dp.toPx()

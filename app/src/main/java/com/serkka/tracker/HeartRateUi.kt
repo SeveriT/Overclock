@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -401,6 +402,7 @@ internal fun HeartRateChart(samples: List<Int>, color: Color, modifier: Modifier
     val hi = maxHr + 5
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val totalSeconds = samples.size.toLong() * HeartRateMonitor.SAMPLE_SECONDS
+    val drawIn = rememberDrawIn(1100)   // the line traces itself when the graph opens
 
     Canvas(modifier = modifier.fillMaxWidth().height(140.dp)) {
         val paint = android.graphics.Paint().apply {
@@ -438,7 +440,9 @@ internal fun HeartRateChart(samples: List<Int>, color: Color, modifier: Modifier
                 penDown = true
             } else penDown = false
         }
-        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        clipRect(right = chartLeft + chartW * drawIn.value + 2.dp.toPx()) {
+            drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
 
         // Time axis: start, middle, end
         val baseline = size.height - 2.dp.toPx()

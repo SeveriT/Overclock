@@ -1,5 +1,37 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.7.0": [
+    {
+      "icon": "star",
+      "title": "Smoother everywhere",
+      "text": "New animations throughout the app: charts draw themselves in, new workouts slide into the list, calendar days pop in, and buttons bounce when you press them."
+    },
+    {
+      "icon": "timer",
+      "title": "Rest over glow",
+      "text": "The timer ring gives a soft glow when your rest is up, along with the buzz."
+    },
+    {
+      "icon": "home",
+      "title": "Goal and streak moments",
+      "text": "Reach your step goal and the steps bar shines, and your streak flame flickers while the streak is alive."
+    },
+    {
+      "icon": "settings",
+      "title": "Colour picker",
+      "text": "Custom accent colour is now a proper colour picker: drag to choose, or type a hex code. It warns you if the colour is too dark to see."
+    },
+    {
+      "icon": "navbar",
+      "title": "Smoother navigation",
+      "text": "Tools, Notes and Settings drop in from the top, and the selected tab grows slightly."
+    },
+    {
+      "icon": "weight",
+      "title": "Easier weight entry",
+      "text": "In the weight dialog, − and + move 1 kg and the slider fine-tunes in 0.1 kg steps."
+    }
+  ],
   "3.6.1": [
     {
       "icon": "bug",
