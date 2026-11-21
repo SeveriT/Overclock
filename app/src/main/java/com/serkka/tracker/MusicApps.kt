@@ -4,13 +4,23 @@ import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -23,9 +33,15 @@ import kotlinx.coroutines.flow.StateFlow
 // that app. Each package also needs a <queries> entry in the manifest so getLaunchIntentForPackage
 // can see it (Android 11+).
 
-internal enum class MusicApp(val packageName: String, val label: String) {
-    Spotify("com.spotify.music", "Spotify"),
-    Metrolist("com.metrolist.music", "Metrolist");   // YouTube Music client (github.com/MetrolistGroup/Metrolist)
+/**
+ * [getUrl] / [getFrom]: where to get the app when it isn't installed, shown as a link in Settings
+ * ("Get Spotify on Google Play").
+ */
+internal enum class MusicApp(val packageName: String, val label: String, val getUrl: String, val getFrom: String) {
+    // The https Play link opens the Play Store app when it's installed, else the website
+    Spotify("com.spotify.music", "Spotify", "https://play.google.com/store/apps/details?id=com.spotify.music", "Google Play"),
+    // YouTube Music client, not on the Play Store: its GitHub page
+    Metrolist("com.metrolist.music", "Metrolist", "https://github.com/MetrolistGroup/Metrolist", "GitHub");
 }
 
 internal object MusicApps {
@@ -70,11 +86,32 @@ internal fun MusicAppPicker(primaryColor: Color) {
                 )
             }
         }
+        val installed = MusicApps.isInstalled(context, selected)
         Text(
-            if (MusicApps.isInstalled(context, selected)) "The music widget shows and controls ${selected.label}."
+            if (installed) "The music widget shows and controls ${selected.label}."
             else "${selected.label} isn't installed. The music widget shows it once it is.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        // Not installed: link to where to get it (Google Play / GitHub)
+        val getUrl = selected.getUrl
+        if (!installed) {
+            TextButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(getUrl))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = primaryColor),
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Get ${selected.label} on ${selected.getFrom}")
+            }
+        }
     }
 }

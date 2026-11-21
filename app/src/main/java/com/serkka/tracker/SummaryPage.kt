@@ -5,6 +5,7 @@ package com.serkka.tracker
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -177,7 +178,10 @@ fun SummaryPage(
     // Consecutive week-streak: how many weeks back have at least one active day.
     // Local sessions + workout entries only (no Strava). If the current week has no
     // activity yet, we still count the streak from last week (matches CalendarPage).
-    val weekStreak = remember(workoutSessions, workouts, today) {
+    // streakAtRisk: the streak only counts because of the grace week, i.e. nothing logged yet this
+    // week, and it's Friday or later. It ends on Sunday unless something is logged, so the card
+    // shows it "at risk".
+    val (weekStreak, streakAtRisk) = remember(workoutSessions, workouts, today) {
         val sessionDates = workoutSessions.map { s ->
             Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
         }.toHashSet()
@@ -186,7 +190,8 @@ fun SummaryPage(
         }.toHashSet()
         val allActiveDates = sessionDates + workoutDates
         var weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-        if (allActiveDates.none { !it.isBefore(weekStart) }) {
+        val thisWeekEmpty = allActiveDates.none { !it.isBefore(weekStart) }
+        if (thisWeekEmpty) {
             weekStart = weekStart.minusWeeks(1)
         }
         var count = 0
@@ -197,7 +202,8 @@ fun SummaryPage(
             count++
             weekStart = weekStart.minusWeeks(1)
         }
-        count
+        // Only flagged from Friday: earlier in the week an empty week is normal, not a risk yet
+        count to (count > 0 && thisWeekEmpty && today.dayOfWeek >= java.time.DayOfWeek.FRIDAY)
     }
 
     // Last 30 days vs the 30 days before (local sessions + workouts)
@@ -271,12 +277,17 @@ fun SummaryPage(
                                 animationSpec = infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
                                 label = "flameSway"
                             )
-                            val alive = weekStreak > 0
+                            // At risk: dimmed and still until something is logged this week
+                            val alive = weekStreak > 0 && !streakAtRisk
+                            val flameTint by animateColorAsState(
+                                if (streakAtRisk) primaryColor.copy(alpha = 0.4f) else primaryColor,
+                                tween(Motion.MEDIUM), label = "flameTint"
+                            )
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_streak_flame),
-                                    contentDescription = null,
-                                    tint = primaryColor,
+                                    contentDescription = if (streakAtRisk) "Streak at risk" else null,
+                                    tint = flameTint,
                                     modifier = Modifier
                                         .size(width = 34.dp, height = 45.dp)
                                         .graphicsLayer {
@@ -397,6 +408,15 @@ fun SummaryPage(
                                 }
                             }
                         }
+                    }
+                    if (streakAtRisk) {
+                        // Grace week: the streak ends on Sunday unless a workout is logged
+                        Text(
+                            text = "Log a workout by Sunday to keep your $weekStreak-week streak.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                        )
                     }
                 }
             }
