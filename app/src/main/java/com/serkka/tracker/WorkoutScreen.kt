@@ -595,7 +595,7 @@ fun WorkoutScreen(
                                         onWeightClick  = { editingWeight = it },
                                         onWeightDelete = { weightToDelete = it },
                                         listState = weightListState,
-                                        topPadding = 0.dp,
+                                        topPadding = 8.dp,   // a small gap under the top bar on this page
                                         bottomPadding = contentBottomPadding,
                                         onChartTouch = { chartInteracting = it }
                                     )
@@ -635,7 +635,7 @@ fun WorkoutScreen(
                             onDelete = { sessionToDelete = it },
                             onEdit = { sessionToEdit = it },
                             listState = sessionsListState,
-                            topPadding = 0.dp,
+                            topPadding = 16.dp,  // a gap under the top bar on this page
                             bottomPadding = contentBottomPadding
                         )
                     }

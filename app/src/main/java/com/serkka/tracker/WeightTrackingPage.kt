@@ -69,7 +69,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -97,6 +96,10 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 // ── Weight tracking page ──────────────────────────────────────────────────────
+
+
+/** Set once the weight chart has drawn itself in; it doesn't again until the app restarts. */
+private var weightChartDrawnIn = false
 
 @Composable
 fun WeightTrackingPage(
@@ -622,12 +625,14 @@ fun WeightChart(
     val dateRange = maxOf(1L, maxDate - minDate)
 
 
-    val animationProgress = remember { Animatable(0f) }
+    // Draws in only the first time the Weight page is shown after the app starts; after that the
+    // chart is simply there (weightChartDrawnIn lives as long as the app's process)
+    val animationProgress = remember { Animatable(if (weightChartDrawnIn) 1f else 0f) }
     val pageVisible = LocalPageVisible.current
     LaunchedEffect(pageVisible) {
-        if (!pageVisible) return@LaunchedEffect
-        animationProgress.snapTo(0f)   // draws in again each time the Weight page is shown
-        animationProgress.animateTo(1f, animationSpec = tween(1000, easing = LinearEasing))
+        if (!pageVisible || weightChartDrawnIn) return@LaunchedEffect
+        weightChartDrawnIn = true
+        animationProgress.animateTo(1f, animationSpec = tween(750, easing = LinearEasing))
     }
 
     // ── Viewport: pan + pinch zoom ───────────────────────────────────────────
@@ -886,20 +891,18 @@ fun WeightChart(
                         }
                     }
 
-                    // Draw-in: the first 75 % sweeps the line across, the rest grows the prediction
-                    val lineP = FastOutSlowInEasing.transform((animationProgress.value / 0.75f).coerceIn(0f, 1f))
-                    val predP = FastOutSlowInEasing.transform(((animationProgress.value - 0.75f) / 0.25f).coerceIn(0f, 1f))
-                    // Sweep only the visible window: the content strip holds the whole history and
-                    // usually starts far off-screen to the left (panned to the latest weeks)
-                    val sweepStart = maxOf(chartLeft, 0f)
-                    val revealX = sweepStart + (size.width - sweepStart) * lineP
+                    // Draw-in: the line, its fill, the dots and the forecast all rise together from the
+                    // bottom of the chart into place
+                    val lineP = FastOutSlowInEasing.transform(animationProgress.value.coerceIn(0f, 1f))
+                    val predP = lineP
+                    val risen = points.map { Offset(it.x, chartBottom + (it.y - chartBottom) * lineP) }
 
                     // ── Fill gradient ─────────────────────────────────────────
-                    if (points.size > 1) clipRect(right = revealX) {
+                    if (risen.size > 1) {
                         val fillPath = Path().apply {
-                            smoothCurveTo(points)
-                            lineTo(points.last().x, chartBottom)
-                            lineTo(points.first().x, chartBottom)
+                            smoothCurveTo(risen)
+                            lineTo(risen.last().x, chartBottom)
+                            lineTo(risen.first().x, chartBottom)
                             close()
                         }
                         drawPath(
@@ -912,7 +915,7 @@ fun WeightChart(
                         )
 
                         // ── Line ──────────────────────────────────────────────
-                        val linePath = Path().apply { smoothCurveTo(points) }
+                        val linePath = Path().apply { smoothCurveTo(risen) }
                         drawPath(
                             path = linePath,
                             color = color,
@@ -920,26 +923,20 @@ fun WeightChart(
                         )
                     }
 
-                    // ── Data point dots ───────────────────────────────────────
-                    points.forEach { pt ->
-                        val pop = ((revealX - pt.x) / 12.dp.toPx() + 1f).coerceIn(0f, 1f)   // as the line reaches it
-                        if (pop > 0f) {
-                            drawCircle(color = color, radius = 4.dp.toPx() * pop, center = pt)
-                            drawCircle(color = TrackerColors.ChartDot, radius = 2.dp.toPx() * pop, center = pt)
-                        }
+                    // ── Data point dots (grow as the line rises) ──────────────
+                    if (lineP > 0f) risen.forEach { pt ->
+                        drawCircle(color = color, radius = 4.dp.toPx() * lineP, center = pt)
+                        drawCircle(color = TrackerColors.ChartDot, radius = 2.dp.toPx() * lineP, center = pt)
                     }
 
                     // ── Prediction projection (dashed line to the forecast point) ──
                     if (predictionDateMillis != null && predictionWeight != null && points.isNotEmpty()) {
                         val predX = chartLeft + ((predictionDateMillis - minDate).toFloat() / dateRange.toFloat()) * usableWidth
                         val predY = chartBottom - ((predictionWeight - minWeight) / weightRange) * chartHeight
-                        val start = points.last()
-                        val end = Offset(predX, predY)
-                        // Grow the dashed line out from the last real point as the chart animates in.
-                        val animEnd = Offset(
-                            start.x + (end.x - start.x) * predP,
-                            start.y + (end.y - start.y) * predP
-                        )
+                        // Rises with the line: both ends come up from the bottom of the chart together.
+                        val start = risen.last()
+                        val end = Offset(predX, chartBottom + (predY - chartBottom) * predP)
+                        val animEnd = end
                         drawLine(
                             color = color.copy(alpha = 0.7f),
                             start = start,
@@ -962,7 +959,7 @@ fun WeightChart(
                                 textAlign = android.graphics.Paint.Align.RIGHT
                                 isFakeBoldText = true
                             }
-                            val labelY = kotlin.math.max(predY - 8.dp.toPx(), predLabelPaint.textSize)
+                            val labelY = kotlin.math.max(end.y - 8.dp.toPx(), predLabelPaint.textSize)
                             drawContext.canvas.nativeCanvas.drawText(
                                 String.format(Locale.getDefault(), "%.1f", predictionWeight),
                                 end.x, labelY, predLabelPaint
