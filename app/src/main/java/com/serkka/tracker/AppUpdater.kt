@@ -64,18 +64,23 @@ object AppUpdater {
     fun installedVersion(context: Context): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
 
-    // One automatic check per app launch (this object lives as long as the process)
-    private var checkedThisLaunch = false
+    /** Automatic checks at most this often. The last one is stored, so it holds across restarts. */
+    private const val AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L   // once a day
+    private const val PREF_LAST_AUTO_CHECK = "update_last_auto_check_ms"
 
     /**
-     * Automatic check every time the app is opened (once per launch, not on every screen
-     * rebuild). Silent on errors and "up to date", and quiet about a skipped version.
+     * Automatic check whenever the app comes to the screen, at most once a day. Silent on errors
+     * and "up to date", and quiet about a skipped version. (It used to run once per process, but
+     * the step counter service keeps the process alive for days, so a phone could sit on an old
+     * version without ever checking again.)
      */
     fun autoCheck(context: Context) {
-        if (checkedThisLaunch) return
-        checkedThisLaunch = true
-        val prefs = PreferencesManager.getInstance(context).tracker
         val now = System.currentTimeMillis()
+        val prefs = PreferencesManager.getInstance(context).tracker
+        if (now - prefs.getLong(PREF_LAST_AUTO_CHECK, 0L) in 0 until AUTO_CHECK_INTERVAL_MS) return
+        // Don't interrupt an update dialog or download that's already on screen
+        if (_state.value !is UpdateState.Idle) return
+        prefs.edit().putLong(PREF_LAST_AUTO_CHECK, now).apply()
         scope.launch {
             val info = runCatching { fetchLatest() }.getOrNull() ?: return@launch
             prefs.edit().putLong(PREF_LAST_CHECK, now).apply()

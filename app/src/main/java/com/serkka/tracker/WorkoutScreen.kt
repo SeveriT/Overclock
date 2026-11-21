@@ -509,7 +509,11 @@ fun WorkoutScreen(
     var pbCelebration by remember { mutableStateOf<PbCelebrationData?>(null) }
 
     // In-app updater: check GitHub for a newer release at most once a day (AppUpdater.kt)
-    LaunchedEffect(Unit) { AppUpdater.autoCheck(ctx) }
+    // Update check each time the app comes to the screen (AppUpdater throttles it to once a day)
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        AppUpdater.autoCheck(ctx)
+        onPauseOrDispose { }
+    }
     LaunchedEffect(workouts) {
         if (scrollWorkoutsToTopOnChange) {
             workoutsListState.requestScrollToItem(0)
