@@ -701,8 +701,9 @@ fun WorkoutDialog(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 history.distinctBy { it.exerciseName }.take(8).forEach { recent ->
+                    // Name only: the numbers come from the "Last time" chip, only when tapped
                     SuggestionChip(
-                        onClick = { exercise = recent.exerciseName; fillFrom(recent) },
+                        onClick = { exercise = recent.exerciseName },
                         label = { Text(recent.exerciseName) }
                     )
                 }
@@ -749,8 +750,7 @@ fun WorkoutDialog(
                     DropdownMenuItem(
                         text = { Text(suggestion) },
                         onClick = {
-                            exercise = suggestion
-                            history.find { it.exerciseName == suggestion }?.let { fillFrom(it) }
+                            exercise = suggestion   // name only; "Last time" fills the numbers
                             expanded = false
                         }
                     )

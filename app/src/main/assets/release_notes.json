@@ -1,5 +1,34 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.8.2": [
+    {
+      "icon": "weight",
+      "title": "Weight chart rises in",
+      "text": "The weight chart and its forecast now rise from the bottom together, a bit faster, and only the first time you open Weight after starting the app."
+    },
+    {
+      "icon": "star",
+      "title": "Room to breathe",
+      "text": "A little more space under the top bar on Weight and Sessions."
+    }
+  ],
+  "3.8.1": [
+    {
+      "icon": "star",
+      "title": "Music widget glow-up",
+      "text": "Cookie-shaped album art that slowly turns while a song plays, and widget colours made from the album art the way Material You does it."
+    },
+    {
+      "icon": "navbar",
+      "title": "Steadier bottom bar",
+      "text": "All tabs are the same width, the bar keeps its size while the timer runs, and there's a bit more room above and below it."
+    },
+    {
+      "icon": "home",
+      "title": "Pages start at the top",
+      "text": "Pages begin right under the top bar, without an extra gap."
+    }
+  ],
   "3.8.0": [
     {
       "icon": "navbar",

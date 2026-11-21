@@ -215,7 +215,7 @@ fun WelcomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Features
-        FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight with smart auto-fill", primaryColor)
+        FeatureItem(ImageVector.vectorResource(R.drawable.ic_weight_training), "Workout Logging", "Track sets, reps, and weight; reuse last time's numbers in one tap", primaryColor)
         FeatureItem(Icons.Default.Timer, "Workout Timer", "Lap tracking with persistent notification", primaryColor)
         FeatureItem(Icons.Default.Favorite, "Heart Rate", "Bluetooth strap support: live BPM on the timer, a graph per session, TCX export", primaryColor)
         FeatureItem(Icons.Default.ShowChart, "Progress Tracking", "Weight trend with prediction, weekly reps per exercise, and a weekly overview on Home", primaryColor)
