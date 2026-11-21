@@ -35,8 +35,9 @@ class ThemeViewModel(application: Application) : AndroidViewModel(application) {
     /** The accent the user picked (swatches or hex, AccentPicker.kt). Use [rememberAccentColor] for the colour on screen. */
     val primaryColor: StateFlow<Color> = _primaryColor
 
-    // Accent "Auto": follow the album art of the song in the music widget (falls back to primaryColor)
-    private val _accentFromMusic = MutableStateFlow(prefs.getBoolean("accent_from_music", false))
+    // Accent "Auto": follow the album art of the song in the music widget (falls back to primaryColor).
+    // On by default; only an explicit Off in Settings is stored as false.
+    private val _accentFromMusic = MutableStateFlow(prefs.getBoolean("accent_from_music", true))
     val accentFromMusic: StateFlow<Boolean> = _accentFromMusic
 
     /**
