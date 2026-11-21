@@ -43,7 +43,8 @@ enum class Screen(val title: String) {
     Sessions("Sessions"),
     Tools("Tools"),
     Settings("Settings"),
-    WorkoutTimer("Workout Timer")
+    WorkoutTimer("Workout Timer"),
+    More("More")
 }
 
 // ── Date & time formatting ────────────────────────────────────────────────────

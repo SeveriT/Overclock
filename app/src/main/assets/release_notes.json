@@ -1,5 +1,22 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.8.0": [
+    {
+      "icon": "navbar",
+      "title": "New bottom bar",
+      "text": "Timer, Workouts, Home and Weight are your four main tabs, with Stats, Calendar and Sessions under More. The tab you're on glides with a highlight, and the Timer tab still shows the running time."
+    },
+    {
+      "icon": "settings",
+      "title": "One button for every page",
+      "text": "The button next to the tabs adds a workout, weight, session or note on those pages, and opens Settings everywhere else."
+    },
+    {
+      "icon": "star",
+      "title": "Cleaner look",
+      "text": "A solid top bar with every page on a rounded sheet below it, and a music widget that matches the bar, with round album art."
+    }
+  ],
   "3.7.0": [
     {
       "icon": "star",

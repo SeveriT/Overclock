@@ -14,16 +14,16 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -33,18 +33,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,8 +54,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -68,14 +62,19 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -111,7 +110,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -126,7 +124,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -136,10 +133,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.serkka.tracker.ui.theme.DarkSurfaceColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -223,120 +218,8 @@ private fun ElasticColumnWrapper(
 }
 
 
-private val NAV_BAR_HEIGHT = 56.dp   // text-only tabs: shorter than M3's 80 dp icon + label bar
-private const val NAV_VISIBLE_TABS = 5   // tab width = screen / 5; extra tabs scroll ("rolling")
-
-/**
- * Bottom navigation: always visible, text labels only (no icons). The selected tab is bold in
- * the accent colour. [tabs] = route to label; the Timer tab's label is the running time.
- * Every tab is a fifth of the screen wide, so with more than five the bar scrolls sideways;
- * it follows the selected tab, and a soft fade at an edge shows there's more that way.
- */
-@Composable
-private fun TextNavBar(
-    tabs: List<Pair<String, String>>,
-    currentRoute: String,
-    color: Color,
-    backdrop: Color,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // A shade darker than the page so the bar reads as its own layer
-    val barColor = lerp(backdrop, Color.Black, 0.2f)
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            // Short fade from the content above, then solid behind the labels and system bar
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to Color.Transparent,
-                        0.15f to barColor.copy(alpha = 0.7f),
-                        0.35f to barColor.copy(alpha = 0.95f),
-                        0.5f to barColor,
-                        1.0f to barColor
-                    )
-                )
-            )
-            .navigationBarsPadding()
-            .height(NAV_BAR_HEIGHT)
-    ) {
-        val sidePadding = 4.dp
-        val tabWidth = (maxWidth - sidePadding * 2) / NAV_VISIBLE_TABS
-        val scroll = rememberScrollState()
-        val density = LocalDensity.current
-
-        // Centre the selected tab where the scroll allows: Timer–Home show the left end of the
-        // bar, Weight onwards rolls it so Sessions comes into view.
-        val selectedIndex = tabs.indexOfFirst { it.first == currentRoute }
-        LaunchedEffect(selectedIndex, tabWidth) {
-            if (selectedIndex < 0) return@LaunchedEffect
-            with(density) {
-                val tabPx = tabWidth.toPx()
-                val viewport = (maxWidth - sidePadding * 2).toPx()
-                val centred = selectedIndex * tabPx - (viewport - tabPx) / 2f
-                scroll.animateScrollTo(centred.roundToInt().coerceIn(0, scroll.maxValue))
-            }
-        }
-
-        val idle = MaterialTheme.colorScheme.onSurfaceVariant
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxSize()
-                .horizontalScroll(scroll)
-                .padding(horizontal = sidePadding)
-        ) {
-        tabs.forEach { (route, label) ->
-            val selected = route == currentRoute
-            val textColor by animateColorAsState(if (selected) color else idle, tween(Motion.SHORT), label = "tabColor")
-            // Selected tab grows a touch, with a soft spring, as it becomes the current page
-            val textScale by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (selected) 1.12f else 1f,
-                animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 500f),
-                label = "tabScale"
-            )
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .width(tabWidth)
-                    .fillMaxHeight()
-                    .selectable(
-                        selected = selected,
-                        onClick = { onSelect(route) },
-                        role = Role.Tab,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false, radius = 36.dp)
-                    )
-            ) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    color = textColor,
-                    maxLines = 1,
-                    modifier = Modifier.graphicsLayer { scaleX = textScale; scaleY = textScale }
-                )
-            }
-        }
-        }
-
-        // Edge fades: hint that more tabs are hidden on that side
-        val fadeWidth = 28.dp
-        if (scroll.canScrollBackward) {
-            Box(
-                Modifier.align(Alignment.CenterStart).width(fadeWidth).fillMaxHeight()
-                    .background(Brush.horizontalGradient(listOf(barColor, Color.Transparent)))
-            )
-        }
-        if (scroll.canScrollForward) {
-            Box(
-                Modifier.align(Alignment.CenterEnd).width(fadeWidth).fillMaxHeight()
-                    .background(Brush.horizontalGradient(listOf(Color.Transparent, barColor)))
-            )
-        }
-    }
-}
+/** Height of the music widget; its launch button sits in a frame this size, where the album art is. */
+private val MUSIC_WIDGET_HEIGHT = 64.dp
 
 @SuppressLint("UseKtx")
 @Composable
@@ -385,14 +268,13 @@ fun WorkoutScreen(
     // destination ("swipe_host"). Non-swipe routes (Settings, Notes, etc.)
     // remain as individual NavHost composables.
     val swipeScreens = remember {
+        // The four main pages plus More (Stats, Calendar and Sessions open from there: moreRoutes)
         listOf(
-            Screen.WorkoutStats.name,
             Screen.WorkoutTimer.name,
             Screen.Workouts.name,
             Screen.Summary.name,
             Screen.WeightTracking.name,
-            Screen.Calendar.name,
-            Screen.Sessions.name
+            Screen.More.name
         )
     }
     val pagerHostRoute = "swipe_host"
@@ -418,54 +300,6 @@ fun WorkoutScreen(
     val sessionsListState = rememberLazyListState()
     val calendarListState = rememberLazyListState()
 
-    // ── Navbar collapse on scroll down ───────────────────────────────────────
-    val activeListState = when (currentRoute) {
-        Screen.Workouts.name       -> workoutsListState
-        Screen.WeightTracking.name -> weightListState
-        Screen.Notes.name          -> notesListState
-        Screen.Sessions.name       -> sessionsListState
-        Screen.Calendar.name -> calendarListState
-        else                       -> null
-    }
-
-    // FAB + music widget: hide while scrolling down, come back when scrolling up
-    var fabVisible by remember { mutableStateOf(true) }
-    var previousIndex by remember { mutableIntStateOf(0) }
-    var previousOffset by remember { mutableIntStateOf(0) }
-
-    // Navbar: always visible (TextNavBar); only the FAB / music widget react to scrolling
-
-    LaunchedEffect(activeListState) {
-        if (activeListState == null) {
-            fabVisible = true
-            return@LaunchedEffect
-        }
-        // The first reading is just where the list already is (e.g. Workouts opens a row down,
-        // past the hidden search header), not a scroll, so it only sets the baseline.
-        var baselineSet = false
-        snapshotFlow {
-            Triple(
-                activeListState.firstVisibleItemIndex,
-                activeListState.firstVisibleItemScrollOffset,
-                activeListState.canScrollForward
-            )
-        }.collect { (index, offset, canScrollForward) ->
-            val scrollingDown = index > previousIndex || (index == previousIndex && offset > previousOffset + 5)
-            val scrollingUp = index < previousIndex || (index == previousIndex && offset < previousOffset - 5)
-
-            if (!baselineSet) {
-                baselineSet = true
-            } else if (scrollingDown && index > 0) {
-                fabVisible = false
-            } else if (scrollingUp && canScrollForward) {
-                fabVisible = true
-            }
-
-            previousIndex = index
-            previousOffset = offset
-        }
-    }
-
     var searchQuery          by remember { mutableStateOf("") }
     var searchExpanded       by remember { mutableStateOf(false) }
 
@@ -486,11 +320,8 @@ fun WorkoutScreen(
         searchExpanded = false
     }
 
-    // Reset navbar visibility on screen change
+    // Leaving Workouts closes its search
     LaunchedEffect(currentRoute) {
-        fabVisible = true
-        previousIndex = 0
-        previousOffset = 0
         if (currentRoute != Screen.Workouts.name) {
             searchExpanded = false
             searchQuery = ""
@@ -593,13 +424,18 @@ fun WorkoutScreen(
             val topBarBaseHeight = 55.dp
             val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
             val totalTopPadding = topBarBaseHeight + statusBarHeight
-            val contentBottomPadding by animateDpAsState(
-                targetValue = if (fabVisible) 190.dp else 140.dp,
-                animationSpec = tween(Motion.MEDIUM),
-                label = "contentBottom"
-            )
+            // Gap between the page sheet's top edge and pages that don't add their own (lists do).
+            val sheetPageTop = 8.dp
+            // Room under the last item for the bottom bar plus the music widget (or its launch
+            // button) above it, so the end of every list can scroll clear of them.
+            val contentBottomPadding = 156.dp
 
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+            ) {
 
             // Haptic when the pager settles on a new page (matches the old swipe-to-navigate feel)
             var lastSettledPage by remember { mutableIntStateOf(pagerState.currentPage) }
@@ -612,6 +448,15 @@ fun WorkoutScreen(
                 }
             }
 
+            // Page area: a sheet with rounded top corners under the solid top bar (same style as
+            // Overtime). One sheet for every page, so swiping and page transitions happen inside it.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = totalTopPadding)
+                    .clip(TrackerShapes.Sheet)
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
             NavHost(
                 navController = navController,
                 startDestination = pagerHostRoute,
@@ -655,7 +500,7 @@ fun WorkoutScreen(
                                 WorkoutTimerScreen(
                                     timerViewModel  = timerViewModel,
                                     bottomPadding   = if (musicVisible) 88.dp else 0.dp,
-                                    topPadding = totalTopPadding,
+                                    topPadding = 0.dp,
                                     onSaveLocally = { name, type, startMs, duration, hrSamples ->
                                         // "End" moment: short summary banner (same component as the PB one)
                                         pbCelebration = workoutSavedSummary(duration, workouts, workoutSessions)
@@ -704,7 +549,7 @@ fun WorkoutScreen(
                                             viewModel.updateWorkout(w.copy(isPersonalBest = !w.isPersonalBest))
                                         },
                                         listState = workoutsListState,
-                                        topPadding = totalTopPadding,
+                                        topPadding = sheetPageTop,
                                         bottomPadding = contentBottomPadding,
                                         searchQuery = searchQuery,
                                         searchOpen = searchExpanded,
@@ -725,7 +570,7 @@ fun WorkoutScreen(
                                         onNavigateToWeightTracking = { navigate(Screen.WeightTracking.name) },
                                         onNavigateToSessions = { navigate(Screen.Sessions.name) },
                                         listState = summaryListState,
-                                        topPadding = totalTopPadding,
+                                        topPadding = sheetPageTop,
                                         bottomPadding = contentBottomPadding,
                                         weightCardVisible = weightCardVisible,
                                         onHideWeightCard = { setWeightCardVisible(false) }
@@ -740,40 +585,49 @@ fun WorkoutScreen(
                                         onWeightClick  = { editingWeight = it },
                                         onWeightDelete = { weightToDelete = it },
                                         listState = weightListState,
-                                        topPadding = totalTopPadding,
+                                        topPadding = 0.dp,
                                         bottomPadding = contentBottomPadding,
                                         onChartTouch = { chartInteracting = it }
                                     )
                                 }
                             }
-                            Screen.Calendar.name -> {
-                                CalendarPage(
-                                    workoutSessions = workoutSessions,
-                                    workouts = workouts,
+                            Screen.More.name -> {
+                                MorePage(
                                     primaryColor = primaryColor,
-                                    topPadding = totalTopPadding,
+                                    topPadding = sheetPageTop,
                                     bottomPadding = contentBottomPadding,
-                                    listState = calendarListState
+                                    onOpen = { navigate(it) }
                                 )
                             }
-                            Screen.WorkoutStats.name -> {
-                                WorkoutStatsPage(workouts, primaryColor, topPadding = totalTopPadding, bottomPadding = contentBottomPadding)
-                            }
-                            Screen.Sessions.name -> {
-                                ElasticColumnWrapper {
-                                    SessionsPage(
-                                        sessions = workoutSessions,
-                                        primaryColor = primaryColor,
-                                        onDelete = { sessionToDelete = it },
-                                        onEdit = { sessionToEdit = it },
-                                        listState = sessionsListState,
-                                        topPadding = totalTopPadding,
-                                        bottomPadding = contentBottomPadding
-                                    )
-                                }
-                            }
                         }
                         }
+                    }
+                }
+                // Opened from the More tab (moreRoutes); back returns to it
+                composable(Screen.WorkoutStats.name) {
+                    WorkoutStatsPage(workouts, primaryColor, topPadding = 0.dp, bottomPadding = contentBottomPadding)
+                }
+                composable(Screen.Calendar.name) {
+                    CalendarPage(
+                        workoutSessions = workoutSessions,
+                        workouts = workouts,
+                        primaryColor = primaryColor,
+                        topPadding = sheetPageTop,
+                        bottomPadding = contentBottomPadding,
+                        listState = calendarListState
+                    )
+                }
+                composable(Screen.Sessions.name) {
+                    ElasticColumnWrapper {
+                        SessionsPage(
+                            sessions = workoutSessions,
+                            primaryColor = primaryColor,
+                            onDelete = { sessionToDelete = it },
+                            onEdit = { sessionToEdit = it },
+                            listState = sessionsListState,
+                            topPadding = 0.dp,
+                            bottomPadding = contentBottomPadding
+                        )
                     }
                 }
                 composable(Screen.Notes.name) {
@@ -784,7 +638,7 @@ fun WorkoutScreen(
                             onNoteClick  = { editingNote = it },
                             onNoteDelete = { noteToDelete = it },
                             listState = notesListState,
-                            topPadding = totalTopPadding,
+                            topPadding = 0.dp,
                             bottomPadding = contentBottomPadding
                         )
                     }
@@ -814,7 +668,7 @@ fun WorkoutScreen(
                                 }
                             },
                             listState = toolsListState,
-                            topPadding = totalTopPadding,
+                            topPadding = 0.dp,
                             bottomPadding = contentBottomPadding
                         )
                     }
@@ -824,7 +678,7 @@ fun WorkoutScreen(
                         primaryColor = primaryColor,
                         themeViewModel = themeViewModel,
                         viewModel = viewModel,
-                        topPadding = totalTopPadding,
+                        topPadding = 0.dp,
                         bottomPadding = contentBottomPadding,
                         isSubscribed = isSubscribed,
                         onSubscribe = { showSubscriptionDialog = true },
@@ -832,21 +686,17 @@ fun WorkoutScreen(
                     )
                 }
             }
+            }
 
-            // ── Top Bar (Overlay) ─────────────────────────────────────────────
+            // Page background; the bottom bar shades from it.
             val bgColor = MaterialTheme.colorScheme.background
+
+            // ── Top Bar ───────────────────────────────────────────────────────
+            // Solid, in the colour the page sheet's rounded corners sit on.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to bgColor,
-                                0.5f to bgColor.copy(alpha = 0.9f),
-                                1.0f to Color.Transparent
-                            )
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
                     .statusBarsPadding()
                     .height(topBarBaseHeight)
             ) {
@@ -1183,40 +1033,38 @@ fun WorkoutScreen(
                 )
             }
 
-            // ── Music widget + FAB ────────────────────────────────────────────
-            val fabScreens = setOf(Screen.Workouts.name, Screen.WeightTracking.name, Screen.Notes.name, Screen.Sessions.name)
+            // ── Music widget (above the bottom bar) ──────────────────────────
+            // Width of the bottom bar's row, reported by PillNavBar, so the widget matches it
+            var navRowWidth by remember { mutableStateOf<androidx.compose.ui.unit.Dp?>(null) }
             val hasMusicWidget = currentSong.title != null &&
                 currentSong.packageName == musicApp.packageName &&
                 !musicDismissed
 
-            // FAB visibility as a transition state, so the music widget keeps the FAB's slot
-            // free until the fade-out has actually finished (otherwise the widget jumps up
-            // under the still-fading FAB).
-            val fabTransition = remember { MutableTransitionState(fabVisible && currentRoute in fabScreens) }
-            fabTransition.targetState = fabVisible && currentRoute in fabScreens
-            val fabHoldsSlot = fabTransition.currentState || fabTransition.targetState
-            // Page the FAB belongs to: stays on the last FAB page while it fades out, so leaving
-            // Weight doesn't flash the "+" icon (or route a tap to the wrong add dialog).
-            val lastFabRoute = remember { mutableStateOf(currentRoute) }
-            if (currentRoute in fabScreens) lastFabRoute.value = currentRoute
-            val fabRoute = lastFabRoute.value
-
-            // Snaps between positions (no slide) when the navbar opens / folds
-            // Just above the navbar labels (tuned by eye)
-            val widgetBottomPadding = NAV_BAR_HEIGHT
+            // Just above the bottom bar's row
+            val widgetBottomPadding = NAV_BAR_SPACE + 8.dp
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = if (!musicDismissed) widgetBottomPadding else widgetBottomPadding + 10.dp)
+                    .padding(bottom = widgetBottomPadding)
             ) {
                 // Floating music app launch button — shown when the widget is hidden. Opens the app
                 // chosen in Settings → Music (MusicApps.kt): Spotify or Metrolist.
                 // Tap behavior: try toggling playback first; if the app is killed (or
                 // playback doesn't actually start within ~500ms) launch the app instead.
-                if (!hasMusicWidget) {
+                // Sits exactly where the widget's album art is, so the widget grows out of it.
+                AnimatedVisibility(
+                    visible = !hasMusicWidget,
+                    enter = fadeIn(tween(Motion.SHORT)),
+                    exit = fadeOut(tween(Motion.SHORT)),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .then(navRowWidth?.let { Modifier.width(it) } ?: Modifier.fillMaxWidth())
+                        .height(MUSIC_WIDGET_HEIGHT)
+                ) {
+                    Box(Modifier.fillMaxSize()) {
                     val noteInteractionSource = remember { MutableInteractionSource() }
                     fun launchMusicApp() {
                         ctx.packageManager.getLaunchIntentForPackage(musicApp.packageName)
@@ -1232,7 +1080,7 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .padding(start = 8.dp, bottom = 12.dp, top = 8.dp)
+                            .padding(start = 8.dp)
                             .size(48.dp)
                             .clip(CircleShape)
                             .clickable(
@@ -1287,8 +1135,28 @@ fun WorkoutScreen(
                             }
                         }
                     }
+                    }
                 }
-                if (hasMusicWidget) {
+                val musicCirclePx = with(LocalDensity.current) { MUSIC_WIDGET_HEIGHT.roundToPx() }
+                Box(Modifier.align(Alignment.BottomCenter).then(navRowWidth?.let { Modifier.width(it) } ?: Modifier.fillMaxWidth())) {
+                AnimatedVisibility(
+                    visible = hasMusicWidget,
+                    enter = expandHorizontally(
+                        animationSpec = tween(Motion.MEDIUM),
+                        expandFrom = Alignment.Start,
+                        initialWidth = { musicCirclePx }
+                    ) + fadeIn(tween(Motion.SHORT)),
+                    exit = shrinkHorizontally(
+                        animationSpec = tween(Motion.SHORT),
+                        shrinkTowards = Alignment.Start,
+                        targetWidth = { musicCirclePx }
+                    ) + fadeOut(tween(Motion.SHORT)),
+                    modifier = Modifier.graphicsLayer {
+                        shadowElevation = 6.dp.toPx()
+                        shape = TrackerShapes.Pill
+                        clip = true
+                    }
+                ) {
                     val musicInteractionSource = remember { MutableInteractionSource() }
                     val dragX = remember { Animatable(0f) }
                     var swipeDirection by remember { mutableIntStateOf(1) }
@@ -1296,8 +1164,8 @@ fun WorkoutScreen(
 
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = if (fabHoldsSlot) 70.dp else 0.dp)
+                            // Same width as the bottom bar's row (tabs + button), so they line up
+                            .then(navRowWidth?.let { Modifier.width(it) } ?: Modifier.fillMaxWidth())
                             .pointerInput(Unit) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { coroutineScope.launch { dragX.snapTo(0f) } },
@@ -1331,17 +1199,16 @@ fun WorkoutScreen(
                             label = "musicAccent"
                         )
 
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .clip(MaterialTheme.shapes.large)
-                                .background(Color.Black.copy(alpha = 0.97f))
-                        )
+                        // Pill tinted from the album art: a deep shade for the body, a light one for
+                        // the title and the play button, and a darker one for the other button
+                        val widgetBody = lerp(musicAccent, Color.Black, 0.55f)
+                        val widgetLight = lerp(musicAccent, Color.White, 0.45f)
+                        val widgetDeep = lerp(musicAccent, Color.Black, 0.75f)
                         Surface(
-                            color = musicAccent.copy(alpha = 0.3f),
-                            shape = MaterialTheme.shapes.large,
+                            color = widgetBody,
+                            shape = TrackerShapes.Pill,
                             modifier = Modifier.fillMaxWidth()
-                                .clip(MaterialTheme.shapes.large)
+                                .clip(TrackerShapes.Pill)
                                 .clickable(
                                     interactionSource = musicInteractionSource,
                                     indication = ripple(bounded = true),
@@ -1364,8 +1231,8 @@ fun WorkoutScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(64.dp)
-                                        .padding(horizontal = 12.dp),
+                                        .height(MUSIC_WIDGET_HEIGHT)
+                                        .padding(start = 8.dp, end = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
 
@@ -1380,7 +1247,7 @@ fun WorkoutScreen(
                                     // button on top while paused. Both in one 44 dp slot in the Row,
                                     // so the overlay always lines up with the art exactly.
                                     if (artCache.isNotEmpty() || !currentSong.isPlaying) {
-                                        Box(Modifier.size(44.dp).clip(TrackerShapes.Small)) {
+                                        Box(Modifier.size(48.dp).clip(CircleShape)) {
                                             if (artCache.isNotEmpty()) {
                                                 AnimatedContent(
                                                     targetState = displayedKey,
@@ -1394,7 +1261,7 @@ fun WorkoutScreen(
                                                             bitmap = bitmap.asImageBitmap(),
                                                             contentDescription = "Album art",
                                                             contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.size(44.dp)
+                                                            modifier = Modifier.size(48.dp)
                                                         )
                                                     }
                                                 }
@@ -1492,15 +1359,15 @@ fun WorkoutScreen(
                                             Text(
                                                 text = outTitle,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = widgetLight,
                                                 style = MaterialTheme.typography.bodyLarge,
-                                                fontWeight = FontWeight.Medium
+                                                fontWeight = FontWeight.SemiBold
                                             )
                                             Text(
                                                 text = outArtist,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = widgetLight.copy(alpha = 0.75f)
                                             )
                                         }
                                         // Incoming layer
@@ -1511,25 +1378,27 @@ fun WorkoutScreen(
                                             Text(
                                                 text = inTitle,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = widgetLight,
                                                 style = MaterialTheme.typography.bodyLarge,
-                                                fontWeight = FontWeight.Medium
+                                                fontWeight = FontWeight.SemiBold
                                             )
                                             Text(
                                                 text = inArtist,
                                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = widgetLight.copy(alpha = 0.75f)
                                             )
                                         }
                                     }
 
+                                    // Play/pause: light circle, dark icon
                                     val playInteractionSource = remember { MutableInteractionSource() }
                                     Box(
-                                        modifier = Modifier.size(52.dp).clip(CircleShape)
+                                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                                            .background(widgetLight)
                                             .clickable(
                                                 interactionSource = playInteractionSource,
-                                                indication = ripple(bounded = false, radius = 26.dp),
+                                                indication = ripple(bounded = true),
                                                 onClick = {
                                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                     MediaRepository.getInstance().togglePlayPause()
@@ -1540,92 +1409,88 @@ fun WorkoutScreen(
                                         Icon(
                                             imageVector = if (currentSong.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                             contentDescription = "Play/Pause",
-                                            tint = if (currentSong.isPlaying) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(32.dp)
+                                            tint = widgetDeep,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    // Next: dark circle, light icon (slides the text like a swipe)
+                                    val nextInteractionSource = remember { MutableInteractionSource() }
+                                    Box(
+                                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                                            .background(widgetDeep)
+                                            .clickable(
+                                                interactionSource = nextInteractionSource,
+                                                indication = ripple(bounded = true),
+                                                onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    swipeDirection = 1
+                                                    swipeConfirmed++
+                                                    MediaRepository.getInstance().nextTrack()
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipNext,
+                                            contentDescription = "Next track",
+                                            tint = widgetLight,
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
                                 }
-                                val position1 = currentSong.position?.toFloat() ?: 0f
-                                val duration1 = currentSong.duration?.toFloat() ?: 1f
-
-                                WavyProgressIndicator(
-                                    progress = if (duration1 > 0) position1 / duration1 else 0f,
-                                    modifier = Modifier.fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(bottom = 12.dp),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    trackColor = DarkSurfaceColor,
-                                    isPlaying = currentSong.isPlaying
-                                )
                             }
                         }
                     }
                 }
-
-                AnimatedVisibility(
-                    visibleState = fabTransition,
-                    // Fade only: the scale-from-zero read as the FAB sliding in from below
-                    enter = fadeIn(tween(Motion.SHORT)),
-                    exit  = fadeOut(tween(Motion.SHORT)),
-                    modifier = Modifier.align(if (hasMusicWidget) Alignment.TopEnd else Alignment.TopEnd)
-                ) {
-                    val fabInteractionSource = remember { MutableInteractionSource() }
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .bounceClick(fabInteractionSource)
-                            .clip(MaterialTheme.shapes.large)
-                    ) {
-                        Surface(
-                            color = primaryColor,
-                            shape = MaterialTheme.shapes.large,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                        .fillMaxSize()
-                                        .combinedClickable(
-                                    interactionSource = fabInteractionSource,
-                                    indication = ripple(),
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        when (fabRoute) {
-                                            Screen.Workouts.name -> showAddWorkoutDialog = true
-                                            Screen.WeightTracking.name -> { viewModel.prepareNewEntry(); showAddWeightDialog = true }
-                                            Screen.Notes.name -> showAddNoteDialog = true
-                                            Screen.Sessions.name -> showAddSessionDialog = true
-                                        }
-                                    }
-                                ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (fabRoute == Screen.WeightTracking.name)
-                                        Icons.Default.MonitorWeight else Icons.Default.Add,
-                                    contentDescription = "Add",
-                                    tint = MaterialTheme.colorScheme.surface,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
-                        }
-                    }
                 }
+
             }
 
-            TextNavBar(
+            // ── Bottom bar: tabs pill + the page's button (same style as Overtime) ──
+            // The button adds on pages with an add sheet and opens Settings everywhere else;
+            // on Settings itself it goes back to the page Settings was opened from.
+            val navFab = when (currentRoute) {
+                Screen.Workouts.name -> NavFab(Icons.Default.Add, "Add workout") { showAddWorkoutDialog = true }
+                Screen.WeightTracking.name -> NavFab(Icons.Default.MonitorWeight, "Add weight") {
+                    viewModel.prepareNewEntry(); showAddWeightDialog = true
+                }
+                Screen.Notes.name -> NavFab(Icons.Default.Add, "Add note") { showAddNoteDialog = true }
+                Screen.Sessions.name -> NavFab(Icons.Default.Add, "Add session") { showAddSessionDialog = true }
+                Screen.Settings.name -> NavFab(Icons.AutoMirrored.Filled.ArrowBack, "Back") { navController.popBackStack() }
+                else -> NavFab(Icons.Default.Settings, "Settings") { navigate(Screen.Settings.name) }
+            }
+            PillNavBar(
                 tabs = listOf(
-                    Screen.WorkoutStats.name to "Stats",
-                    Screen.WorkoutTimer.name to (if (timerIsRunning) formatElapsed(timerElapsed) else "Timer"),
-                    Screen.Workouts.name to "Workouts",
-                    Screen.Summary.name to "Home",
-                    Screen.WeightTracking.name to "Weight",
-                    Screen.Calendar.name to "Calendar",
-                    Screen.Sessions.name to "Sessions"
+                    NavTab(Screen.WorkoutTimer.name, Icons.Default.Timer, "Timer"),
+                    NavTab(Screen.Workouts.name, Icons.Default.FitnessCenter, "Workouts"),
+                    NavTab(Screen.Summary.name, Icons.Default.Home, "Home"),
+                    NavTab(Screen.WeightTracking.name, Icons.Default.MonitorWeight, "Weight"),
+                    NavTab(Screen.More.name, Icons.Default.MoreHoriz, "More")
                 ),
-                currentRoute = currentRoute,
-                color = primaryColor,
-                backdrop = bgColor,
+                // On the swipe pages the highlight follows the pager, mid-swipe too (the tabs are in
+                // pager order); Stats, Calendar and Sessions belong to More; Tools, Notes and
+                // Settings to no tab
+                highlightPosition = {
+                    val route = currentBackStackEntry?.destination?.route
+                    when {
+                        route == null || route == pagerHostRoute ->
+                            pagerState.currentPage + pagerState.currentPageOffsetFraction
+                        route in moreRoutes -> swipeScreens.indexOf(Screen.More.name).toFloat()
+                        else -> null
+                    }
+                },
+                accent = primaryColor,
+                timerRoute = Screen.WorkoutTimer.name,
+                timerText = if (timerIsRunning) formatTabTime(timerElapsed) else null,
+                fab = navFab?.let { fab ->
+                    fab.copy(onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        fab.onClick()
+                    })
+                },
                 onSelect = { navigate(it) },
+                onRowWidth = { navRowWidth = it },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 

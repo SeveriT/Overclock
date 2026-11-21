@@ -80,10 +80,10 @@ private data class GuideGroup(val title: String, val topics: List<GuideTopic>)
 
 private val guideGroups = listOf(
     GuideGroup("Getting started", listOf(
-        GuideTopic(Icons.Default.Explore, "Navigation", "Five swipeable tabs, everything else in the top bar", listOf(
-            "Swipe between Stats, Timer, Workouts, Home, Weight, Calendar and Sessions, or tap a tab in the navbar. The navbar scrolls sideways and keeps the current tab in the middle.",
+        GuideTopic(Icons.Default.Explore, "Navigation", "Four main tabs and More, everything else in the top bar", listOf(
+            "Swipe between Timer, Workouts, Home, Weight and More, or tap a tab in the bar at the bottom. Stats, Calendar and Sessions are under More.",
             "Top bar: Tools (wrench), Notes (note with a pencil) and Settings.",
-            "The navbar at the bottom is always visible. While the workout timer runs, the Timer tab shows the elapsed time."
+            "The button next to the tabs adds a workout, weight, session or note on those pages, and opens Settings everywhere else. While the workout timer runs, the Timer tab shows the elapsed time."
         )),
         GuideTopic(Icons.Default.AutoAwesome, "Demo mode", "Try the app with four weeks of sample data", listOf(
             "Tap \"Try with demo data\" on the welcome screen.",
@@ -127,7 +127,7 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.History, "Sessions", "Every timer session in one list", listOf(
             "Saved timer sessions plus ones you add with +.",
             "Sessions count toward your weekly streak.",
-            "Its own tab after Calendar; saving a timer session takes you there.",
+            "Under More; saving a timer session takes you there.",
             "Sessions with heart rate show average and max; tap that line for the heart rate graph.",
             "The share icon exports a session as a .tcx file (time and heart rate): Share… sends it to another app, Save to device… puts it in a folder you pick. Upload it at strava.com/upload or to other training sites."
         )),
@@ -144,7 +144,7 @@ private val guideGroups = listOf(
             "Hide a section with its eye-off icon; bring it back from the top bar."
         )),
         GuideTopic(Icons.Default.BarChart, "Workout stats", "Volume and reps per exercise", listOf(
-            "Its own tab, right after Workouts.",
+            "Under More.",
             "Exercises are ranked by sets × reps over the last 12 weeks.",
             "Tap an exercise for its reps-per-week chart; tap a bar to read that week.",
             "Full history under the chart shows every set you've logged for that exercise, your best estimated 1RM and heaviest set, and an estimated-1RM trend.",
