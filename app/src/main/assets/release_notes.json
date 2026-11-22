@@ -17,6 +17,28 @@
       "text": "The Workouts search box is centred and fits inside the top bar. Also a little more room in the bottom bar and bigger icons on the More page."
     }
   ],
+  "3.9.0": [
+    {
+      "icon": "settings",
+      "title": "Export and import settings",
+      "text": "Save your theme, timer, music app, goals and app icon to a file and load them on another phone. Your workouts, weigh-ins and notes aren't touched."
+    },
+    {
+      "icon": "backup",
+      "title": "Two ways to clear data",
+      "text": "Clear data now asks what to delete: only your training data, keeping your settings, or everything, as if the app was freshly installed."
+    },
+    {
+      "icon": "workout",
+      "title": "Days as cards",
+      "text": "Each day on Workouts is its own card, so days stand apart from the sets inside them, and a newly logged set slides into place."
+    },
+    {
+      "icon": "star",
+      "title": "Reuse numbers when you want",
+      "text": "Picking an exercise fills in only its name. Tap Last time to reuse your previous sets, reps and weight."
+    }
+  ],
   "3.8.2": [
     {
       "icon": "weight",
