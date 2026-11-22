@@ -462,7 +462,13 @@ internal fun WorkoutDayHeader(
                 color = primaryColor,
                 fontWeight = FontWeight.SemiBold
             )
-            if (!isExpanded) {
+            // Shrinks/grows with the day's body (same timing), so the weekday glides into the
+            // vertical centre instead of jumping when the preview line goes away
+            AnimatedVisibility(
+                visible = !isExpanded,
+                enter = fadeIn(tween(Motion.MEDIUM)) + expandVertically(tween(Motion.MEDIUM)),
+                exit = fadeOut(tween(Motion.MEDIUM)) + shrinkVertically(tween(Motion.MEDIUM))
+            ) {
                 Text(
                     text = exercises.reversed().joinToString(", "),
                     style = MaterialTheme.typography.bodyMedium,

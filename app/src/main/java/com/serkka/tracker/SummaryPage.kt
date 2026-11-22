@@ -122,73 +122,65 @@ fun SummaryPage(
 
     val today = LocalDate.now()
 
-    // Weekly dots use local sessions + weight-training workout entries only (no Strava).
-    val weeklyStreak = remember(workoutSessions, workouts, today) {
-        val startDate = today.minusDays(6)
-        val sessionDates = workoutSessions.map { session ->
-            Instant.ofEpochMilli(session.date).atZone(ZoneId.systemDefault()).toLocalDate()
-        }.toSet()
-        val workoutDates = workouts.map { w ->
+    // The one "active day" rule for the whole Summary page (last 7 days, week streak, Last 30 Days):
+    // workout entries, plus timer sessions that AREN'T weight training. A weight-training session
+    // is the same gym visit as that day's workout entries, so counting it too doubled the day.
+    val countedSessions = remember(workoutSessions) {
+        workoutSessions.filter { it.type != "WeightTraining" }
+    }
+    val workoutDates = remember(workouts) {
+        workouts.mapTo(HashSet()) { w ->
             Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
-        }.toSet()
-        (0..6).map { i ->
-            val date = startDate.plusDays(i.toLong())
-            date to (sessionDates.contains(date) || workoutDates.contains(date))
+        }
+    }
+    val activeDates = remember(workoutDates, countedSessions) {
+        workoutDates + countedSessions.map { s ->
+            Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
         }
     }
 
-    // Count of activities per day (local sessions + workouts). Used to badge multi-workout days.
-    val weeklyActivityCount = remember(workoutSessions, workouts, today) {
+    // Last 7 days row: was there anything that counts that day
+    val weeklyStreak = remember(activeDates, today) {
         val startDate = today.minusDays(6)
-        val sessionCounts = workoutSessions
+        (0..6).map { i ->
+            val date = startDate.plusDays(i.toLong())
+            date to activeDates.contains(date)
+        }
+    }
+
+    // Activities per day for the badge on the day circle: one for the day's workout entries
+    // (rows are per exercise) plus each counted session.
+    val weeklyActivityCount = remember(countedSessions, workoutDates, today) {
+        val startDate = today.minusDays(6)
+        val sessionCounts = countedSessions
             .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
             .filter { !it.isBefore(startDate) && !it.isAfter(today) }
             .groupingBy { it }
             .eachCount()
-        // Workout rows are per-exercise, so collapse to one weight-training session per day.
-        val workoutCounts = workouts
-            .map { Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate() }
-            .filter { !it.isBefore(startDate) && !it.isAfter(today) }
-            .distinct()
-            .associateWith { 1 }
-        (sessionCounts.keys + workoutCounts.keys).associateWith {
-            (sessionCounts[it] ?: 0) + (workoutCounts[it] ?: 0)
+        val workoutDays = workoutDates.filter { !it.isBefore(startDate) && !it.isAfter(today) }
+        (sessionCounts.keys + workoutDays).associateWith {
+            (sessionCounts[it] ?: 0) + (if (it in workoutDays) 1 else 0)
         }
     }
 
-    // Primary (type, name) per day for icon selection. Sessions win, then weight-training workouts.
-    val weeklyActivityType = remember(workoutSessions, workouts, today) {
+    // Icon per day: a counted session's type wins, else weight training (workout entries).
+    val weeklyActivityType = remember(countedSessions, today) {
         val startDate = today.minusDays(6)
         val map = mutableMapOf<LocalDate, Pair<String, String?>>()
-        workoutSessions.forEach { s ->
+        countedSessions.forEach { s ->
             val d = Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            if (!d.isBefore(startDate) && !d.isAfter(today)) {
-                map.putIfAbsent(d, s.type to s.name)
-            }
-        }
-        workouts.forEach { w ->
-            val d = Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
-            if (!d.isBefore(startDate) && !d.isAfter(today)) {
-                map.putIfAbsent(d, "WeightTraining" to null)
-            }
+            if (!d.isBefore(startDate) && !d.isAfter(today)) map.putIfAbsent(d, s.type to s.name)
         }
         map
     }
 
     // Consecutive week-streak: how many weeks back have at least one active day.
-    // Local sessions + workout entries only (no Strava). If the current week has no
-    // activity yet, we still count the streak from last week (matches CalendarPage).
+    // If the current week has nothing yet, we still count the streak from last week.
     // streakAtRisk: the streak only counts because of the grace week, i.e. nothing logged yet this
     // week, and it's Friday or later. It ends on Sunday unless something is logged, so the card
     // shows it "at risk".
-    val (weekStreak, streakAtRisk) = remember(workoutSessions, workouts, today) {
-        val sessionDates = workoutSessions.map { s ->
-            Instant.ofEpochMilli(s.date).atZone(ZoneId.systemDefault()).toLocalDate()
-        }.toHashSet()
-        val workoutDates = workouts.map { w ->
-            Instant.ofEpochMilli(w.date).atZone(ZoneId.systemDefault()).toLocalDate()
-        }.toHashSet()
-        val allActiveDates = sessionDates + workoutDates
+    val (weekStreak, streakAtRisk) = remember(activeDates, today) {
+        val allActiveDates = activeDates
         var weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
         val thisWeekEmpty = allActiveDates.none { !it.isBefore(weekStart) }
         if (thisWeekEmpty) {
@@ -206,18 +198,18 @@ fun SummaryPage(
         count to (count > 0 && thisWeekEmpty && today.dayOfWeek >= java.time.DayOfWeek.FRIDAY)
     }
 
-    // Last 30 days vs the 30 days before (local sessions + workouts)
-    val periodComparison = remember(workouts, workoutSessions, today) {
+    // Last 30 days vs the 30 days before
+    val periodComparison = remember(workouts, countedSessions, today) {
         val zone = ZoneId.systemDefault()
         fun dateOf(ms: Long) = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
         fun isCardio(w: Workout) = isTimeBasedExercise(w.exerciseName)   // Cardio, Stretching…
         fun stats(from: LocalDate, to: LocalDate): PeriodStats {
             val w = workouts.filter { dateOf(it.date) in from..to }
-            val s = workoutSessions.filter { dateOf(it.date) in from..to }
             val strength = w.filterNot { isCardio(it) || isHoldExercise(it.exerciseName) }   // holds: seconds, not reps
             return PeriodStats(
-                // Same "active day" rule as the streaks: any workout entry or session
-                gymDays = (w.map { dateOf(it.date) } + s.map { dateOf(it.date) }).toSet().size,
+                // Same "active day" rule as the streaks: workout entries + non-weight-training sessions
+                gymDays = (w.map { dateOf(it.date) } +
+                    countedSessions.map { dateOf(it.date) }.filter { it in from..to }).toSet().size,
                 // Mean of rated sets only (RPE is optional); null when nothing was rated
                 avgRpe = w.mapNotNull { it.rpe }.takeIf { it.isNotEmpty() }?.average(),
                 reps = strength.sumOf { if (it.reps > 0) (if (it.sets > 0) it.sets else 1) * it.reps else 0 },
@@ -376,7 +368,7 @@ fun SummaryPage(
                                                 )
                                             }
                                         }
-                                        // Badge for multi-workout days
+                                        // Badge for days with more than one activity (workout + other session)
                                         if (activityCount > 1) {
                                             Box(
                                                 modifier = Modifier
