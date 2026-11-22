@@ -1,5 +1,22 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.9.2": [
+    {
+      "icon": "settings",
+      "title": "Settings in categories",
+      "text": "Settings is now a short list: Appearance, Music, Timer, Permissions, Backup & data, Subscription and Help. Tap one to open it; Back returns to the list."
+    },
+    {
+      "icon": "favorite",
+      "title": "Strap battery",
+      "text": "Settings → Timer → Heart rate strap shows your strap's battery: live while it's connected, otherwise the last reading and when it was taken. Works with straps that report their battery, like Polar, Garmin and Wahoo."
+    },
+    {
+      "icon": "workout",
+      "title": "Smoother day cards",
+      "text": "When you open or close a day, the exercise line under the weekday no longer slides behind it, and the days below move together with the week headers."
+    }
+  ],
   "3.9.1": [
     {
       "icon": "home",
