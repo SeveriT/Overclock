@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Tracker"
+rootProject.name = "Overclock"
 include(":app")
  

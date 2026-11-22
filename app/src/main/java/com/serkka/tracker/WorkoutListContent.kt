@@ -70,6 +70,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -262,13 +263,20 @@ fun WorkoutListContent(
                         )
                     }
                 }
-                // Divider only between days of the same week; a new week gets its header instead
-                val nextDaySameWeek = dayIndex < dayEntries.lastIndex && dayWeekStarts[dayIndex + 1] == weekStart
-
                 item(key = "day_$date") {
                     // animateItem: a new day slides into place, a removed one fades out, and the
-                    // rest of the list moves smoothly instead of jumping
-                    Column(modifier = Modifier.animateItem().fillMaxWidth().animateContentSize()) {
+                    // rest of the list moves smoothly instead of jumping. Each day is its own card
+                    // (header + its workouts), so days stand apart from the workouts inside them.
+                    Column(
+                        modifier = Modifier
+                            .animateItem()
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .padding(bottom = 8.dp)
+                            .clip(TrackerShapes.Medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .animateContentSize()
+                    ) {
                         WorkoutDayHeader(
                             workoutsInDay = workoutsInDay,
                             isExpanded = isExpanded,
@@ -313,7 +321,6 @@ fun WorkoutListContent(
                             }
                         }
 
-                        if (nextDaySameWeek) WorkoutDayDivider()
                     }
                 }
             }
@@ -385,7 +392,6 @@ private fun WorkoutWeekHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        HorizontalDivider(thickness = 1.dp, color = primaryColor.copy(alpha = 0.5f))
     }
 }
 
@@ -528,11 +534,6 @@ internal fun WorkoutEntryRow(
 /** Divider between exercises within a day — aligned with the row text. */
 @Composable
 internal fun WorkoutEntryDivider() = ListRowDivider(inset = PageGutter)
-
-/** Divider between days — full width with breathing room above and below. */
-@Composable
-internal fun WorkoutDayDivider() =
-    ListRowDivider(modifier = Modifier.padding(vertical = 8.dp), inset = 0.dp)
 
 // ── Workout movement row (inside expanded day card) ──────────────────────────
 

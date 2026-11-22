@@ -17,8 +17,8 @@ android {
         applicationId = "com.serkka.tracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 83
-        versionName = "3.8.2"
+        versionCode = 85
+        versionName = "3.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

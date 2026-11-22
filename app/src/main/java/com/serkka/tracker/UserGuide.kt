@@ -187,7 +187,8 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.CloudUpload, "Backups", "Keep your training data safe", listOf(
             "Save local backup creates a .zip with your workouts and step history.",
             "Google Drive backups run automatically once a week (Premium). Settings shows the countdown.",
-            "Restore from backup replaces your current data with a backup file."
+            "Restore from backup replaces your current data with a backup file.",
+            "Export settings saves just your settings (theme, timer, music, goals, app icon) without any training data; Import settings puts them on another phone or after a reinstall."
         )),
         GuideTopic(Icons.Default.SystemUpdate, "Updates", "New versions straight from GitHub", listOf(
             "Every time you open the app it checks for a new release, downloads it in the background and shows an Update ready prompt.",

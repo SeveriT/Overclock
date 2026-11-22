@@ -51,6 +51,8 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Feedback
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
@@ -216,6 +218,35 @@ fun SettingsPage(
                     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                     context.startActivity(Intent.makeRestartActivityTask(intent?.component))
                     Runtime.getRuntime().exit(0)
+                }
+            }
+        }
+    }
+
+    // ── Settings export / import (no training data) ──────────────────────────
+    val settingsExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            coroutineScope.launch {
+                val ok = SettingsExport.export(context, it)
+                Toast.makeText(context, if (ok) "Settings exported" else "Couldn't export settings", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val settingsImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            coroutineScope.launch {
+                if (SettingsExport.import(context, it)) {
+                    // Theme, timer and the rest are read at start-up: restart like a backup restore
+                    Toast.makeText(context, "Settings imported. Restarting...", Toast.LENGTH_LONG).show()
+                    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    context.startActivity(Intent.makeRestartActivityTask(intent?.component))
+                    Runtime.getRuntime().exit(0)
+                } else {
+                    Toast.makeText(context, "That isn't an Overclock settings file", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -544,6 +575,23 @@ fun SettingsPage(
                     subtitle = "Replaces current data with a backup file",
                     primaryColor = primaryColor,
                     onClick = { restoreLauncher.launch(arrayOf("*/*")) }
+                )
+                SettingsRow(
+                    icon = Icons.Default.IosShare,
+                    title = "Export settings",
+                    subtitle = "Theme, timer, music, goals and app icon. No workouts, weigh-ins or notes",
+                    primaryColor = primaryColor,
+                    onClick = {
+                        val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                        settingsExportLauncher.launch("overclock-settings-$date.json")
+                    }
+                )
+                SettingsRow(
+                    icon = Icons.Default.FileOpen,
+                    title = "Import settings",
+                    subtitle = "Replaces your settings; your workouts stay as they are",
+                    primaryColor = primaryColor,
+                    onClick = { settingsImportLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
                 )
                 SettingsRow(
                     icon = Icons.Default.DeleteForever,

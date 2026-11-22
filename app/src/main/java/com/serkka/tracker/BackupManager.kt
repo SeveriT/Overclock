@@ -149,42 +149,6 @@ class BackupManager(private val context: Context) {
         }
     }
 
-    private fun serializePrefs(prefs: SharedPreferences): String {
-        val json = JSONObject()
-        for ((key, value) in prefs.all) {
-            val entry = JSONObject()
-            when (value) {
-                is Boolean -> { entry.put("type", "bool"); entry.put("value", value) }
-                is Int     -> { entry.put("type", "int"); entry.put("value", value) }
-                is Long    -> { entry.put("type", "long"); entry.put("value", value) }
-                is Float   -> { entry.put("type", "float"); entry.put("value", value.toDouble()) }
-                is String  -> { entry.put("type", "string"); entry.put("value", value) }
-                else       -> continue
-            }
-            json.put(key, entry)
-        }
-        return json.toString()
-    }
-
-    private fun applyPrefsJson(prefs: SharedPreferences, jsonStr: String) {
-        val json = JSONObject(jsonStr)
-        val editor = prefs.edit()
-        editor.clear()
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            val entry = json.getJSONObject(key)
-            when (entry.getString("type")) {
-                "bool"   -> editor.putBoolean(key, entry.getBoolean("value"))
-                "int"    -> editor.putInt(key, entry.getInt("value"))
-                "long"   -> editor.putLong(key, entry.getLong("value"))
-                "float"  -> editor.putFloat(key, entry.getDouble("value").toFloat())
-                "string" -> editor.putString(key, entry.getString("value"))
-            }
-        }
-        editor.commit()
-    }
-
     private fun getFileName(uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -221,4 +185,60 @@ class BackupManager(private val context: Context) {
             }
         }
     }
+}
+
+/**
+ * A preferences file as JSON ({key: {type, value}}), for backups and the settings export. [include]
+ * picks the keys (all by default). String sets (e.g. hidden Stats exercises) are kept as arrays.
+ */
+internal fun serializePrefs(prefs: SharedPreferences, include: (String) -> Boolean = { true }): String {
+    val json = JSONObject()
+    for ((key, value) in prefs.all) {
+        if (!include(key)) continue
+        val entry = JSONObject()
+        when (value) {
+            is Boolean -> { entry.put("type", "bool"); entry.put("value", value) }
+            is Int     -> { entry.put("type", "int"); entry.put("value", value) }
+            is Long    -> { entry.put("type", "long"); entry.put("value", value) }
+            is Float   -> { entry.put("type", "float"); entry.put("value", value.toDouble()) }
+            is String  -> { entry.put("type", "string"); entry.put("value", value) }
+            is Set<*>  -> { entry.put("type", "stringset"); entry.put("value", org.json.JSONArray(value.filterIsInstance<String>())) }
+            else       -> continue
+        }
+        json.put(key, entry)
+    }
+    return json.toString()
+}
+
+/**
+ * Writes JSON from [serializePrefs] into [prefs]. [clearFirst] empties the file before (a full
+ * restore); without it the keys are merged in. [include] limits which keys are written.
+ */
+internal fun applyPrefsJson(
+    prefs: SharedPreferences,
+    jsonStr: String,
+    clearFirst: Boolean = true,
+    include: (String) -> Boolean = { true },
+) {
+    val json = JSONObject(jsonStr)
+    val editor = prefs.edit()
+    if (clearFirst) editor.clear()
+    val keys = json.keys()
+    while (keys.hasNext()) {
+        val key = keys.next()
+        if (!include(key)) continue
+        val entry = json.getJSONObject(key)
+        when (entry.getString("type")) {
+            "bool"   -> editor.putBoolean(key, entry.getBoolean("value"))
+            "int"    -> editor.putInt(key, entry.getInt("value"))
+            "long"   -> editor.putLong(key, entry.getLong("value"))
+            "float"  -> editor.putFloat(key, entry.getDouble("value").toFloat())
+            "string" -> editor.putString(key, entry.getString("value"))
+            "stringset" -> {
+                val array = entry.getJSONArray("value")
+                editor.putStringSet(key, (0 until array.length()).map { array.getString(it) }.toSet())
+            }
+        }
+    }
+    editor.commit()
 }
