@@ -1,5 +1,22 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.9.1": [
+    {
+      "icon": "home",
+      "title": "Streaks count each gym day once",
+      "text": "On Home, a Weight Training timer session no longer counts as a second activity on top of that day's workouts. The last 7 days, the week streak and Last 30 Days all follow the same rule; cardio and other sessions still count."
+    },
+    {
+      "icon": "workout",
+      "title": "Smoother workout list",
+      "text": "Open days show straight away while you scroll instead of growing open again, the weekday glides into place when you open or close a day, and a newly logged set slides in only once."
+    },
+    {
+      "icon": "star",
+      "title": "Search fits the top bar",
+      "text": "The Workouts search box is centred and fits inside the top bar. Also a little more room in the bottom bar and bigger icons on the More page."
+    }
+  ],
   "3.8.2": [
     {
       "icon": "weight",
