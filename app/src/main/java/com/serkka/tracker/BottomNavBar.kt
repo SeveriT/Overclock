@@ -111,7 +111,7 @@ internal fun PillNavBar(
         Row(
             modifier = Modifier.onSizeChanged { onRowWidth(with(density) { it.width.toDp() }) },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // The pill yields space if the row is ever too narrow, so the button stays square
             TabsPill(tabs, highlightPosition, accent, timerRoute, timerText, onSelect, Modifier.weight(1f, fill = false))

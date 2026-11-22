@@ -3,11 +3,12 @@
 package com.serkka.tracker
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -138,7 +139,7 @@ fun WorkoutListContent(
         val ids = workouts.mapTo(HashSet()) { it.id }
         val previous = knownIds[0]
         knownIds[0] = ids
-        if (previous == null) emptySet() else ids - previous
+        if (previous == null) HashSet() else (ids - previous).toHashSet()
     }
 
     val groupedWorkouts = workouts
@@ -251,7 +252,7 @@ fun WorkoutListContent(
                 // ── Week header where the week changes (list is newest first) ──
                 if (dayIndex == 0 || dayWeekStarts[dayIndex - 1] != weekStart) {
                     // Gap before a new week is its own item so it doesn't stick with the header
-                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(16.dp).animateItem()) }
+                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(8.dp).animateItem()) }
                     // Sticky: stays pinned under the top bar while scrolling through its week,
                     // and the next week's header pushes it off — so the week change is obvious.
                     stickyHeader(key = "week_$weekStart") {
@@ -275,7 +276,9 @@ fun WorkoutListContent(
                             .padding(bottom = 8.dp)
                             .clip(TrackerShapes.Medium)
                             .background(MaterialTheme.colorScheme.surfaceContainer)
-                            .animateContentSize()
+                            // No animateContentSize here: LazyColumn reuses item slots while
+                            // scrolling, and the reused slot kept the previous day's size, so
+                            // expanded days grew open again every time they scrolled into view.
                     ) {
                         WorkoutDayHeader(
                             workoutsInDay = workoutsInDay,
@@ -289,13 +292,19 @@ fun WorkoutListContent(
                         )
 
                         // ── Expanded movements: flat, grouped by indent only ─
-                        if (isExpanded) {
+                        // Animates only on a tap; a day that's already open shows at once on scroll
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = fadeIn(tween(Motion.MEDIUM)) + expandVertically(tween(Motion.MEDIUM)),
+                            exit = fadeOut(tween(Motion.MEDIUM)) + shrinkVertically(tween(Motion.MEDIUM))
+                        ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 workoutsInDay.forEachIndexed { i, workout ->
                                     key(workout.id) {
-                                        // A just-logged entry fades and slides in; others show as is
+                                        // A just-logged entry fades and slides in once; others show as is.
+                                        // remove(): scrolling it away and back doesn't replay it.
                                         val appear = remember {
-                                            MutableTransitionState(workout.id !in newIds).apply { targetState = true }
+                                            MutableTransitionState(!newIds.remove(workout.id)).apply { targetState = true }
                                         }
                                         AnimatedVisibility(
                                             visibleState = appear,

@@ -65,10 +65,10 @@ private fun MoreRow(icon: ImageVector, title: String, subtitle: String, primaryC
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .heightIn(min = 56.dp)
-            .padding(horizontal = PageGutter, vertical = 12.dp),
+            .padding(horizontal = PageGutter, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = primaryColor, modifier = Modifier.size(28.dp))
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)

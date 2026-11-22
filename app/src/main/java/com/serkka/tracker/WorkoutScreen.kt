@@ -32,6 +32,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -55,6 +56,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
@@ -79,8 +81,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -112,6 +112,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -604,7 +605,7 @@ fun WorkoutScreen(
                             Screen.More.name -> {
                                 MorePage(
                                     primaryColor = primaryColor,
-                                    topPadding = 0.dp,
+                                    topPadding = 6.dp,
                                     bottomPadding = contentBottomPadding,
                                     onOpen = { navigate(it) }
                                 )
@@ -712,52 +713,8 @@ fun WorkoutScreen(
             ) {
                 TopAppBar(
                     title = {
-                        if (searchExpanded && currentRoute == Screen.Workouts.name) {
-                            val focusRequester = remember { FocusRequester() }
-                            var hadFocus by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) { focusRequester.requestFocus() }
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                placeholder = { Text("Search workouts…") },
-                                singleLine = true,
-                                leadingIcon = {
-                                    IconButton(onClick = {
-                                        searchQuery = ""
-                                        searchExpanded = false
-                                    }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search")
-                                    }
-                                },
-                                trailingIcon = {
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(onClick = { searchQuery = "" }) {
-                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                                        }
-                                    }
-                                },
-                                shape = MaterialTheme.shapes.large,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = primaryColor,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 8.dp, end = 8.dp)
-                                    .focusRequester(focusRequester)
-                                    .onFocusChanged { state ->
-                                        if (state.isFocused) {
-                                            hadFocus = true
-                                        } else if (hadFocus) {
-                                            searchQuery = ""
-                                            searchExpanded = false
-                                        }
-                                    },
-                                textStyle = MaterialTheme.typography.bodyMedium
-                            )
-                        } else {
+                        // While searching, the search field is drawn over the whole bar instead (below)
+                        if (!(searchExpanded && currentRoute == Screen.Workouts.name)) {
                             Text(
                                 modifier = Modifier.padding(start = 8.dp),
                                 text = Screen.entries.find { it.name == currentRoute }?.title ?: "",
@@ -871,6 +828,83 @@ fun WorkoutScreen(
                         actionIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
+
+                // ── Workouts search: centred in the bar, 6 dp clear above and below ──
+                // Not in TopAppBar's title slot: that slot is pushed right by a 16 dp inset and
+                // OutlinedTextField can't go below 56 dp, taller than the 55 dp bar.
+                if (searchExpanded && currentRoute == Screen.Workouts.name) {
+                    val focusRequester = remember { FocusRequester() }
+                    var hadFocus by remember { mutableStateOf(false) }
+                    var focused by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                    val shape = MaterialTheme.shapes.large
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .height(topBarBaseHeight - 12.dp)
+                            .clip(shape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = if (focused) 0.6f else 0.3f))
+                            .border(
+                                width = if (focused) 2.dp else 1.dp,
+                                color = if (focused) primaryColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                shape = shape
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                searchQuery = ""
+                                searchExpanded = false
+                            },
+                            modifier = Modifier.size(topBarBaseHeight - 12.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search", tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(primaryColor),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester)
+                                .onFocusChanged { state ->
+                                    focused = state.isFocused
+                                    if (state.isFocused) {
+                                        hadFocus = true
+                                    } else if (hadFocus) {
+                                        searchQuery = ""
+                                        searchExpanded = false
+                                    }
+                                },
+                            decorationBox = { innerField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            "Search workouts…",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    innerField()
+                                }
+                            }
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(topBarBaseHeight - 12.dp)
+                            ) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        } else {
+                            Spacer(Modifier.width(12.dp))
+                        }
+                    }
+                }
             }
 
             // ── PB celebration banner (under the top bar, above content) ───────
