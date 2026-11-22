@@ -36,9 +36,10 @@ internal object SettingsExport {
     suspend fun export(context: Context, destination: Uri): Boolean = withContext(Dispatchers.IO) {
         runCatching {
             val prefs = JSONObject()
-            SETTINGS_FILES.forEach { name -> prefs.put(name, serializePrefs(context.prefs(name))) }
-            prefs.put(TRACKER_FILE, serializePrefs(context.prefs(TRACKER_FILE)) { it !in TRACKER_NOT_SETTINGS })
-            prefs.put(STEP_FILE, serializePrefs(context.prefs(STEP_FILE)) { it in STEP_SETTINGS })
+            // serializePrefs gives JSON text: parse it, or it would be stored as one escaped string
+            SETTINGS_FILES.forEach { name -> prefs.put(name, JSONObject(serializePrefs(context.prefs(name)))) }
+            prefs.put(TRACKER_FILE, JSONObject(serializePrefs(context.prefs(TRACKER_FILE)) { it !in TRACKER_NOT_SETTINGS }))
+            prefs.put(STEP_FILE, JSONObject(serializePrefs(context.prefs(STEP_FILE)) { it in STEP_SETTINGS }))
             val root = JSONObject()
                 .put("format", FORMAT)
                 .put("version", VERSION)
@@ -62,15 +63,23 @@ internal object SettingsExport {
             val root = JSONObject(text)
             require(root.optString("format") == FORMAT) { "Not an Overclock settings file" }
             val prefs = root.getJSONObject("prefs")
+            var applied = 0
             SETTINGS_FILES.forEach { name ->
-                prefs.optJSONObject(name)?.let { applyPrefsJson(context.prefs(name), it.toString()) }
+                prefs.section(name)?.let {
+                    applyPrefsJson(context.prefs(name), it)
+                    applied++
+                }
             }
-            prefs.optJSONObject(TRACKER_FILE)?.let { json ->
-                applyPrefsJson(context.prefs(TRACKER_FILE), json.toString(), clearFirst = false) { it !in TRACKER_NOT_SETTINGS }
+            prefs.section(TRACKER_FILE)?.let { json ->
+                applyPrefsJson(context.prefs(TRACKER_FILE), json, clearFirst = false) { it !in TRACKER_NOT_SETTINGS }
+                applied++
             }
-            prefs.optJSONObject(STEP_FILE)?.let { json ->
-                applyPrefsJson(context.prefs(STEP_FILE), json.toString(), clearFirst = false) { it in STEP_SETTINGS }
+            prefs.section(STEP_FILE)?.let { json ->
+                applyPrefsJson(context.prefs(STEP_FILE), json, clearFirst = false) { it in STEP_SETTINGS }
+                applied++
             }
+            // A file without any settings in it isn't a success
+            require(applied > 0) { "No settings in the file" }
             root.optString("app_icon").takeIf { it.isNotEmpty() }?.let { name ->
                 AppIcon.entries.firstOrNull { it.name == name }?.let { AppIconChanger.set(context, it) }
             }
@@ -82,4 +91,11 @@ internal object SettingsExport {
     }
 
     private fun Context.prefs(name: String) = getSharedPreferences(name, Context.MODE_PRIVATE)
+
+    /**
+     * One preferences file's section as JSON text: an object, or (in files from the first version of
+     * this export) the same JSON stored as a string. Null when missing.
+     */
+    private fun JSONObject.section(name: String): String? =
+        optJSONObject(name)?.toString() ?: optString(name).takeIf { it.trimStart().startsWith("{") }
 }

@@ -23,6 +23,8 @@ object DemoData {
         prefs.edit().putBoolean(KEY_SEEDED, true).apply()
         seedInternal(repository)
         seedSteps(context)
+        // Height, so the Weight page shows BMI
+        PreferencesManager.getInstance(context).tracker.edit().putFloat("height_cm", 180f).apply()
     }
 
     private fun seedSteps(context: Context) {
@@ -42,6 +44,32 @@ object DemoData {
         editor.putLong("today_steps", todaySteps)
         editor.apply()
         StepCounterStore.resetAnchor(context)
+    }
+
+    /**
+     * A believable heart-rate trace for [session]: a warm-up climb, then work bouts and rests (lifting)
+     * or a steadier effort (cardio), sampled every HeartRateMonitor.SAMPLE_SECONDS like a real strap.
+     */
+    private fun heartRateFor(session: WorkoutSession, seed: Int): WorkoutSession {
+        val random = kotlin.random.Random(seed)
+        val count = session.durationSeconds / HeartRateMonitor.SAMPLE_SECONDS
+        val cardio = session.type == "Cardio"
+        val samples = List(count) { i ->
+            val minute = i * HeartRateMonitor.SAMPLE_SECONDS / 60.0
+            val warmUp = (minute / 6.0).coerceAtMost(1.0)
+            val base = if (cardio) 128 + 22 * warmUp else 98 + 22 * warmUp
+            // Lifting: ~45 s of work then ~2 min of rest, over and over
+            val bout = if (cardio) 8 * kotlin.math.sin(minute / 3.0) else {
+                val phase = (i * HeartRateMonitor.SAMPLE_SECONDS) % 165
+                if (phase < 45) 28.0 * phase / 45 else 28.0 * (1 - (phase - 45) / 120.0).coerceAtLeast(0.0)
+            }
+            (base + bout + random.nextInt(-3, 4)).toInt().coerceIn(60, 190)
+        }
+        return session.copy(
+            avgHr = samples.average().toInt(),
+            maxHr = samples.max(),
+            hrSamples = samples.joinToString(",")
+        )
     }
 
     private suspend fun seedInternal(repository: WorkoutRepository) {
@@ -92,10 +120,48 @@ object DemoData {
         workouts += Workout(date = dayMs(12), exerciseName = "Cardio", sets = 0, reps = 0, weight = 35f)
         workouts += Workout(date = dayMs(6), exerciseName = "Cardio", sets = 0, reps = 0, weight = 40f, notes = "Intervals")
 
-        workouts.forEach { repository.addWorkout(it) }
+        // Holds: sets × seconds (seconds go in reps)
+        workouts += Workout(date = dayMs(20), exerciseName = "Plank", sets = 3, reps = 60, weight = 0f)
+        workouts += Workout(date = dayMs(13), exerciseName = "Plank", sets = 3, reps = 75, weight = 0f)
+        workouts += Workout(date = dayMs(6), exerciseName = "Plank", sets = 3, reps = 90, weight = 0f, isPersonalBest = true)
+        workouts += Workout(date = dayMs(17), exerciseName = "Dead Hang", sets = 3, reps = 40, weight = 0f)
+        workouts += Workout(date = dayMs(3), exerciseName = "Dead Hang", sets = 3, reps = 50, weight = 0f)
+
+        // The month before: lighter and a little less often, so Home's Last 30 Days has something to
+        // compare against (and charts show a longer trend)
+        val earlier = listOf(
+            Triple(55, "Bench Press", 62.5f), Triple(54, "Squat", 80f), Triple(52, "Deadlift", 100f),
+            Triple(51, "Bench Press", 65f), Triple(48, "Squat", 82.5f), Triple(47, "Pull-up", 0f),
+            Triple(44, "Bench Press", 65f), Triple(43, "Deadlift", 102.5f), Triple(40, "Squat", 85f),
+            Triple(37, "Bench Press", 67.5f), Triple(36, "Pull-up", 0f), Triple(33, "Squat", 87.5f),
+            Triple(32, "Deadlift", 105f), Triple(30, "Bench Press", 67.5f),
+        )
+        earlier.forEach { (daysAgo, name, weight) ->
+            workouts += Workout(
+                date = dayMs(daysAgo), exerciseName = name, sets = 3,
+                reps = if (name == "Pull-up") 5 else 8, weight = weight
+            )
+        }
+
+        // RPE on the lifts (not cardio or holds): harder sets near the PBs, easier the month before
+        val rpeSteps = listOf(7f, 7.5f, 8f, 8.5f, 8f, 9f)
+        val rated = workouts.mapIndexed { i, w ->
+            val lift = w.sets > 0 && w.exerciseName != "Plank" && w.exerciseName != "Dead Hang"
+            when {
+                !lift -> w
+                w.isPersonalBest -> w.copy(rpe = 9.5f)
+                w.date < dayMs(29) -> w.copy(rpe = rpeSteps[i % rpeSteps.size] - 0.5f)
+                else -> w.copy(rpe = rpeSteps[i % rpeSteps.size])
+            }
+        }
+        rated.forEach { repository.addWorkout(it) }
 
         // ── Body weight (gentle downward trend) ────────────────────────────────
         val bodyWeights = listOf(
+            BodyWeight(date = dayMs(55, 8), weight = 83.6f),
+            BodyWeight(date = dayMs(48, 8), weight = 83.3f),
+            BodyWeight(date = dayMs(41, 8), weight = 83.1f),
+            BodyWeight(date = dayMs(34, 8), weight = 82.7f),
             BodyWeight(date = dayMs(28, 8), weight = 82.4f),
             BodyWeight(date = dayMs(24, 8), weight = 82.1f),
             BodyWeight(date = dayMs(21, 8), weight = 81.9f),
@@ -122,7 +188,16 @@ object DemoData {
             WorkoutSession(name = "Stairmaster", type = "Cardio", date = dayMs(5, 8), durationSeconds = 45 * 60),
             WorkoutSession(name = "Push Day", type = "WeightTraining", date = dayMs(2, 18), durationSeconds = 63 * 60),
         )
-        sessions.forEach { repository.addSession(it) }
+        // Heart rate from a strap on most of the recent sessions (graph, average, max, TCX export)
+        val withHr = sessions.mapIndexed { i, session ->
+            if (session.date < dayMs(16) || session.type == "Workout") session
+            else heartRateFor(session, seed = i)
+        }
+        withHr.forEach { repository.addSession(it) }
+
+        // ── Schedule checklist (Tools) ─────────────────────────────────────────
+        listOf("Push: bench, OHP, dips", "Pull: deadlift, rows, pull-ups", "Legs: squat, lunges, calves", "Cardio 30 min")
+            .forEach { repository.addScheduleItem(it) }
 
         // ── Notes ──────────────────────────────────────────────────────────────
         val notes = listOf(

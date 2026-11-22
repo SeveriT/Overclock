@@ -596,7 +596,7 @@ fun SettingsPage(
                 SettingsRow(
                     icon = Icons.Default.DeleteForever,
                     title = "Clear all data",
-                    subtitle = "Delete everything and restart the app",
+                    subtitle = "Delete your training data, or reset the whole app",
                     primaryColor = primaryColor,
                     destructive = true,
                     onClick = { showDeleteConfirmDialog = true }
@@ -718,40 +718,38 @@ fun SettingsPage(
     }
 
     if (showDeleteConfirmDialog) {
+        // Two levels (DataReset): training data only, or everything (like a fresh install)
+        fun clearAndRestart(level: DataReset.Level) {
+            coroutineScope.launch {
+                try {
+                    if (level == DataReset.Level.EVERYTHING && isGoogleSignedIn) {
+                        runCatching { googleSignInClient.signOut() }
+                    }
+                    DataReset.clear(context, level)
+                    showDeleteConfirmDialog = false
+                    val message = if (level == DataReset.Level.EVERYTHING) "App reset. Restarting..."
+                                  else "Training data deleted. Restarting..."
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    context.startActivity(Intent.makeRestartActivityTask(launchIntent?.component))
+                    Runtime.getRuntime().exit(0)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error deleting data: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
         TrackerDialog(
-            title = "Delete all data?",
+            title = "Clear data?",
             onDismiss = { showDeleteConfirmDialog = false },
-            confirmLabel = "Delete all",
+            confirmLabel = "Everything",
             destructive = true,
             icon = Icons.Default.Warning,
-            onConfirm = {
-                        coroutineScope.launch {
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    WorkoutDatabase.getDatabase(context).close()
-                                    WorkoutDatabase.resetInstance()
-                                    val dbPath = context.getDatabasePath("workout_db")
-                                    java.io.File(dbPath.path).delete()
-                                    java.io.File(dbPath.path + "-wal").delete()
-                                    java.io.File(dbPath.path + "-shm").delete()
-                                    java.io.File(dbPath.path + "-journal").delete()
-                                    context.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
-                                        .edit().clear().commit()
-                                    context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                                        .edit().remove("demo_seeded").commit()
-                                }
-                                showDeleteConfirmDialog = false
-                                Toast.makeText(context, "All data deleted. Restarting...", Toast.LENGTH_LONG).show()
-                                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                                context.startActivity(Intent.makeRestartActivityTask(launchIntent?.component))
-                                Runtime.getRuntime().exit(0)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Error deleting data: ${e.message}", Toast.LENGTH_LONG).show()
-                            }
-                        }
-            }
+            neutralLabel = "Training data",
+            onNeutral = { clearAndRestart(DataReset.Level.TRAINING) },
+            onConfirm = { clearAndRestart(DataReset.Level.EVERYTHING) }
         ) {
-            Text("This will permanently delete all workouts, body weight entries, sessions, notes, and step counter history.")
+            Text("Training data: workouts, body weight, sessions, notes, the schedule and step history. Your settings stay.")
+            Text("Everything: all of that plus every setting, the app icon and the Drive sign-in, as if freshly installed.")
             Text("This can't be undone.", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
         }
     }
