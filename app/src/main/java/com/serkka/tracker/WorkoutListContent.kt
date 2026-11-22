@@ -252,7 +252,7 @@ fun WorkoutListContent(
                 // ── Week header where the week changes (list is newest first) ──
                 if (dayIndex == 0 || dayWeekStarts[dayIndex - 1] != weekStart) {
                     // Gap before a new week is its own item so it doesn't stick with the header
-                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(8.dp).animateItem()) }
+                    if (dayIndex > 0) item(key = "week_gap_$weekStart") { Spacer(Modifier.height(8.dp).animateItem(placementSpec = null)) }
                     // Sticky: stays pinned under the top bar while scrolling through its week,
                     // and the next week's header pushes it off — so the week change is obvious.
                     stickyHeader(key = "week_$weekStart") {
@@ -265,12 +265,14 @@ fun WorkoutListContent(
                     }
                 }
                 item(key = "day_$date") {
-                    // animateItem: a new day slides into place, a removed one fades out, and the
-                    // rest of the list moves smoothly instead of jumping. Each day is its own card
-                    // (header + its workouts), so days stand apart from the workouts inside them.
+                    // animateItem: a new day fades in, a removed one fades out. No placement
+                    // animation (placementSpec = null): it chased every position change with a
+                    // spring, so while a day opened, the days below lagged behind the sticky week
+                    // headers (which have none). Each day is its own card (header + its workouts),
+                    // so days stand apart from the workouts inside them.
                     Column(
                         modifier = Modifier
-                            .animateItem()
+                            .animateItem(placementSpec = null)
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp)
                             .padding(bottom = 8.dp)
@@ -463,11 +465,13 @@ internal fun WorkoutDayHeader(
                 fontWeight = FontWeight.SemiBold
             )
             // Shrinks/grows with the day's body (same timing), so the weekday glides into the
-            // vertical centre instead of jumping when the preview line goes away
+            // vertical centre instead of jumping when the preview line goes away.
+            // Anchored to the top: the line stays under the weekday and is clipped from below
+            // (the default, Bottom, slid it up underneath the weekday).
             AnimatedVisibility(
                 visible = !isExpanded,
-                enter = fadeIn(tween(Motion.MEDIUM)) + expandVertically(tween(Motion.MEDIUM)),
-                exit = fadeOut(tween(Motion.MEDIUM)) + shrinkVertically(tween(Motion.MEDIUM))
+                enter = fadeIn(tween(Motion.MEDIUM)) + expandVertically(tween(Motion.MEDIUM), expandFrom = Alignment.Top),
+                exit = fadeOut(tween(Motion.MEDIUM)) + shrinkVertically(tween(Motion.MEDIUM), shrinkTowards = Alignment.Top)
             ) {
                 Text(
                     text = exercises.reversed().joinToString(", "),
