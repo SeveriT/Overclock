@@ -26,6 +26,7 @@ internal object SettingsExport {
     private val TRACKER_NOT_SETTINGS = setOf(
         "update_last_check_ms", "update_skipped_version", "update_last_auto_check_ms",
         "hr_device_address", "hr_device_name",
+        HeartRateMonitor.PREF_BATTERY, HeartRateMonitor.PREF_BATTERY_MS,
         "whats_new_seen_version",
     )
 

@@ -14,9 +14,16 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -36,11 +43,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Check
@@ -54,13 +63,18 @@ import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -82,6 +96,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -145,6 +160,7 @@ fun SettingsPage(
     val sessions by viewModel.allSessions.collectAsState()
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showUserGuide by remember { mutableStateOf(false) }
+    var showHeartRateSheet by remember { mutableStateOf(false) }
 
     // ── Google Sign-In ────────────────────────────────────────────────────────
     val gso = remember {
@@ -298,14 +314,49 @@ fun SettingsPage(
     }
 
     // ── UI ────────────────────────────────────────────────────────────────────
+    // A short list of categories; each opens its own page (Back or the arrow returns to the list).
+    var category by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
+    BackHandler(enabled = category != null) { category = null }
+
+    AnimatedContent(
+        targetState = category,
+        transitionSpec = {
+            // Into a category: in from the right; back to the list: in from the left
+            val forward = targetState != null
+            (slideInHorizontally { if (forward) it / 4 else -it / 4 } + fadeIn()) togetherWith
+                (slideOutHorizontally { if (forward) -it / 4 else it / 4 } + fadeOut())
+        },
+        label = "settingsCategory"
+    ) { shown ->
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // Flat M3 settings layout: section headers + control groups on the background.
         contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        item { SectionHeader("Appearance") }
-
+        if (shown == null) {
+            // ── Category list ───────────────────────────────────────────────
+            item { Spacer(Modifier.height(8.dp)) }
+            items(SettingsCategory.entries.size) { i ->
+                val cat = SettingsCategory.entries[i]
+                SettingsRow(
+                    icon = cat.icon,
+                    title = cat.title,
+                    subtitle = when (cat) {
+                        SettingsCategory.Subscription -> if (isSubscribed) "Premium active" else "Free plan · unlock Drive backups"
+                        SettingsCategory.Backup -> if (isGoogleSignedIn) "Drive linked · ${cat.subtitle}" else cat.subtitle
+                        else -> cat.subtitle
+                    },
+                    primaryColor = primaryColor,
+                    onClick = { category = cat }
+                )
+            }
+            item { OverclockVersionFooter() }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+        } else {
+        item { SettingsCategoryHeader(shown.title, onBack = { category = null }) }
+        when (shown) {
+        SettingsCategory.Appearance -> {
         item {
             Box(modifier = Modifier.fillMaxWidth().animateContentSize().padding(horizontal = PageGutter)) {
                 Column(
@@ -438,30 +489,67 @@ fun SettingsPage(
 
 
 
+        }
+
         // ── Music ───────────────────────────────────────────────────────
-        item { SectionHeader("Music") }
+        SettingsCategory.Music -> {
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = 4.dp)) {
                 MusicAppPicker(primaryColor)
             }
         }
 
+        }
+
         // ── Timer ───────────────────────────────────────────────────────
-        item { SectionHeader("Timer") }
+        SettingsCategory.Timer -> {
         item {
             Box(Modifier.fillMaxWidth().padding(horizontal = PageGutter, vertical = 4.dp)) {
                 RingBeepPicker(primaryColor)
             }
         }
+        item {
+            // Heart rate strap: name and battery (live while connected, else the last reading);
+            // tapping opens the same strap sheet as the timer's heart rate chip
+            val hrState by HeartRateMonitor.state.collectAsState()
+            val battery by HeartRateMonitor.battery.collectAsState()
+            LaunchedEffect(Unit) { HeartRateMonitor.loadSavedBattery(context) }
+            val strapName = when (val s = hrState) {
+                is HeartRateMonitor.State.Connected -> s.name
+                is HeartRateMonitor.State.Connecting -> s.name
+                is HeartRateMonitor.State.Reconnecting -> s.name
+                // Re-read when the sheet closes (it can pair or forget a strap)
+                HeartRateMonitor.State.Idle -> remember(showHeartRateSheet) { HeartRateMonitor.savedDeviceName(context) }
+            }
+            val subtitle = when {
+                strapName == null -> "Not paired. Tap to find your strap"
+                battery == null -> if (hrState is HeartRateMonitor.State.Connected) "$strapName · Connected" else strapName
+                hrState is HeartRateMonitor.State.Connected -> "$strapName · Battery ${battery!!.percent} %"
+                else -> "$strapName · Battery ${battery!!.percent} % " +
+                    android.text.format.DateUtils.getRelativeTimeSpanString(
+                        battery!!.atMs, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+                    ).toString().let { "($it)" }
+            }
+            SettingsRow(
+                icon = Icons.Default.MonitorHeart,
+                title = "Heart rate strap",
+                subtitle = subtitle,
+                primaryColor = primaryColor,
+                onClick = { showHeartRateSheet = true }
+            )
+        }
+
+        }
 
         // ── Permissions ─────────────────────────────────────────────────
-        item { SectionHeader("Permissions") }
+        SettingsCategory.Permissions -> {
         item {
             PermissionsCard(primaryColor = primaryColor)
         }
+        }
 
-        item { SectionHeader("Backup & Restore") }
-
+        // ── Backup & data ───────────────────────────────────────────────
+        SettingsCategory.Backup -> {
         item {
             Box(modifier = Modifier.fillMaxWidth().animateContentSize().padding(horizontal = PageGutter)) {
                 Column(
@@ -603,8 +691,10 @@ fun SettingsPage(
                 )
             }
         }
+        }
+
         // ── Subscription ──────────────────────────────────────────────────
-        item { SectionHeader("Subscription") }
+        SettingsCategory.Subscription -> {
         item {
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = PageGutter)) {
                 Column(
@@ -673,8 +763,10 @@ fun SettingsPage(
             }
         }
 
+        }
+
         // ── Help ───────────────────────────────────────────────────────────
-        item { SectionHeader("Help") }
+        SettingsCategory.Help -> {
         item {
             Column(Modifier.fillMaxWidth()) {
                 SettingsRow(
@@ -713,9 +805,11 @@ fun SettingsPage(
             }
         }
 
-        item { OverclockVersionFooter() }
-        item { Spacer(modifier = Modifier.height(8.dp)) }
+        }
+        }   // when (shown)
+        }   // else: a category page
     }
+    }   // AnimatedContent
 
     if (showDeleteConfirmDialog) {
         // Two levels (DataReset): training data only, or everything (like a fresh install)
@@ -756,6 +850,42 @@ fun SettingsPage(
 
     if (showUserGuide) {
         UserGuideDialog(onDismiss = { showUserGuide = false })
+    }
+
+    if (showHeartRateSheet) {
+        HeartRateSheet(primaryColor = primaryColor, onDismiss = { showHeartRateSheet = false })
+    }
+}
+
+// ── Categories ───────────────────────────────────────────────────────────────
+
+/** Settings is a list of these; each opens a page with its own controls (SettingsPage). */
+private enum class SettingsCategory(
+    val title: String,
+    val subtitle: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Appearance("Appearance", "Accent colour, background, font size and app icon", Icons.Default.Palette),
+    Music("Music", "Which app the music widget follows", Icons.Default.MusicNote),
+    Timer("Timer", "Rest beep and heart rate strap", Icons.Default.Timer),
+    Permissions("Permissions", "Notifications, music, steps, Bluetooth and battery", Icons.Default.Security),
+    Backup("Backup & data", "Backups, settings export and clearing data", Icons.Default.Backup),
+    Subscription("Subscription", "Premium and Drive backups", Icons.Default.WorkspacePremium),
+    Help("Help", "User guide, updates and support", Icons.AutoMirrored.Filled.HelpOutline)
+}
+
+/** Top of a category page: back arrow and the category's name. */
+@Composable
+private fun SettingsCategoryHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = PageGutter, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to settings", tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

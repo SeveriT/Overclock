@@ -42,6 +42,9 @@ object HeartRateMonitor {
     private val HR_SERVICE: UUID = UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb")
     private val HR_MEASUREMENT: UUID = UUID.fromString("00002a37-0000-1000-8000-00805f9b34fb")
     private val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+    // Standard Battery Service: most straps have it (Polar, Garmin, Wahoo, Coospo…); one byte, 0–100 %
+    private val BATTERY_SERVICE: UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+    private val BATTERY_LEVEL: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
 
     /** One saved BPM value per this many seconds of active (unpaused) workout time. */
     const val SAMPLE_SECONDS = 5
@@ -50,6 +53,10 @@ object HeartRateMonitor {
     private const val STALE_READING_MS = 5_000L      // no notification for this long = no reading
     private const val PREF_ADDRESS = "hr_device_address"
     private const val PREF_NAME = "hr_device_name"
+    // Last battery reading and when it was read, so Settings can show it while disconnected
+    // (left out of the settings export with the other hr_device_* keys: SettingsExport.kt)
+    internal const val PREF_BATTERY = "hr_battery_level"
+    internal const val PREF_BATTERY_MS = "hr_battery_ms"
 
     sealed interface State {
         data object Idle : State                              // nothing connected
@@ -68,6 +75,33 @@ object HeartRateMonitor {
     /** Latest heart rate, or null when there's no fresh reading. */
     private val _bpm = MutableStateFlow<Int?>(null)
     val bpm: StateFlow<Int?> = _bpm
+
+    /** Strap battery in percent and when it was read (live while connected, else the last reading). */
+    data class Battery(val percent: Int, val atMs: Long)
+
+    private val _battery = MutableStateFlow<Battery?>(null)
+    val battery: StateFlow<Battery?> = _battery
+
+    /** Fills [battery] from the saved last reading, if nothing newer is known (call when showing it). */
+    fun loadSavedBattery(context: Context) {
+        if (_battery.value != null) return
+        val p = prefs(context)
+        val percent = p.getInt(PREF_BATTERY, -1)
+        if (percent >= 0) _battery.value = Battery(percent, p.getLong(PREF_BATTERY_MS, 0L))
+    }
+
+    private fun setBattery(percent: Int) {
+        val reading = Battery(percent.coerceIn(0, 100), System.currentTimeMillis())
+        _battery.value = reading
+        appContext?.let {
+            prefs(it).edit().putInt(PREF_BATTERY, reading.percent).putLong(PREF_BATTERY_MS, reading.atMs).apply()
+        }
+    }
+
+    private fun clearBattery(context: Context) {
+        _battery.value = null
+        prefs(context).edit().remove(PREF_BATTERY).remove(PREF_BATTERY_MS).apply()
+    }
 
     private val _scanning = MutableStateFlow(false)
     val scanning: StateFlow<Boolean> = _scanning
@@ -157,6 +191,8 @@ object HeartRateMonitor {
 
     /** Connects to [device] and remembers it for automatic reconnects. */
     fun connect(context: Context, device: Device) {
+        // A different strap: the old one's battery reading doesn't apply
+        if (prefs(context).getString(PREF_ADDRESS, null) != device.address) clearBattery(context)
         prefs(context).edit()
             .putString(PREF_ADDRESS, device.address)
             .putString(PREF_NAME, device.name)
@@ -199,7 +235,10 @@ object HeartRateMonitor {
         closeGatt()
         _state.value = State.Idle
         setBpm(null)
-        if (forget) prefs(context).edit().remove(PREF_ADDRESS).remove(PREF_NAME).apply()
+        if (forget) {
+            prefs(context).edit().remove(PREF_ADDRESS).remove(PREF_NAME).apply()
+            clearBattery(context)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -228,25 +267,43 @@ object HeartRateMonitor {
                 onLinkLost(g, name)
                 return
             }
-            g.setCharacteristicNotification(characteristic, true)
-            val descriptor = characteristic.getDescriptor(CCCD)
-            if (descriptor != null) {
-                val enable = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    g.writeDescriptor(descriptor, enable)
-                } else {
-                    @Suppress("DEPRECATION")
-                    descriptor.value = enable
-                    @Suppress("DEPRECATION")
-                    g.writeDescriptor(descriptor)
-                }
-            }
+            // GATT runs one request at a time: the battery read waits for this write to finish
+            // (onDescriptorWrite); with no descriptor to write, read it straight away.
+            if (!enableNotifications(g, characteristic)) readBattery(g)
             _state.value = State.Connected(name)
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onDescriptorWrite(g: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            // Heart rate notifications on: now the battery (its own notification write ends the chain)
+            if (descriptor.characteristic.uuid == HR_MEASUREMENT) readBattery(g)
+        }
+
+        // Android 13+
+        override fun onCharacteristicRead(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
+            onBatteryRead(g, characteristic, value, status)
+        }
+
+        // Android 12 and older
+        @Deprecated("Deprecated in Android 13")
+        override fun onCharacteristicRead(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return   // handled above
+            @Suppress("DEPRECATION")
+            onBatteryRead(g, characteristic, characteristic.value ?: return, status)
+        }
+
+        private fun onBatteryRead(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
+            if (characteristic.uuid != BATTERY_LEVEL || status != BluetoothGatt.GATT_SUCCESS || value.isEmpty()) return
+            setBattery(value[0].toInt() and 0xFF)
+            // Straps that support it then report every drop by themselves
+            if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+                enableNotifications(g, characteristic)
+            }
         }
 
         // Android 13+
         override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-            if (characteristic.uuid == HR_MEASUREMENT) parseBpm(value)?.let { setBpm(it) }
+            onValue(characteristic, value)
         }
 
         // Android 12 and older
@@ -255,8 +312,40 @@ object HeartRateMonitor {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return   // handled above
             @Suppress("DEPRECATION")
             val value = characteristic.value ?: return
-            if (characteristic.uuid == HR_MEASUREMENT) parseBpm(value)?.let { setBpm(it) }
+            onValue(characteristic, value)
         }
+
+        private fun onValue(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            when (characteristic.uuid) {
+                HR_MEASUREMENT -> parseBpm(value)?.let { setBpm(it) }
+                BATTERY_LEVEL -> if (value.isNotEmpty()) setBattery(value[0].toInt() and 0xFF)
+            }
+        }
+    }
+
+    /** Turns on notifications for [characteristic]; false if it has no descriptor to write. */
+    @SuppressLint("MissingPermission")
+    private fun enableNotifications(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic): Boolean {
+        g.setCharacteristicNotification(characteristic, true)
+        val descriptor = characteristic.getDescriptor(CCCD) ?: return false
+        val enable = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            g.writeDescriptor(descriptor, enable)
+        } else {
+            @Suppress("DEPRECATION")
+            descriptor.value = enable
+            @Suppress("DEPRECATION")
+            g.writeDescriptor(descriptor)
+        }
+        return true
+    }
+
+    /** Asks the strap for its battery level; straps without the Battery Service are skipped. */
+    @SuppressLint("MissingPermission")
+    private fun readBattery(g: BluetoothGatt) {
+        val characteristic = g.getService(BATTERY_SERVICE)?.getCharacteristic(BATTERY_LEVEL) ?: return
+        if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_READ == 0) return
+        g.readCharacteristic(characteristic)
     }
 
     /** Strap dropped (out of range, battery, strap off): keep trying unless the user disconnected. */

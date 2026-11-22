@@ -106,7 +106,7 @@ fun WelcomeScreen(
                 onTryDemo(dontShowAgain)
             }
         ) {
-            Text("This will add ~4 weeks of sample workouts, body weight entries, timer sessions, notes, and step history so you can see how the app looks with use. You can wipe everything later from Settings → Clear All Data.")
+            Text("This will add ~4 weeks of sample workouts, body weight entries, timer sessions, notes, and step history so you can see how the app looks with use. You can wipe everything later from Settings → Backup & data → Clear all data.")
         }
     }
 

@@ -88,7 +88,7 @@ private val guideGroups = listOf(
         GuideTopic(Icons.Default.AutoAwesome, "Demo mode", "Try the app with four weeks of sample data", listOf(
             "Tap \"Try with demo data\" on the welcome screen.",
             "Loads workouts, weigh-ins, sessions, notes and step history.",
-            "Remove it anytime with Settings → Clear all data → Training data."
+            "Remove it anytime with Settings → Backup & data → Clear all data → Training data."
         ))
     )),
     GuideGroup("Logging", listOf(
@@ -207,7 +207,7 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Restore, "Undo & clearing data", "Mistakes are easy to reverse", listOf(
             "Deleting a workout, weight, note or session shows Undo for a few seconds.",
-            "Settings → Clear all data offers two choices: Training data (workouts, weight, sessions, notes, steps; settings stay) or Everything (like a fresh install). Either way the app restarts and demo mode is available again."
+            "Settings → Backup & data → Clear all data offers two choices: Training data (workouts, weight, sessions, notes, steps; settings stay) or Everything (like a fresh install). Either way the app restarts and demo mode is available again."
         )),
         GuideTopic(Icons.Default.Palette, "Customization", "Make the app yours", listOf(
             "Pick your accent colour in Settings → Appearance: tap a colour, or Custom to type any hex code.",

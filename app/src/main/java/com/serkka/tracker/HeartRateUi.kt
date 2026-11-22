@@ -226,6 +226,7 @@ internal fun HeartRateSheet(primaryColor: Color, onDismiss: () -> Unit) {
     var permissionDenied by remember { mutableStateOf(false) }
     val state by HeartRateMonitor.state.collectAsState()
     val bpm by HeartRateMonitor.bpm.collectAsState()
+    val battery by HeartRateMonitor.battery.collectAsState()
     val scanning by HeartRateMonitor.scanning.collectAsState()
     val devices by HeartRateMonitor.devices.collectAsState()
     var savedName by remember { mutableStateOf(HeartRateMonitor.savedDeviceName(context)) }
@@ -306,7 +307,9 @@ internal fun HeartRateSheet(primaryColor: Color, onDismiss: () -> Unit) {
                             Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(
                                 when (state) {
-                                    is HeartRateMonitor.State.Connected -> bpm?.let { "Connected · $it bpm" } ?: "Connected · waiting for a reading"
+                                    is HeartRateMonitor.State.Connected ->
+                                        (bpm?.let { "Connected · $it bpm" } ?: "Connected · waiting for a reading") +
+                                            (battery?.let { " · Battery ${it.percent} %" } ?: "")
                                     is HeartRateMonitor.State.Connecting -> "Connecting…"
                                     is HeartRateMonitor.State.Reconnecting -> "Waiting for the strap…"
                                     HeartRateMonitor.State.Idle -> "Not connected"
