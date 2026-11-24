@@ -27,6 +27,13 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     private val _hasStarted = MutableStateFlow(false)
     val hasStarted: StateFlow<Boolean> = _hasStarted
 
+    /**
+     * False from the workout's start until the first ring tap: the ring waits (shows the set rest
+     * time, doesn't move, no alert) so the first rest starts when you finish your first set.
+     */
+    private val _restStarted = MutableStateFlow(false)
+    val restStarted: StateFlow<Boolean> = _restStarted
+
     private val lapPrefs by lazy {
         app.getSharedPreferences("timer_prefs", android.content.Context.MODE_PRIVATE)
     }
@@ -86,6 +93,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         if (firstStart) {
             _startDateTime.value = LocalDateTime.now()
             _hasStarted.value = true
+            _restStarted.value = false
             _currentLapSeconds.value = 0L
             lapElapsedAtBase = 0L
             startTimerService()
@@ -100,19 +108,24 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         // Anchor wall clock (shared by both total and lap so second boundaries align)
         wallClockBase = System.currentTimeMillis()
         elapsedAtBase = _elapsedSeconds.value
-        if (firstStart || lapWallClockBase == 0L) {
-            lapWallClockBase = wallClockBase
-            lapElapsedAtBase = _currentLapSeconds.value
-        }
+        // Lap continues from where pause() left it (lapElapsedAtBase); re-anchoring on every resume
+        // keeps the paused time out of the rest (it used to be added on when resuming mid-rest)
+        lapWallClockBase = wallClockBase
+        if (firstStart) lapElapsedAtBase = 0L
         syncLapToService()
 
         tickJob?.cancel()
-        tickJob = viewModelScope.launch {
-            while (true) {
-                delay(250L) // poll frequently for smooth updates
-                val now = System.currentTimeMillis()
-                _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
-                // The ring-end buzz + beep come from TimerForegroundService (RingAlert.kt)
+        tickJob = viewModelScope.launch { tick() }
+    }
+
+    /** Updates total and lap time; the lap stays at 0 until the first ring tap starts a rest. */
+    private suspend fun tick() {
+        while (true) {
+            delay(250L) // poll frequently for smooth updates
+            val now = System.currentTimeMillis()
+            _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
+            // The ring-end buzz + beep come from TimerForegroundService (RingAlert.kt)
+            if (_restStarted.value) {
                 _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
             }
         }
@@ -123,7 +136,9 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         if (_isRunning.value) {
             val now = System.currentTimeMillis()
             _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
-            _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
+            if (_restStarted.value) {
+                _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
+            }
             lapElapsedAtBase = _currentLapSeconds.value
         }
         _isRunning.value = false
@@ -141,6 +156,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
     fun lap() {
         vibrateLap()
         if (_isRunning.value) {
+            _restStarted.value = true   // the first tap starts the ring
             _currentLapSeconds.value = 0L
             // Align sub-second offset with total-time anchor so both tick in lockstep
             val now = System.currentTimeMillis()
@@ -149,6 +165,20 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             lapElapsedAtBase = 0L
             syncLapToService()
         }
+    }
+
+    /**
+     * Long press on the ring: stops the rest. The ring empties and waits again (shows the set rest
+     * time, no alert) until the next tap, like at the start of a workout. False if no rest was on.
+     */
+    fun stopRest(): Boolean {
+        if (!_restStarted.value) return false
+        _restStarted.value = false
+        _currentLapSeconds.value = 0L
+        lapElapsedAtBase = 0L
+        lapWallClockBase = System.currentTimeMillis()
+        syncLapToService()
+        return true
     }
 
     /** Buzz confirming a lap tap (ring ends buzz from the service, see RingAlert.kt). */
@@ -180,6 +210,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         stopTimerService()
         HeartRateMonitor.discardRecording()   // a saved workout has already taken its samples
         _hasStarted.value       = false
+        _restStarted.value      = false
         _elapsedSeconds.value   = 0L
         _currentLapSeconds.value = 0L
         _startDateTime.value    = null
@@ -231,6 +262,7 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             .putExtra(TimerForegroundService.EXTRA_LAP_AT_BASE, lapElapsedAtBase)
             .putExtra(TimerForegroundService.EXTRA_LAP_WALL_BASE, if (_isRunning.value) lapWallClockBase else 0L)
             .putExtra(TimerForegroundService.EXTRA_LAP_DURATION, _lapDurationSeconds.value)
+            .putExtra(TimerForegroundService.EXTRA_LAP_ACTIVE, _restStarted.value)
         // startService can throw if the app is in the background; the next sync catches up
         try { app.startService(intent) } catch (_: IllegalStateException) { }
     }
@@ -253,9 +285,12 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
         // The service keeps the lap going while the app is closed, so pick it up instead of restarting at 0
         val recoveredLap = prefs.getLong("lap_seconds", 0L) + drift
 
+        // Saved before this flag existed: a rest was always running then
+        val restWasStarted = prefs.getBoolean("lap_active", true)
+        _restStarted.value = restWasStarted
         _elapsedSeconds.value = recovered
-        _currentLapSeconds.value = recoveredLap
-        lapElapsedAtBase = recoveredLap
+        _currentLapSeconds.value = if (restWasStarted) recoveredLap else 0L
+        lapElapsedAtBase = _currentLapSeconds.value
         _hasStarted.value = true
 
         if (wasRunning) {
@@ -265,16 +300,8 @@ class WorkoutTimerViewModel(private val app: Application) : AndroidViewModel(app
             wallClockBase = System.currentTimeMillis()
             elapsedAtBase = recovered
             lapWallClockBase = wallClockBase
-            lapElapsedAtBase = recoveredLap
             syncLapToService()
-            tickJob = viewModelScope.launch {
-                while (true) {
-                    delay(250L)
-                    val now = System.currentTimeMillis()
-                    _elapsedSeconds.value = elapsedAtBase + (now - wallClockBase) / 1000
-                    _currentLapSeconds.value = lapElapsedAtBase + (now - lapWallClockBase) / 1000
-                }
-            }
+            tickJob = viewModelScope.launch { tick() }
         }
     }
 

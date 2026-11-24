@@ -110,7 +110,7 @@ private val guideGroups = listOf(
         )),
         GuideTopic(Icons.Default.Timer, "Workout timer", "Session time and rest between sets", listOf(
             "Start and pause the session with the main button.",
-            "Tap the ring after a set to start your rest. It counts down your rest time while the ring fills. Set the rest time with − and + while the timer runs.",
+            "Tap the ring after a set to start your rest. Until your first tap the ring waits and shows your rest time. It then counts down while the ring fills. Long-press the ring to stop the rest; it waits again until your next tap. Set the rest time with − and + while the timer runs.",
             "When the rest is up, the phone buzzes, and beeps in your headphones if they're connected, even with the screen off. Pick the sound in Settings → Timer. The ring stays full and the time counts up in your accent colour, showing how much longer you've rested.",
             "The timer notification shows the rest countdown (or how far over you are) and the total time, with Start rest and Pause buttons, so you can use the timer from the lock screen without opening the app.",
             "When you stop, save the session with a name and type, Resume, or discard it with the trash icon.",

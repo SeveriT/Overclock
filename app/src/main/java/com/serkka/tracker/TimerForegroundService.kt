@@ -35,9 +35,14 @@ class TimerForegroundService : Service() {
     private var lapAtBase = 0L
     private var lapWallBase = 0L          // 0 = lap not ticking (paused)
     private var lapDuration = 60L
+    // False until the first rest is started (ring tap / Start rest): no countdown, no alert
+    private var lapActive = false
 
-    private fun currentLap(now: Long = System.currentTimeMillis()) =
-        if (isRunning && lapWallBase > 0L) lapAtBase + (now - lapWallBase) / 1000 else lapAtBase
+    private fun currentLap(now: Long = System.currentTimeMillis()) = when {
+        !lapActive -> 0L
+        isRunning && lapWallBase > 0L -> lapAtBase + (now - lapWallBase) / 1000
+        else -> lapAtBase
+    }
 
     private val timerPrefs by lazy {
         getSharedPreferences("timer_state", MODE_PRIVATE)
@@ -52,7 +57,7 @@ class TimerForegroundService : Service() {
                 // The ring ran out since the last tick: buzz + headphone beep (RingAlert.kt), once per
                 // lap (not again every ring length while the rest time counts up). Lives here, not in
                 // the screen, so it also fires with the screen off or the app swiped away.
-                if (lapSeconds < lapDuration && lap >= lapDuration) {
+                if (lapActive && lapSeconds < lapDuration && lap >= lapDuration) {
                     RingAlert.fire(this@TimerForegroundService)
                 }
                 lapSeconds = lap
@@ -73,6 +78,7 @@ class TimerForegroundService : Service() {
                 wallClockBase = System.currentTimeMillis()
                 isRunning = true
                 lapSeconds = 0L; lapAtBase = 0L; lapWallBase = wallClockBase   // ACTION_LAP follows with exact anchors
+                lapActive = false   // a new workout waits for its first rest
                 createChannel()
                 startForeground(notifId, buildNotification())
                 handler.removeCallbacks(ticker)
@@ -101,6 +107,7 @@ class TimerForegroundService : Service() {
                 lapAtBase = intent.getLongExtra(EXTRA_LAP_AT_BASE, 0L)
                 lapWallBase = intent.getLongExtra(EXTRA_LAP_WALL_BASE, 0L)
                 lapDuration = intent.getLongExtra(EXTRA_LAP_DURATION, lapDuration).coerceAtLeast(1L)
+                lapActive = intent.getBooleanExtra(EXTRA_LAP_ACTIVE, true)
                 lapSeconds = currentLap()
                 updateNotification()
                 saveTimerState()
@@ -172,6 +179,7 @@ class TimerForegroundService : Service() {
     private fun restHere() {
         if (!isRunning) return
         RingAlert.vibrate(this)
+        lapActive = true
         val now = System.currentTimeMillis()
         lapWallBase = now - (now - wallClockBase) % 1000L   // tick in step with the total
         lapAtBase = 0L
@@ -196,7 +204,8 @@ class TimerForegroundService : Service() {
         wallClockBase = System.currentTimeMillis()
         isRunning = wasRunning
         lapDuration = saved.getLong("lap_duration", lapDuration)
-        lapSeconds = saved.getLong("lap_seconds", 0L) + drift
+        lapActive = saved.getBoolean("lap_active", true)   // older saves: a rest was always running
+        lapSeconds = if (lapActive) saved.getLong("lap_seconds", 0L) + drift else 0L
         lapAtBase = lapSeconds
         lapWallBase = if (wasRunning) wallClockBase else 0L
         createChannel()
@@ -215,6 +224,7 @@ class TimerForegroundService : Service() {
             .putLong("elapsed_seconds", elapsedSeconds)
             .putLong("lap_seconds", lapSeconds)          // WorkoutTimerViewModel recovers the lap from these
             .putLong("lap_duration", lapDuration)
+            .putBoolean("lap_active", lapActive)
             .putLong("timestamp", System.currentTimeMillis())
             .apply()
     }
@@ -234,8 +244,11 @@ class TimerForegroundService : Service() {
         // This base time is used by the Chronometer to show live ticking
         val baseTime = System.currentTimeMillis() - (elapsedSeconds * 1000)
         // Same as the ring: count down the set time, then count up how long past it you've rested
-        val lapText = if (lapSeconds >= lapDuration) "+${formatElapsed(lapSeconds - lapDuration)} over"
-                      else "${formatElapsed(lapDuration - lapSeconds)} left"
+        val lapText = when {
+            !lapActive -> "Rest ${formatElapsed(lapDuration)} · not started"   // before the first ring tap
+            lapSeconds >= lapDuration -> "+${formatElapsed(lapSeconds - lapDuration)} over"
+            else -> "${formatElapsed(lapDuration - lapSeconds)} left"
+        }
 
         fun button(action: String, requestCode: Int) = PendingIntent.getService(
             this, requestCode,
@@ -310,6 +323,7 @@ class TimerForegroundService : Service() {
         const val EXTRA_LAP_AT_BASE    = "lap_at_base"
         const val EXTRA_LAP_WALL_BASE  = "lap_wall_base"
         const val EXTRA_LAP_DURATION   = "lap_duration"
+        const val EXTRA_LAP_ACTIVE     = "lap_active"
     }
 }
 

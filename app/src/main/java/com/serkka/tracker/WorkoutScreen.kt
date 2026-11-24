@@ -223,10 +223,12 @@ private fun ElasticColumnWrapper(
 private const val ALBUM_ART_TURN_MS = 20_000
 
 /**
- * Size of the music widget's album art, and of the music app button that sits in its place while the
- * widget is hidden. Change this one number for both (keep it under MUSIC_WIDGET_HEIGHT).
+ * Size of the music widget's album art (keep it under MUSIC_WIDGET_HEIGHT).
  */
 private val ALBUM_ART_SIZE = 44.dp
+
+/** The music app button shown while the widget is hidden: a bit smaller, centred where the art is. */
+private val MUSIC_BUTTON_SIZE = 40.dp
 
 /** Height of the music widget; its launch button sits in a frame this size, where the album art is. */
 private val MUSIC_WIDGET_HEIGHT = 64.dp
@@ -1124,8 +1126,9 @@ fun WorkoutScreen(
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .padding(start = ALBUM_ART_INSET)
-                            .size(ALBUM_ART_SIZE)
+                            // Same centre as the album art, so the widget still grows out of it
+                            .padding(start = ALBUM_ART_INSET + (ALBUM_ART_SIZE - MUSIC_BUTTON_SIZE) / 2)
+                            .size(MUSIC_BUTTON_SIZE)
                             .clip(CircleShape)
                             .clickable(
                                 interactionSource = noteInteractionSource,
@@ -1163,7 +1166,7 @@ fun WorkoutScreen(
                             androidx.compose.foundation.Image(
                                 bitmap = appIcon,
                                 contentDescription = "Open ${musicApp.label}",
-                                modifier = Modifier.size(ALBUM_ART_SIZE)
+                                modifier = Modifier.size(MUSIC_BUTTON_SIZE)
                             )
                         } else {
                             // Not installed: a plain note on the surface colour

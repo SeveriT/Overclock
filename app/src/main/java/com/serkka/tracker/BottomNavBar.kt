@@ -291,11 +291,11 @@ private fun NavFabButton(fab: NavFab?, accent: Color) {
 
 /**
  * The running time as the Timer tab shows it: minutes and seconds ("12:34") for the first hour,
- * then hours and minutes ("1h 05"), so the tab stays narrow.
+ * then hours and minutes ("1h 05m"), so the tab stays narrow.
  */
 internal fun formatTabTime(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
-    return if (hours > 0) "${hours}h %02d".format(minutes)
+    return if (hours > 0) "${hours}h %02dm".format(minutes)
     else "%02d:%02d".format(minutes, totalSeconds % 60)
 }

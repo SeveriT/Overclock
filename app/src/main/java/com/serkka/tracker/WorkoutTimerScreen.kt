@@ -10,7 +10,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,6 +101,7 @@ fun WorkoutTimerScreen(
     val lapDurationSeconds by timerViewModel.lapDurationSeconds.collectAsState()
     val isRunning by timerViewModel.isRunning.collectAsState()
     val hasStarted by timerViewModel.hasStarted.collectAsState()
+    val restStarted by timerViewModel.restStarted.collectAsState()
     val selectedType by timerViewModel.selectedType.collectAsState()
     val showUploadDialog by timerViewModel.showUploadDialog.collectAsState()
     val activityName by timerViewModel.activityName.collectAsState()
@@ -110,13 +111,22 @@ fun WorkoutTimerScreen(
     val timeString = formatElapsed(elapsedSeconds)
     // Lap time counts down from the ring length; once it's up (the buzz) it counts up as "+0:12",
     // showing how long you've rested past the set time, until the next lap tap.
-    val lapOvertime = currentLapSeconds >= lapDurationSeconds
-    val lapTimeString = if (lapOvertime) "+" + formatElapsed(currentLapSeconds - lapDurationSeconds)
-                        else formatElapsed(lapDurationSeconds - currentLapSeconds)
+    // Before the first ring tap the rest hasn't started: the ring stays empty and still, showing
+    // the set rest time, until you tap it after your first set.
+    val lapOvertime = restStarted && currentLapSeconds >= lapDurationSeconds
+    val lapTimeString = when {
+        !restStarted -> formatElapsed(lapDurationSeconds)
+        lapOvertime -> "+" + formatElapsed(currentLapSeconds - lapDurationSeconds)
+        else -> formatElapsed(lapDurationSeconds - currentLapSeconds)
+    }
 
     // The ring fills only while counting down, then stays full while the rest time counts up
     // (it used to wrap round and refill every ring length). A lap tap empties it again.
-    val rawProgress = if (lapOvertime) 1f else currentLapSeconds / lapDurationSeconds.toFloat()
+    val rawProgress = when {
+        !restStarted -> 0f
+        lapOvertime -> 1f
+        else -> currentLapSeconds / lapDurationSeconds.toFloat()
+    }
 
     // Briefly show the new lap duration when the user adjusts it
     var showDurationHint by remember { mutableStateOf(false) }
@@ -127,7 +137,7 @@ fun WorkoutTimerScreen(
             return@LaunchedEffect
         }
         showDurationHint = true
-        kotlinx.coroutines.delay(1200L)
+        kotlinx.coroutines.delay(2500L)   // long enough to read while tapping +/- (was 1.2 s)
         showDurationHint = false
     }
     val headAnim = remember { Animatable(rawProgress) }
@@ -243,7 +253,7 @@ fun WorkoutTimerScreen(
             modifier = Modifier
                 .size(ringSize)
                 .scale(ringScale)
-                .clickable(
+                .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false, radius = ringSize / 2),
                     onClick = {
@@ -251,7 +261,14 @@ fun WorkoutTimerScreen(
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
                         timerViewModel.lap()
-                    }
+                    },
+                    // Long press: stop the rest; the ring waits for the next tap
+                    onLongClick = {
+                        if (timerViewModel.stopRest()) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
+                    onLongClickLabel = "Stop rest"
                 )
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
