@@ -1,5 +1,27 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.9.3": [
+    {
+      "icon": "timer",
+      "title": "Rest starts on your first tap",
+      "text": "When you start a workout, the ring waits and shows your rest time. It starts counting only when you tap it after your first set, and the notification's Start rest does the same."
+    },
+    {
+      "icon": "timer",
+      "title": "Long-press to stop a rest",
+      "text": "Long-press the ring to stop the rest. The ring empties and waits again until your next tap, while the workout time keeps running."
+    },
+    {
+      "icon": "bug",
+      "title": "Pausing keeps your rest time",
+      "text": "Resuming the timer in the middle of a rest no longer adds the paused time to it."
+    },
+    {
+      "icon": "star",
+      "title": "Small touches",
+      "text": "The rest length you set with − and + stays on screen longer, the Timer tab shows long workouts as 1h 09m, and the music app button is a little smaller."
+    }
+  ],
   "3.9.2": [
     {
       "icon": "settings",
