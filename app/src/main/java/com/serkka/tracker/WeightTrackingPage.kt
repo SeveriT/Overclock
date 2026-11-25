@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -47,7 +48,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,7 +80,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -485,18 +484,26 @@ fun WeightTrackingPage(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
+                        TrackerTextField(
                             value = minInput,
                             onValueChange = { v -> minInput = v.filter { it.isDigit() || it == '.' }.take(6) },
-                            label = { Text("Min (kg)") },
+                            label = "Min",
+                            suffix = "kg",
+                            placeholder = "Auto",
+                            isError = !rangeValid,
+                            clearable = false,     // too narrow for ⊗ next to the unit
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                         )
-                        OutlinedTextField(
+                        TrackerTextField(
                             value = maxInput,
                             onValueChange = { v -> maxInput = v.filter { it.isDigit() || it == '.' }.take(6) },
-                            label = { Text("Max (kg)") },
+                            label = "Max",
+                            suffix = "kg",
+                            placeholder = "Auto",
+                            isError = !rangeValid,
+                            clearable = false,
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -529,20 +536,19 @@ fun WeightTrackingPage(
                 showHeightDialog = false
             }
         ) {
-                    OutlinedTextField(
+                    val heightOutOfRange = heightInput.toIntOrNull()?.let { it !in 100..250 } == true
+                    TrackerTextField(
                         value = heightInput,
                         onValueChange = { v ->
                             if (v.length <= 3 && v.all { it.isDigit() }) heightInput = v
                         },
-                        label = { Text("Height (cm)") },
-                        modifier = Modifier.fillMaxWidth(),
+                        label = "Height",
+                        leadingIcon = Icons.Default.Height,
+                        suffix = "cm",
+                        isError = heightOutOfRange,
+                        supportingText = "Between 100 and 250 cm",
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = {
-                            if (heightInput.toIntOrNull()?.let { it !in 100..250 } == true) {
-                                Text("Enter a value between 100–250 cm")
-                            }
-                        }
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                     Text(
                         "RPI (Reciprocal Ponderal Index)",
@@ -1002,30 +1008,24 @@ fun BodyWeightDialog(
             onConfirm(parsedWeight, datePickerState.selectedDateMillis ?: System.currentTimeMillis(), notes)
         }
     ) {
-        NumericInput(
+        BigNumberInput(
             value = weight,
             onValueChange = { weight = it },
-            label = "Weight (kg)",
-            modifier = Modifier.fillMaxWidth(),
+            unit = "kg",
             step = 1f,                 // −/+ buttons: 1 kg jumps
-            allowDecimal = true
+            primaryColor = primaryColor
         )
-        // Fine adjustment: a 1 kg window in 0.1 kg steps; the −/+ buttons do the 1 kg jumps
+        // Fine adjustment: a 1 kg window in 0.1 kg steps; the −/+ buttons do the 1 kg jumps.
+        // Ticks labelled ".6", ".7"… with the whole kilo ("75") at its own tick.
         StepSlider(
             value = weight,
             onValueChange = { weight = it },
             step = 0.1f,
             span = 1f,
-            primaryColor = primaryColor
+            primaryColor = primaryColor,
+            tickLabel = { index -> if (index % 10 == 0) "${index / 10}" else ".${index % 10}" }
         )
-        OutlinedTextField(
-            value = notes,
-            onValueChange = { notes = it },
-            label = { Text("Notes") },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 2,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-        )
+        NoteField(value = notes, onValueChange = { notes = it }, primaryColor = primaryColor)
         SheetDateRow(state = datePickerState, primaryColor = primaryColor)
     }
 }

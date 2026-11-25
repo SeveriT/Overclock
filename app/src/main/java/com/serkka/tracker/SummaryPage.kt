@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -62,7 +63,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -631,10 +631,13 @@ fun SummaryPage(
                             showStepGoalDialog = false
                         }
                     ) {
-                        OutlinedTextField(
+                        TrackerTextField(
                             value = goalInput,
                             onValueChange = { input -> goalInput = input.filter { it.isDigit() }.take(6) },
-                            label = { Text("Daily step goal") },
+                            label = "Daily step goal",
+                            primaryColor = primaryColor,
+                            leadingIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                            suffix = "steps",
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -700,18 +703,15 @@ fun SummaryPage(
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
-                                OutlinedTextField(
+                                TrackerTextField(
                                     value = stepsInput,
                                     onValueChange = { input -> stepsInput = input.filter { it.isDigit() }.take(6) },
-                                    label = { Text("Total steps for the day") },
+                                    label = "Total steps for the day",
+                                    primaryColor = primaryColor,
+                                    leadingIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                                    supportingText = "Currently: ${String.format(Locale.getDefault(), "%,d", currentForDay)} steps",
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    "Currently: ${String.format(Locale.getDefault(), "%,d", currentForDay)} steps",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                     }

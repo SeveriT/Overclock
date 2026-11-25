@@ -2,42 +2,105 @@
 
 package com.serkka.tracker
 
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.Cancel
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -217,7 +280,8 @@ internal fun StepSlider(
     step: Float,
     span: Float,
     primaryColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tickLabel: ((index: Int) -> String?)? = null   // text above tick [index] (value = index × step)
 ) {
     val haptic = LocalHapticFeedback.current
     val current = value.toLeadFloat() ?: 0f
@@ -263,7 +327,8 @@ internal fun StepSlider(
         step = step,
         primaryColor = primaryColor,
         modifier = modifier.padding(top = 10.dp),   // breathing room between the field above and the ticks
-        label = formatWeight(current)
+        label = formatWeight(current),
+        tickLabel = tickLabel
     )
 }
 
@@ -284,7 +349,8 @@ private fun TickedSlider(
     modifier: Modifier = Modifier,
     majorEvery: Int = 5,
     active: Boolean = true,
-    label: String? = null      // value shown in the bubble above the handle while touched
+    label: String? = null,     // value shown in the bubble above the handle while touched
+    tickLabel: ((index: Int) -> String?)? = null   // small text above each tick, by absolute tick index
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val accent = if (active) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -300,66 +366,314 @@ private fun TickedSlider(
     val tickCount = ((valueRange.endInclusive - valueRange.start) / step).roundToInt()  // intervals
     val firstTickIndex = (valueRange.start / step).roundToInt()
     val idleTickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    val textMeasurer = rememberTextMeasurer()
+    val tickLabelStyle = MaterialTheme.typography.labelSmall
+    val tickLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            // The 48dp Slider leaves 16dp of empty touch area under the 16dp thumb; report
-            // 10dp less height so the next field sits closer. Touch area is unchanged.
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                val trim = SLIDER_BOTTOM_TRIM.roundToPx()
-                layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) {
-                    placeable.place(0, 0)
+    Column(modifier.fillMaxWidth()) {
+        if (tickLabel != null) {
+            // Labels centred over their ticks (same inset as the ticks); the one at the handle is
+            // accent + bold, whole numbers slightly brighter than the decimals
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = THUMB_SIZE / 2)
+                    .height(TICK_LABEL_HEIGHT)
+            ) {
+                val selected = if (active) ((value - valueRange.start) / step).roundToInt() else -1
+                for (i in 0..tickCount) {
+                    val isSelected = i == selected
+                    val major = (firstTickIndex + i) % majorEvery == 0
+                    val text = tickLabel(firstTickIndex + i) ?: continue   // null = unlabelled tick
+                    val layout = textMeasurer.measure(
+                        text,
+                        tickLabelStyle.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal)
+                    )
+                    drawText(
+                        layout,
+                        color = when {
+                            isSelected -> primaryColor
+                            major -> tickLabelColor
+                            else -> tickLabelColor.copy(alpha = 0.7f)
+                        },
+                        topLeft = Offset(
+                            size.width * i / tickCount - layout.size.width / 2f,
+                            size.height - layout.size.height - 2.dp.toPx()
+                        )
+                    )
                 }
             }
-    ) {
-        // Ticks in the empty space above the thumb (the Slider is 48dp tall for touch; the
-        // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a
-        // thumb in from each edge, so the ticks use the same inset to line up with snap points.
-        Canvas(
+        }
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = THUMB_SIZE / 2)
-                .padding(top = 1.dp)
-                .height(8.dp)
+                // The 48dp Slider leaves 16dp of empty touch area under the 16dp thumb; report
+                // 10dp less height so the next field sits closer. Touch area is unchanged.
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val trim = SLIDER_BOTTOM_TRIM.roundToPx()
+                    layout(placeable.width, (placeable.height - trim).coerceAtLeast(0)) {
+                        placeable.place(0, 0)
+                    }
+                }
         ) {
-            val stroke = 1.5.dp.toPx()
-            val activeUpTo = if (active) ((value - valueRange.start) / step).roundToInt() else -1
-            for (i in 0..tickCount) {
-                val x = size.width * i / tickCount
-                val major = (firstTickIndex + i) % majorEvery == 0
-                val h = if (major) size.height else size.height * 0.5f
-                drawLine(
-                    color = if (i <= activeUpTo) primaryColor else idleTickColor,
-                    start = Offset(x, size.height - h),
-                    end = Offset(x, size.height),
-                    strokeWidth = stroke,
-                    cap = StrokeCap.Round
-                )
+            // Ticks in the empty space above the thumb (the Slider is 48dp tall for touch; the
+            // 16dp thumb sits in the middle, so its top is at 16dp). The track runs from half a
+            // thumb in from each edge, so the ticks use the same inset to line up with snap points.
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = THUMB_SIZE / 2)
+                    .padding(top = 1.dp)
+                    .height(8.dp)
+            ) {
+                val stroke = 1.5.dp.toPx()
+                val activeUpTo = if (active) ((value - valueRange.start) / step).roundToInt() else -1
+                for (i in 0..tickCount) {
+                    val x = size.width * i / tickCount
+                    val major = (firstTickIndex + i) % majorEvery == 0
+                    val h = if (major) size.height else size.height * 0.5f
+                    drawLine(
+                        color = if (i <= activeUpTo) primaryColor else idleTickColor,
+                        start = Offset(x, size.height - h),
+                        end = Offset(x, size.height),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
-        }
 
-        // Slider after the ticks, so the value bubble on the handle draws on top of them
-        Slider(
+            // Slider after the ticks, so the value bubble on the handle draws on top of them
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                onValueChangeFinished = onValueChangeFinished,
+                valueRange = valueRange,
+                colors = colors,
+                interactionSource = interactionSource,
+                modifier = Modifier.fillMaxWidth(),
+                thumb = { TrackerSliderThumb(interactionSource, accent, label) },
+                track = { sliderState ->
+                    SliderDefaults.Track(
+                        sliderState = sliderState,
+                        colors = colors,
+                        modifier = Modifier.height(4.dp),
+                        thumbTrackGapSize = 4.dp
+                    )
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Hero number entry for a form sheet: the value in large type with its [unit] after it,
+ * round tonal −/+ buttons on each side that step by [step] (never below 0). Tapping the
+ * number opens the decimal keyboard.
+ */
+@Composable
+internal fun BigNumberInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    unit: String,
+    step: Float,
+    primaryColor: Color,
+    modifier: Modifier = Modifier,
+    fieldModifier: Modifier = Modifier,      // on the number itself, e.g. a focusRequester
+    allowDecimal: Boolean = true,
+    imeAction: ImeAction = ImeAction.Done,
+    onNext: (() -> Unit)? = null
+) {
+    val numberStyle = MaterialTheme.typography.displaySmall.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center
+    )
+    val unitStyle = SpanStyle(
+        fontSize = MaterialTheme.typography.titleMedium.fontSize,
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    val suffix = remember(unit, unitStyle) { UnitSuffixTransformation(" $unit", unitStyle) }
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        BigNumberStepButton(Icons.Default.Remove, "Decrease", primaryColor) {
+            val current = value.toLeadFloat() ?: 0f
+            if (current > 0f) onValueChange(formatWeight((current - step).coerceAtLeast(0f)))
+        }
+        BasicTextField(
             value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange,
-            colors = colors,
-            interactionSource = interactionSource,
-            modifier = Modifier.fillMaxWidth(),
-            thumb = { TrackerSliderThumb(interactionSource, accent, label) },
-            track = { sliderState ->
-                SliderDefaults.Track(
-                    sliderState = sliderState,
-                    colors = colors,
-                    modifier = Modifier.height(4.dp),
-                    thumbTrackGapSize = 4.dp
-                )
+            onValueChange = { if (allowDecimal || it.none { c -> c == '.' || c == ',' }) onValueChange(it) },
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp).then(fieldModifier),
+            singleLine = true,
+            textStyle = numberStyle,
+            cursorBrush = SolidColor(primaryColor),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,
+                imeAction = imeAction
+            ),
+            keyboardActions = KeyboardActions(onNext = { onNext?.invoke() }),
+            visualTransformation = suffix,
+            decorationBox = { field ->
+                Box(contentAlignment = Alignment.Center) {
+                    if (value.isEmpty()) {
+                        Text(
+                            buildAnnotatedString {
+                                append("0")
+                                withStyle(unitStyle) { append(" $unit") }
+                            },
+                            style = numberStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    field()
+                }
+            }
+        )
+        BigNumberStepButton(Icons.Default.Add, "Increase", primaryColor) {
+            val current = value.toLeadFloat() ?: 0f
+            onValueChange(formatWeight(current + step))
+        }
+    }
+}
+
+/**
+ * M3 Expressive medium tonal icon button: 56 dp, round at rest, morphs to a 12 dp rounded
+ * square while pressed (fast spatial spring). Material3 1.4 keeps the Expressive icon-button
+ * API internal, so the shape morph is done here. Tonal container is tinted from the accent
+ * (the app's stand-in for secondaryContainer, which doesn't follow the chosen accent).
+ */
+@Composable
+private fun BigNumberStepButton(icon: ImageVector, description: String, primaryColor: Color, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val corner by animateDpAsState(
+        targetValue = if (pressed) EXPRESSIVE_ICON_BUTTON_PRESSED_CORNER else EXPRESSIVE_ICON_BUTTON_SIZE / 2,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = 1400f),   // M3 Expressive fast spatial
+        label = "iconButtonShape"
+    )
+    FilledTonalIconButton(
+        onClick = onClick,
+        interactionSource = interaction,
+        shape = RoundedCornerShape(corner),
+        modifier = Modifier.size(EXPRESSIVE_ICON_BUTTON_SIZE),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = primaryColor.copy(alpha = 0.16f),
+            contentColor = primaryColor
+        )
+    ) {
+        Icon(icon, contentDescription = description, modifier = Modifier.size(24.dp))
+    }
+}
+
+private val EXPRESSIVE_ICON_BUTTON_SIZE = 56.dp            // medium
+private val EXPRESSIVE_ICON_BUTTON_PRESSED_CORNER = 12.dp  // medium pressed shape (corner medium)
+
+/** Shows [suffix] (e.g. " kg") after the typed text without it being part of the value. */
+private class UnitSuffixTransformation(private val suffix: String, private val style: SpanStyle) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (text.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        val length = text.length
+        return TransformedText(
+            buildAnnotatedString {
+                append(text)
+                withStyle(style) { append(suffix) }
+            },
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int) = offset
+                override fun transformedToOriginal(offset: Int) = offset.coerceAtMost(length)
             }
         )
     }
+}
+
+/** M3 filled text field colours with the focus state (line, label, icon, cursor) in the accent. */
+@Composable
+internal fun trackerTextFieldColors(primaryColor: Color = MaterialTheme.colorScheme.primary) =
+    TextFieldDefaults.colors(
+        focusedIndicatorColor = primaryColor,
+        focusedLabelColor = primaryColor,
+        focusedLeadingIconColor = primaryColor,
+        cursorColor = primaryColor,
+        selectionColors = TextSelectionColors(handleColor = primaryColor, backgroundColor = primaryColor.copy(alpha = 0.3f))
+    )
+
+/**
+ * The one text field look in the app: M3 filled text field (rounded top corners, active
+ * indicator line, floating label, optional supporting text) with an optional leading icon.
+ * With no [trailingIcon], a clear (⊗) button appears once there's text, unless [clearable]
+ * is false (long texts where one tap would wipe a lot). [isError] colours the line, label
+ * and supporting text red.
+ */
+@Composable
+internal fun TrackerTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String?,
+    modifier: Modifier = Modifier,
+    primaryColor: Color = MaterialTheme.colorScheme.primary,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    clearable: Boolean = true,
+    placeholder: String? = null,
+    suffix: String? = null,
+    supportingText: String? = null,
+    isError: Boolean = false,
+    singleLine: Boolean = false,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = label?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+        placeholder = placeholder?.let { { Text(it) } },
+        leadingIcon = leadingIcon?.let { { Icon(it, contentDescription = null) } },
+        trailingIcon = trailingIcon ?: if (clearable && value.isNotEmpty()) {
+            {
+                IconButton(onClick = { onValueChange("") }) {
+                    Icon(Icons.Outlined.Cancel, contentDescription = "Clear ${label ?: placeholder ?: ""}".trim())
+                }
+            }
+        } else null,
+        suffix = suffix?.let { { Text(it) } },
+        supportingText = supportingText?.let { { Text(it) } },
+        isError = isError,
+        singleLine = singleLine,
+        minLines = minLines,
+        maxLines = maxLines,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        colors = trackerTextFieldColors(primaryColor)
+    )
+}
+
+/** Notes entry for form sheets: [TrackerTextField] with the notes icon and "Optional" under it. */
+@Composable
+internal fun NoteField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    primaryColor: Color,
+    modifier: Modifier = Modifier,
+    label: String = "Notes",
+    supportingText: String? = "Optional",
+    minLines: Int = 1,
+    maxLines: Int = 3,
+    imeAction: ImeAction = ImeAction.Default
+) {
+    TrackerTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        modifier = modifier,
+        primaryColor = primaryColor,
+        leadingIcon = Icons.AutoMirrored.Filled.Notes,
+        supportingText = supportingText,
+        minLines = minLines,
+        maxLines = maxLines,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = imeAction)
+    )
 }
 
 /**
@@ -514,6 +828,7 @@ internal fun RpeSlider(
 private val THUMB_SIZE = 16.dp
 private val THUMB_HALO_RADIUS = 20.dp   // 40 dp halo while touched, like M3
 private val SLIDER_BOTTOM_TRIM = 10.dp
+private val TICK_LABEL_HEIGHT = 16.dp
 
 /**
  * Calendar date of a DatePicker value. Picked dates are UTC midnight; untouched defaults

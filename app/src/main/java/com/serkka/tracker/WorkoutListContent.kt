@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
@@ -57,7 +58,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
@@ -734,12 +734,14 @@ fun WorkoutDialog(
         val keyboardController = LocalSoftwareKeyboardController.current
         val focusManager = LocalFocusManager.current
         Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
+            TrackerTextField(
                 value = exercise,
                 onValueChange = { exercise = it; expanded = true },
-                label = { Text("Exercise") },
+                label = "Exercise",
+                primaryColor = primaryColor,
+                leadingIcon = Icons.Default.FitnessCenter,
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().focusRequester(focusExercise),
+                modifier = Modifier.focusRequester(focusExercise),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
@@ -838,38 +840,40 @@ fun WorkoutDialog(
             }
         }
         // Holds (plank) have no weight/minutes field — their time is the Min/Sec above
-        if (!isHold) NumericInput(
+        if (!isHold) BigNumberInput(
             value = weight,
             onValueChange = { weight = it },
-            label = if (isCardio) "Minutes" else "Weight (kg)",
-            modifier = Modifier.fillMaxWidth().focusRequester(focusWeight),
+            unit = if (isCardio) "min" else weightUnit,
             step = 5f,                        // −/+ buttons: coarse jumps of 5 kg (or 5 min)
+            primaryColor = primaryColor,
+            fieldModifier = Modifier.focusRequester(focusWeight),
             allowDecimal = !isCardio,
             imeAction = ImeAction.Next,
             onNext = { focusNotes.requestFocus() }
         )
-        // Fine adjustment: ±5 around the value in 0.5 kg (1 min) steps
+        // Fine adjustment: ±5 around the value in 0.5 kg (1 min) steps. Labels on the tall
+        // ticks only (every 2.5 kg / 5 min) — 21 ticks are too many to label each.
         if (!isHold) StepSlider(
             value = weight,
             onValueChange = { weight = it },
             step = if (isCardio) 1f else 0.5f,
             span = 10f,
-            primaryColor = primaryColor
+            primaryColor = primaryColor,
+            tickLabel = { index ->
+                if (index % 5 != 0) null
+                else if (isCardio) "$index" else formatWeight(index * 0.5f)
+            }
         )
 
         // Optional effort rating — starts "Not set"; Clear unsets it
         RpeSlider(rpe = rpe, onRpeChange = { rpe = it }, primaryColor = primaryColor)
 
-        OutlinedTextField(
+        NoteField(
             value = notes,
             onValueChange = { notes = it },
-            label = { Text("Notes") },
-            modifier = Modifier.fillMaxWidth().focusRequester(focusNotes),
-            maxLines = 3,
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences,
-                imeAction = ImeAction.Done
-            )
+            primaryColor = primaryColor,
+            modifier = Modifier.focusRequester(focusNotes),
+            imeAction = ImeAction.Done
         )
 
         // ── Date + PB ────────────────────────────────────────────────────────

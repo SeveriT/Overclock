@@ -1,5 +1,22 @@
 {
   "_comment": "Release notes per versionName. Shown in the app's What's new popup (WhatsNew.kt) and used as the GitHub release notes by the githubRelease Gradle task. Newest version first. icon: favorite, share, navbar, chart, timer, weight, workout, calendar, home, settings, backup, update, bug, speed, star.",
+  "3.10.0": [
+    {
+      "icon": "weight",
+      "title": "New weight entry",
+      "text": "Add Weight shows your weight in large numbers with round − and + buttons, and the slider has small .6, .7 labels above its ticks, so you can see where you are without dragging."
+    },
+    {
+      "icon": "workout",
+      "title": "Same look when logging workouts",
+      "text": "Add Workout uses the same large weight (or minutes) with − and + in 5 kg steps, and its slider labels every 2.5 kg."
+    },
+    {
+      "icon": "star",
+      "title": "Refreshed text fields",
+      "text": "Every form and dialog has new fields: a label that moves up as you type, an icon, a clear button and units like kg, cm and steps after the number. Sets, reps and the other number fields keep their − and + buttons."
+    }
+  ],
   "3.9.3": [
     {
       "icon": "timer",

@@ -114,7 +114,7 @@ internal fun OneRepMaxContent(primaryColor: Color, workouts: List<Workout>) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumericInput(
-                value = weight, onValueChange = { weight = it }, label = "Weight (kg)",
+                value = weight, onValueChange = { weight = it }, label = "Weight", suffix = "kg",
                 modifier = Modifier.weight(1f), step = 2.5f, allowDecimal = true
             )
             NumericInput(
@@ -234,7 +234,7 @@ internal fun PlateCalculatorContent(primaryColor: Color) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         NumericInput(
-            value = target, onValueChange = { target = it }, label = "Target weight (kg)",
+            value = target, onValueChange = { target = it }, label = "Target weight", suffix = "kg",
             modifier = Modifier.fillMaxWidth(), step = 2.5f, allowDecimal = true
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

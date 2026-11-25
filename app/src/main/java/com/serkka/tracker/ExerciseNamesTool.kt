@@ -1,16 +1,26 @@
 package com.serkka.tracker
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -37,21 +47,13 @@ internal fun LazyListScope.exerciseNameItems(
     onPick: (ExerciseNameInfo) -> Unit
 ) {
     item(key = "exname_filter") {
-        OutlinedTextField(
+        TrackerTextField(
             value = filter,
             onValueChange = onFilterChange,
-            placeholder = { Text("Filter exercises") },
+            label = "Filter exercises",
+            leadingIcon = Icons.Default.Search,
             singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (filter.isNotEmpty()) {
-                    IconButton(onClick = { onFilterChange("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear filter")
-                    }
-                }
-            },
             modifier = Modifier
-                .fillMaxWidth()
                 .animateItem()
                 .padding(horizontal = PageGutter)
                 .padding(bottom = 8.dp)
@@ -127,12 +129,13 @@ internal fun ExerciseRenameDialog(
             onDismiss()
         }
     ) {
-        OutlinedTextField(
+        TrackerTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Exercise name") },
+            label = "Exercise name",
+            primaryColor = primaryColor,
+            leadingIcon = Icons.Default.FitnessCenter,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
         )
         if (mergeTarget != null) {

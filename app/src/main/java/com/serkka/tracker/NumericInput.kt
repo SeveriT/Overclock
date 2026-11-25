@@ -2,10 +2,7 @@
 
 package com.serkka.tracker
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,24 +10,19 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
+/**
+ * Number entry with −/+ steppers: the M3 filled text field (floating [label], indicator
+ * line, accent focus colours — see [TrackerTextField]) with − as the leading icon and + as
+ * the trailing one. [suffix] shows a unit after the number (e.g. "kg").
+ */
 @Composable
 fun NumericInput(
     value: String,
@@ -41,27 +33,20 @@ fun NumericInput(
     imeAction: ImeAction = ImeAction.Default,
     onNext: (() -> Unit)? = null,
     // Decimal typing is independent of the −/+ step (e.g. weight: ±5 buttons, but 62.5 typed).
-    allowDecimal: Boolean = step % 1 != 0f
+    allowDecimal: Boolean = step % 1 != 0f,
+    suffix: String? = null
 ) {
     val isInteger = !allowDecimal
 
-    OutlinedTextField(
+    TextField(
         value = value,
         onValueChange = { newValue: String ->
             if (!isInteger || (!newValue.contains(".") && !newValue.contains(","))) {
                 onValueChange(newValue)
             }
         },
-        placeholder = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        suffix = suffix?.let { { Text(it) } },
         modifier = modifier,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (isInteger) KeyboardType.Number else KeyboardType.Decimal,
@@ -72,51 +57,31 @@ fun NumericInput(
             onDone = { onNext?.invoke() }
         ),
         singleLine = true,
-        textStyle = MaterialTheme.typography.titleMedium.copy(
-            textAlign = TextAlign.Center
-        ),
+        colors = trackerTextFieldColors(),
         leadingIcon = {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                val subInteractionSource = remember { MutableInteractionSource() }
-                IconButton(
-                    onClick = {
-                        val current = value.toLeadFloat() ?: 0f
-                        if (current > 0f) {
-                            val next = if (isInteger) (current.toInt() - step.toInt()).toFloat()
-                                       else current - step
-                            onValueChange(formatWeight(next.coerceAtLeast(0f)))
-                        }
-                    },
-                    interactionSource = subInteractionSource,
-                    modifier = Modifier.size(32.dp).bounceClick(subInteractionSource)
-                ) {
-                    Icon(
-                        Icons.Default.Remove,
-                        contentDescription = "Decrease",
-                        modifier = Modifier.size(18.dp)
-                    )
+            IconButton(
+                onClick = {
+                    val current = value.toLeadFloat() ?: 0f
+                    if (current > 0f) {
+                        val next = if (isInteger) (current.toInt() - step.toInt()).toFloat()
+                                   else current - step
+                        onValueChange(formatWeight(next.coerceAtLeast(0f)))
+                    }
                 }
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease $label")
             }
         },
         trailingIcon = {
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                val addInteractionSource = remember { MutableInteractionSource() }
-                IconButton(
-                    onClick = {
-                        val current = value.toLeadFloat() ?: 0f
-                        val next = if (isInteger) (current.toInt() + step.toInt()).toFloat()
-                                   else current + step
-                        onValueChange(formatWeight(next))
-                    },
-                    interactionSource = addInteractionSource,
-                    modifier = Modifier.size(32.dp).bounceClick(addInteractionSource)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Increase",
-                        modifier = Modifier.size(18.dp)
-                    )
+            IconButton(
+                onClick = {
+                    val current = value.toLeadFloat() ?: 0f
+                    val next = if (isInteger) (current.toInt() + step.toInt()).toFloat()
+                               else current + step
+                    onValueChange(formatWeight(next))
                 }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase $label")
             }
         }
     )

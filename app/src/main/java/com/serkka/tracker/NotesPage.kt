@@ -17,9 +17,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.StickyNote2
+import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
@@ -133,19 +133,22 @@ fun NoteDialog(
         },
         onDelete = if (note != null) onDelete else null
     ) {
-        OutlinedTextField(
+        TrackerTextField(
             value = title,
             onValueChange = { title = it },
-            label = { Text("Title") },
+            label = "Title",
+            primaryColor = primaryColor,
+            leadingIcon = Icons.Default.Title,
+            supportingText = "Optional",
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
         )
-        OutlinedTextField(
+        TrackerTextField(
             value = content,
             onValueChange = { content = it },
-            label = { Text("Content") },
-            modifier = Modifier.fillMaxWidth(),
+            label = "Content",
+            primaryColor = primaryColor,
+            clearable = false,        // one tap would wipe the whole note
             minLines = 4,
             maxLines = 25,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)

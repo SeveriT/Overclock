@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
@@ -41,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
@@ -383,13 +383,14 @@ private fun SessionFormSheet(
             onSave(name, selectedType.typeId, selectedDateMs, totalSeconds, if (initialNotes != null) notes else null)
         }
     ) {
-        OutlinedTextField(
+        TrackerTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Session Name") },
+            label = "Session name",
+            primaryColor = primaryColor,
+            leadingIcon = Icons.Default.Edit,
             singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            modifier = Modifier.fillMaxWidth()
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
         )
 
         FlowRow(
@@ -431,14 +432,12 @@ private fun SessionFormSheet(
         }
 
         if (initialNotes != null) {
-            OutlinedTextField(
+            NoteField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("Notes") },
-                modifier = Modifier.fillMaxWidth(),
+                primaryColor = primaryColor,
                 minLines = 2,
-                maxLines = 4,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                maxLines = 4
             )
         }
 
